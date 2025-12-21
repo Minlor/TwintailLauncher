@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 
 interface BackgroundLayerProps {
   currentSrc: string;
@@ -10,6 +10,9 @@ interface BackgroundLayerProps {
   onMainLoad?: () => void;
 }
 
+const isVideo = (src?: string) =>
+  !!src && (src.endsWith(".mp4") || src.endsWith(".webm"));
+
 const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
   currentSrc,
   previousSrc,
@@ -19,12 +22,46 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
   bgLoading,
   onMainLoad,
 }) => {
+  const currentVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  // Reset the current video feed whenever the source changes
+  useEffect(() => {
+    if (!isVideo(currentSrc)) return;
+
+    const v = currentVideoRef.current;
+    if (!v) return;
+
+    try {
+      v.pause();
+      // Some WebKit builds throw if currentTime is set too early; wrap it.
+      try { v.currentTime = 0; } catch {}
+      v.load(); // force reload of the media pipeline
+      v.play().catch(() => {
+        // autoplay can reject; ignore here since you already show a loader
+      });
+    } catch {
+      // ignore
+    }
+
+    // Cleanup ONLY this element (captured), so we don't nuke the next one
+    return () => {
+      try {
+        v.pause();
+        // full reset
+        v.removeAttribute("src");
+        v.load();
+      } catch {
+        // ignore
+      }
+    };
+  }, [currentSrc, bgVersion]);
+
   return (
     <div className="absolute inset-0 -z-10 pointer-events-none overflow-hidden">
       {transitioning && previousSrc && (
           (previousSrc.endsWith('.mp4') || previousSrc.endsWith('.webm')) ? (
               <video
-                  key={`prev-${bgVersion}`}
+                  key={`prev-${bgVersion}-${previousSrc}`}  // <- include src to force remount
                   className={`w-full h-screen object-cover object-center absolute inset-0 transition-none animate-bg-fade-out ${popupOpen ? "scale-[1.03] brightness-[0.45] saturate-75" : ""}`}
                   autoPlay={true}
                   muted={true}
@@ -35,7 +72,7 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
               />
               ) : (
               <img
-                  key={`prev-${bgVersion}`}
+                  key={`prev-${bgVersion}-${previousSrc}`}  // <- include src to force remount
                   className={`w-full h-screen object-cover object-center absolute inset-0 transition-none animate-bg-fade-out ${popupOpen ? "scale-[1.03] brightness-[0.45] saturate-75" : ""}`}
                   alt={"previous background"}
                   src={previousSrc}
@@ -48,6 +85,7 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
               (currentSrc.endsWith(".mp4") || currentSrc.endsWith(".webm")) ? (
                   <video
                       id="app-bg"
+                      ref={currentVideoRef}                   // <- NEW
                       key={`curr-${bgVersion}`}
                       className={`w-full h-screen object-cover object-center transition-all duration-300 ease-out ${transitioning ? "animate-bg-fade-in" : ""} ${popupOpen ? "scale-[1.03] brightness-[0.45] saturate-75" : ""}`}
                       autoPlay={true}
@@ -66,7 +104,7 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
                   ) : (
                   <img
                       id="app-bg"
-                      key={`curr-${bgVersion}`}
+                      key={`curr-${bgVersion}-${currentSrc}`} // <- include src to force remount
                       className={`w-full h-screen object-cover object-center transition-all duration-300 ease-out ${transitioning ? "animate-bg-fade-in" : ""} ${popupOpen ? "scale-[1.03] brightness-[0.45] saturate-75" : ""}`}
                       alt={"?"}
                       src={currentSrc}
