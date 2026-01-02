@@ -4,13 +4,14 @@ type DownloadProgressProps = {
   hidden: boolean;
   name: string;
   percentText: string;
+  speed?: string;
   pretty: number | string;
   prettyTotal: number | string;
   progressVal: number;
 };
 
 export default function DownloadProgress(props: DownloadProgressProps) {
-  const { hidden, name, percentText, pretty, prettyTotal, progressVal } = props;
+  const { hidden, name, percentText, speed, pretty, prettyTotal, progressVal } = props;
   return (
     <div
       className={`absolute items-center justify-center bottom-6 left-16 right-96 p-8 z-20 pointer-events-none ${
@@ -25,7 +26,13 @@ export default function DownloadProgress(props: DownloadProgressProps) {
         (<span id={"progress_percent"}>{percentText}</span> |&nbsp;
         <span id={"progress_pretty"}>
           {pretty} / {prettyTotal}
-        </span>)
+        </span>
+        {speed && (
+          <>
+            &nbsp;| <span id={"progress_speed"}>{speed}</span>
+          </>
+        )}
+        )
       </h4>
       <ProgressBar id={"progress_value"} progress={progressVal} className={"transition-all duration-500 ease-out"} />
     </div>

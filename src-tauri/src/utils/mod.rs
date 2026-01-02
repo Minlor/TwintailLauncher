@@ -339,7 +339,7 @@ pub fn download_or_update_jadeite(path: PathBuf, update_mode: bool) {
             std::thread::spawn(move || {
                 empty_dir(&path).unwrap();
                 let dl = run_async_command(async {
-                    Extras::download_jadeite("MrLGamer/jadeite".parse().unwrap(), path.as_path().to_str().unwrap().parse().unwrap(), |_current, _total| {}).await
+                    Extras::download_jadeite("MrLGamer/jadeite".parse().unwrap(), path.as_path().to_str().unwrap().parse().unwrap(), |_current, _total, _speed| {}).await
                 });
                 if dl { extract_archive(path.join("jadeite.zip").as_path().to_str().unwrap().parse().unwrap(), path.as_path().to_str().unwrap().parse().unwrap(), false); }
             });
@@ -348,7 +348,7 @@ pub fn download_or_update_jadeite(path: PathBuf, update_mode: bool) {
         if fs::read_dir(&path).unwrap().next().is_none() {
             std::thread::spawn(move || {
                 let dl = run_async_command(async {
-                    Extras::download_jadeite("MrLGamer/jadeite".parse().unwrap(), path.as_path().to_str().unwrap().parse().unwrap(), |_current, _total| {}).await
+                    Extras::download_jadeite("MrLGamer/jadeite".parse().unwrap(), path.as_path().to_str().unwrap().parse().unwrap(), |_current, _total, _speed| {}).await
                 });
                 if dl { extract_archive(path.join("jadeite.zip").as_path().to_str().unwrap().parse().unwrap(), path.as_path().to_str().unwrap().parse().unwrap(), false); }
             });
@@ -362,7 +362,7 @@ pub fn download_or_update_fps_unlock(path: PathBuf, update_mode: bool) {
             std::thread::spawn(move || {
                 empty_dir(&path).unwrap();
                 run_async_command(async {
-                    Extras::download_fps_unlock("TwintailTeam/KeqingUnlock".parse().unwrap(), path.as_path().to_str().unwrap().parse().unwrap(), |_current, _total| {}).await
+                    Extras::download_fps_unlock("TwintailTeam/KeqingUnlock".parse().unwrap(), path.as_path().to_str().unwrap().parse().unwrap(), |_current, _total, _speed| {}).await
                 });
             });
         }
@@ -370,7 +370,7 @@ pub fn download_or_update_fps_unlock(path: PathBuf, update_mode: bool) {
         if fs::read_dir(&path).unwrap().next().is_none() {
             std::thread::spawn(move || {
                 run_async_command(async {
-                    Extras::download_fps_unlock("TwintailTeam/KeqingUnlock".parse().unwrap(), path.as_path().to_str().unwrap().parse().unwrap(), |_current, _total| {}).await
+                    Extras::download_fps_unlock("TwintailTeam/KeqingUnlock".parse().unwrap(), path.as_path().to_str().unwrap().parse().unwrap(), |_current, _total, _speed| {}).await
                 });
             });
         }
@@ -385,7 +385,7 @@ pub fn download_or_update_xxmi(app: &AppHandle, path: PathBuf, install_id: Optio
             std::thread::spawn(move || {
                 let dl = run_async_command(async {
                     Extras::download_xxmi("SpectrumQT/XXMI-Libs-Package".parse().unwrap(), path.as_path().to_str().unwrap().parse().unwrap(), true, {
-                        move |_current, _total| {}
+                        move |_current, _total, _speed| {}
                     }).await
                 });
                 if dl {
@@ -444,11 +444,12 @@ pub fn download_or_update_xxmi(app: &AppHandle, path: PathBuf, install_id: Optio
                     Extras::download_xxmi("SpectrumQT/XXMI-Libs-Package".parse().unwrap(), path.as_path().to_str().unwrap().parse().unwrap(), true, {
                         let app = app.clone();
                         let dlpayload = dlpayload.clone();
-                        move |current, total| {
+                        move |current, total, speed| {
                             let mut dlpayload = dlpayload.clone();
                             dlpayload.insert("name", "XXMI Modding tool".to_string());
                             dlpayload.insert("progress", current.to_string());
                             dlpayload.insert("total", total.to_string());
+                            dlpayload.insert("speed", speed.to_string());
                             app.emit("download_progress", dlpayload.clone()).unwrap();
                         }
                     }).await
@@ -620,11 +621,12 @@ pub fn download_or_update_steamrt(app: &AppHandle) {
                     download_steamrt(steamrt.clone(), steamrt.clone(), "steamrt3".to_string(), "latest-public-beta".to_string(), {
                         let app = app.clone();
                         let dlpayload = dlpayload.clone();
-                        move |current, total| {
+                        move |current, total, speed| {
                             let mut dlpayload = dlpayload.clone();
                             dlpayload.insert("name", "SteamLinuxRuntime 3".to_string());
                             dlpayload.insert("progress", current.to_string());
                             dlpayload.insert("total", total.to_string());
+                            dlpayload.insert("speed", speed.to_string());
                             app.emit("download_progress", dlpayload.clone()).unwrap();
                         }
                     }).await
@@ -667,11 +669,12 @@ pub fn download_or_update_steamrt(app: &AppHandle) {
                             download_steamrt(steamrt.clone(), steamrt.clone(), "steamrt3".to_string(), "latest-public-beta".to_string(), {
                                 let app = app.clone();
                                 let dlpayload = dlpayload.clone();
-                                move |current, total| {
+                                move |current, total, speed| {
                                     let mut dlpayload = dlpayload.clone();
                                     dlpayload.insert("name", "SteamLinuxRuntime 3".to_string());
                                     dlpayload.insert("progress", current.to_string());
                                     dlpayload.insert("total", total.to_string());
+                                    dlpayload.insert("speed", speed.to_string());
                                     app.emit("update_progress", dlpayload.clone()).unwrap();
                                 }
                             }).await

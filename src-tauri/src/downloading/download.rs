@@ -48,11 +48,12 @@ pub fn register_download_handler(app: &AppHandle) {
                             <Game as Zipped>::download(urls.clone(), install.directory.clone(), {
                                 let dlpayload = dlpayload.clone();
                                 let h4 = h4.clone();
-                                move |current, _| {
+                                move |current, _, speed| {
                                     let mut dlp = dlpayload.lock().unwrap();
                                     dlp.insert("name", instn.clone().to_string());
                                     dlp.insert("progress", current.to_string());
                                     dlp.insert("total", totalsize.to_string());
+                                    dlp.insert("speed", speed.to_string());
                                     h4.emit("download_progress", dlp.clone()).unwrap();
                                     drop(dlp);
                                 }
@@ -99,12 +100,13 @@ pub fn register_download_handler(app: &AppHandle) {
                                 <Game as Sophon>::download(e.file_url.clone(), e.file_path.clone(), install.directory.clone(), {
                                     let dlpayload = dlpayload.clone();
                                     let instn = instn.clone();
-                                    move |current, total| {
+                                    move |current, total, speed| {
                                         let mut dlp = dlpayload.lock().unwrap();
                                         let instn = instn.clone();
                                         dlp.insert("name", instn.to_string());
                                         dlp.insert("progress", current.to_string());
                                         dlp.insert("total", total.to_string());
+                                        dlp.insert("speed", speed.to_string());
                                         h4.emit("download_progress", dlp.clone()).unwrap();
                                         drop(dlp);
                                     }
@@ -124,11 +126,12 @@ pub fn register_download_handler(app: &AppHandle) {
                             <Game as Kuro>::download(manifest.to_owned(), picked.metadata.res_list_url.clone(), install.directory.clone(), {
                                 let dlpayload = dlpayload.clone();
                                 let h4 = h4.clone();
-                                move |current, total| {
+                                move |current, total, speed| {
                                     let mut dlp = dlpayload.lock().unwrap();
                                     dlp.insert("name", instn.to_string());
                                     dlp.insert("progress", current.to_string());
                                     dlp.insert("total", total.to_string());
+                                    dlp.insert("speed", speed.to_string());
                                     h4.emit("download_progress", dlp.clone()).unwrap();
                                     drop(dlp);
                                 }

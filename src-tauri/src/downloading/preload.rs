@@ -62,7 +62,7 @@ pub fn register_preload_handler(app: &AppHandle) {
                                                 let dlpayload = dlpayload.clone();
                                                 let tmp = tmp.clone();
                                                 let instn = instn.clone();
-                                                move |current, total| {
+                                                move |current, total, speed| {
                                                     let mut dlp = dlpayload.lock().unwrap();
                                                     let tmp = tmp.clone();
                                                     let instn = instn.clone();
@@ -70,6 +70,7 @@ pub fn register_preload_handler(app: &AppHandle) {
                                                     dlp.insert("name", instn.to_string());
                                                     dlp.insert("progress", current.to_string());
                                                     dlp.insert("total", total.to_string());
+                                                    dlp.insert("speed", speed.to_string());
                                                     tmp.emit("preload_progress", dlp.clone()).unwrap();
                                                     drop(dlp);
                                                 }
@@ -105,7 +106,7 @@ pub fn register_preload_handler(app: &AppHandle) {
                                             let dlpayload = dlpayload.clone();
                                             let tmp = tmp.clone();
                                             let instn = instn.clone();
-                                            move |current, total| {
+                                            move |current, total, speed| {
                                                 let mut dlp = dlpayload.lock().unwrap();
                                                 let tmp = tmp.clone();
                                                 let instn = instn.clone();
@@ -113,6 +114,7 @@ pub fn register_preload_handler(app: &AppHandle) {
                                                 dlp.insert("name", instn.to_string());
                                                 dlp.insert("progress", current.to_string());
                                                 dlp.insert("total", total.to_string());
+                                                dlp.insert("speed", speed.to_string());
                                                 tmp.emit("preload_progress", dlp.clone()).unwrap();
                                                 drop(dlp);
                                             }

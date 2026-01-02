@@ -60,13 +60,14 @@ pub fn register_repair_handler(app: &AppHandle) {
                                     let dlpayload = dlpayload.clone();
                                     let instn = instn.clone();
                                     let tmp = tmp.clone();
-                                    move |current, total| {
+                                    move |current, total, speed| {
                                         let mut dlp = dlpayload.lock().unwrap();
                                         let instn = instn.clone();
                                         let tmp = tmp.clone();
                                         dlp.insert("name", instn.to_string());
                                         dlp.insert("progress", current.to_string());
                                         dlp.insert("total", total.to_string());
+                                        dlp.insert("speed", speed.to_string());
                                         tmp.emit("repair_progress", dlp.clone()).unwrap();
                                         drop(dlp);
                                     }
@@ -85,11 +86,12 @@ pub fn register_repair_handler(app: &AppHandle) {
                         let rslt = run_async_command(async {
                             <Game as Kuro>::repair_game(manifest.to_owned(), picked.metadata.res_list_url.clone(), i.directory.clone(), false, {
                                 let dlpayload = dlpayload.clone();
-                                move |current, total| {
+                                move |current, total, speed| {
                                     let mut dlp = dlpayload.lock().unwrap();
                                     dlp.insert("name", instn.to_string());
                                     dlp.insert("progress", current.to_string());
                                     dlp.insert("total", total.to_string());
+                                    dlp.insert("speed", speed.to_string());
                                     tmp.emit("repair_progress", dlp.clone()).unwrap();
                                     drop(dlp);
                                 }

@@ -32,6 +32,7 @@ export function registerEvents(
         progressName: `?`,
         progressVal: 0,
         progressPercent: `0%`,
+        progressSpeed: "",
         progressPretty: 0,
         progressPrettyTotal: 0,
       };
@@ -48,6 +49,7 @@ export function registerEvents(
         progressName: `Moving "${event.payload.file}"`,
         progressVal: Math.round(toPercent(event.payload.progress, event.payload.total)),
         progressPercent: `${toPercent(event.payload.progress, event.payload.total).toFixed(2)}%`,
+        progressSpeed: "",
         progressPretty: `${formatBytes(event.payload.progress)}`,
         progressPrettyTotal: `${formatBytes(event.payload.total)}`,
       };
@@ -64,6 +66,7 @@ export function registerEvents(
         progressName: `Downloading "${event.payload.name}"`,
         progressVal: Math.round(toPercent(event.payload.progress, event.payload.total)),
         progressPercent: `${toPercent(event.payload.progress, event.payload.total).toFixed(2)}%`,
+        progressSpeed: event.payload.speed ? `${formatBytes(event.payload.speed)}/s` : "",
         progressPretty: `${formatBytes(event.payload.progress)}`,
         progressPrettyTotal: `${formatBytes(event.payload.total)}`,
       };
@@ -80,6 +83,7 @@ export function registerEvents(
         progressName: `Updating "${event.payload.name}"`,
         progressVal: Math.round(toPercent(event.payload.progress, event.payload.total)),
         progressPercent: `${toPercent(event.payload.progress, event.payload.total).toFixed(2)}%`,
+        progressSpeed: event.payload.speed ? `${formatBytes(event.payload.speed)}/s` : "",
         progressPretty: `${formatBytes(event.payload.progress)}`,
         progressPrettyTotal: `${formatBytes(event.payload.total)}`,
       };
@@ -96,6 +100,7 @@ export function registerEvents(
         progressName: `Repairing "${event.payload.name}"`,
         progressVal: Math.round(toPercent(event.payload.progress, event.payload.total)),
         progressPercent: `${toPercent(event.payload.progress, event.payload.total).toFixed(2)}%`,
+        progressSpeed: event.payload.speed ? `${formatBytes(event.payload.speed)}/s` : "",
         progressPretty: `${formatBytes(event.payload.progress)}`,
         progressPrettyTotal: `${formatBytes(event.payload.total)}`,
       };
@@ -112,6 +117,7 @@ export function registerEvents(
         progressName: `Predownloading "${event.payload.name}"`,
         progressVal: Math.round(toPercent(event.payload.progress, event.payload.total)),
         progressPercent: `${toPercent(event.payload.progress, event.payload.total).toFixed(2)}%`,
+        progressSpeed: event.payload.speed ? `${formatBytes(event.payload.speed)}/s` : "",
         progressPretty: `${formatBytes(event.payload.progress)}`,
         progressPrettyTotal: `${formatBytes(event.payload.total)}`,
       };

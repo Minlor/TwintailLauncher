@@ -98,6 +98,7 @@ export default class App extends React.Component<any, any> {
             progressName: "?",
             progressVal: 0,
             progressPercent: "0%",
+            progressSpeed: "",
             progressPretty: 0,
             progressPrettyTotal: 0,
             resumeStates: {},
@@ -274,6 +275,7 @@ export default class App extends React.Component<any, any> {
                     hidden={this.state.hideProgressBar}
                     name={this.state.progressName}
                     percentText={this.state.progressPercent}
+                    speed={this.state.progressSpeed}
                     pretty={this.state.progressPretty}
                     prettyTotal={this.state.progressPrettyTotal}
                     progressVal={this.state.progressVal}

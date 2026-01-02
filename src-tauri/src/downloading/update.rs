@@ -117,11 +117,12 @@ pub fn register_update_handler(app: &AppHandle) {
                                             let dlpayload = dlpayload.clone();
                                             let tmp = tmp.clone();
                                             let instn = instn.clone();
-                                            move |current, total| {
+                                            move |current, total, speed| {
                                                 let mut dlp = dlpayload.lock().unwrap();
                                                 dlp.insert("name", instn.to_string());
                                                 dlp.insert("progress", current.to_string());
                                                 dlp.insert("total", total.to_string());
+                                                dlp.insert("speed", speed.to_string());
                                                 tmp.emit("update_progress", dlp.clone()).unwrap();
                                                 drop(dlp);
                                             }
@@ -175,11 +176,12 @@ pub fn register_update_handler(app: &AppHandle) {
                                 let rslt = run_async_command(async {
                                     <Game as Kuro>::patch(manifest.file_url.to_owned(), manifest.file_hash.clone(), picked.metadata.res_list_url.clone(), install.directory.clone(), is_preload, {
                                         let dlpayload = dlpayload.clone();
-                                        move |current: u64, total: u64| {
+                                        move |current: u64, total: u64, speed: u64| {
                                             let mut dlp = dlpayload.lock().unwrap();
                                             dlp.insert("name", instn.to_string());
                                             dlp.insert("progress", current.to_string());
                                             dlp.insert("total", total.to_string());
+                                            dlp.insert("speed", speed.to_string());
                                             tmp.emit("update_progress", dlp.clone()).unwrap();
                                             drop(dlp);
                                         }
