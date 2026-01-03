@@ -1,6 +1,7 @@
 export const Events = [
   'download_progress',
   'download_complete',
+  'download_paused',
   'update_progress',
   'update_complete',
   'repair_progress',

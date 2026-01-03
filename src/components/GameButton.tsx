@@ -1,4 +1,4 @@
-import {DownloadIcon, HardDriveDownloadIcon, RefreshCcwIcon, Rocket} from "lucide-react";
+import {DownloadIcon, HardDriveDownloadIcon, RefreshCcwIcon, Rocket, PauseIcon} from "lucide-react";
 import {emit} from "@tauri-apps/api/event";
 import {invoke} from "@tauri-apps/api/core";
 
@@ -24,6 +24,8 @@ export default function GameButton({currentInstall, globalSettings, buttonType, 
                 return { bg: "bg-green-600 hover:bg-green-700", border: "border-green-500", ring: "focus:ring-green-400/60", shadow: "shadow-green-900/30", id: "update_game_btn" };
             case "resume":
                 return { bg: "bg-amber-600 hover:bg-amber-700", border: "border-amber-500", ring: "focus:ring-amber-400/60", shadow: "shadow-amber-900/30", id: "resume_btn" };
+            case "pause":
+                return { bg: "bg-yellow-600 hover:bg-yellow-700", border: "border-yellow-500", ring: "focus:ring-yellow-400/60", shadow: "shadow-yellow-900/30", id: "pause_btn" };
             case "launch":
             default:
                 return { bg: "bg-purple-600 hover:bg-purple-700", border: "border-purple-500", ring: "focus:ring-purple-400/60", shadow: "shadow-purple-900/30", id: "launch_game_btn" };
@@ -33,16 +35,19 @@ export default function GameButton({currentInstall, globalSettings, buttonType, 
     const disabled = buttonType === "launch" ? disableRun
         : buttonType === "download" ? disableDownload
         : buttonType === "update" ? disableUpdate
+        : buttonType === "pause" ? false
         : disableResume;
 
     const label = buttonType === "launch" ? "Play!"
         : buttonType === "download" ? "Download"
         : buttonType === "update" ? "Update"
+        : buttonType === "pause" ? "Pause"
         : "Resume";
 
     const Icon = buttonType === "launch" ? Rocket
         : buttonType === "download" ? HardDriveDownloadIcon
         : buttonType === "update" ? DownloadIcon
+        : buttonType === "pause" ? PauseIcon
         : RefreshCcwIcon;
 
     const handleClick = () => {
@@ -83,6 +88,8 @@ export default function GameButton({currentInstall, globalSettings, buttonType, 
             refreshDownloadButtonInfo();
         } else if (buttonType === "update") {
             emit("start_game_update", {install: currentInstall, biz: "", lang: "", region: ""}).then(() => {});
+        } else if (buttonType === "pause") {
+            invoke("pause_game_download", {installId: currentInstall}).then(() => {});
         } else if (buttonType === "resume") {
             if (resumeStates.downloading) {
                 emit("start_game_download", {install: currentInstall, biz: "", lang: "", region: installSettings.region_code}).then(() => {});

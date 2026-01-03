@@ -71,6 +71,27 @@ export function registerEvents(
         progressPrettyTotal: `${formatBytes(event.payload.total)}`,
       };
     }
+    case 'download_paused': {
+      const currentInstall = getCurrentInstall();
+      if (currentInstall) {
+        fetchInstallResumeStates(currentInstall);
+      }
+      return {
+        hideProgressBar: true,
+        disableInstallEdit: false,
+        disableRun: true,
+        disableUpdate: true,
+        disableDownload: true,
+        disablePreload: true,
+        disableResume: false,
+        progressName: `Paused "${event.payload.name}"`,
+        progressVal: 0,
+        progressPercent: `0%`,
+        progressSpeed: "",
+        progressPretty: 0,
+        progressPrettyTotal: 0,
+      };
+    }
     case 'update_progress': {
       return {
         hideProgressBar: false,

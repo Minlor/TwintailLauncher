@@ -1,13 +1,15 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 use fischl::download::game::{Game, Kuro, Sophon, Zipped};
 use fischl::utils::{assemble_multipart_archive, extract_archive};
-use tauri::{AppHandle, Emitter, Listener};
+use tauri::{AppHandle, Emitter, Listener, Manager};
 use crate::utils::db_manager::{get_install_info_by_id, get_manifest_info_by_id};
 use crate::utils::{prevent_exit, run_async_command, send_notification, PathResolve, models::{FullGameFile, GameVersion}};
 use crate::utils::repo_manager::{get_manifest};
 use crate::downloading::DownloadGamePayload;
+use crate::DownloadState;
 
 #[cfg(target_os = "linux")]
 use crate::utils::patch_aki;
@@ -18,7 +20,7 @@ pub fn register_download_handler(app: &AppHandle) {
         let h4 = a.clone();
         std::thread::spawn(move || {
             let payload: DownloadGamePayload = serde_json::from_str(event.payload()).unwrap();
-            let install = get_install_info_by_id(&h4, payload.install).unwrap(); // Should exist by now, if not we FUCKED UP
+            let install = get_install_info_by_id(&h4, payload.install.clone()).unwrap(); // Should exist by now, if not we FUCKED UP
             let gid = get_manifest_info_by_id(&h4, install.manifest_id).unwrap();
 
             let mm = get_manifest(&h4, gid.filename);
@@ -39,25 +41,39 @@ pub fn register_download_handler(app: &AppHandle) {
                 drop(dlp);
                 prevent_exit(&h4, true);
 
+                let cancel_token = Arc::new(AtomicBool::new(false));
+                {
+                    let state = h4.state::<DownloadState>();
+                    let mut tokens = state.tokens.lock().unwrap();
+                    tokens.insert(payload.install.clone(), cancel_token.clone());
+                }
+
                 match picked.metadata.download_mode.as_str() {
                     // Generic zipped mode
                     "DOWNLOAD_MODE_FILE" => {
+                        let install_dir = Path::new(&install.directory);
+                        let downloading_marker = install_dir.join("downloading");
+                        if !install_dir.exists() { std::fs::create_dir_all(install_dir).unwrap_or_default(); }
+                        if !downloading_marker.exists() { std::fs::create_dir(&downloading_marker).unwrap_or_default(); }
+
                         let urls = picked.game.full.iter().map(|v| v.file_url.clone()).collect::<Vec<String>>();
                         let totalsize = picked.game.full.iter().map(|x| x.compressed_size.parse::<u64>().unwrap()).sum::<u64>();
+                        let cancel_token = cancel_token.clone();
                         let rslt = run_async_command(async {
                             <Game as Zipped>::download(urls.clone(), install.directory.clone(), {
                                 let dlpayload = dlpayload.clone();
                                 let h4 = h4.clone();
+                                let instn = instn.clone();
                                 move |current, _, speed| {
                                     let mut dlp = dlpayload.lock().unwrap();
-                                    dlp.insert("name", instn.clone().to_string());
+                                    dlp.insert("name", instn.to_string());
                                     dlp.insert("progress", current.to_string());
                                     dlp.insert("total", totalsize.to_string());
                                     dlp.insert("speed", speed.to_string());
                                     h4.emit("download_progress", dlp.clone()).unwrap();
                                     drop(dlp);
                                 }
-                            }).await
+                            }, Some(cancel_token)).await
                         });
                         if rslt {
                             // Get first entry in the list, and start extraction
@@ -75,6 +91,7 @@ pub fn register_download_handler(app: &AppHandle) {
                                     let far = ap.join(aar).to_str().unwrap().to_string();
                                     let ext = extract_archive(far, install.directory.clone(), false);
                                     if ext {
+                                        if downloading_marker.exists() { std::fs::remove_dir(&downloading_marker).unwrap_or_default(); }
                                         h4.emit("download_complete", ()).unwrap();
                                         prevent_exit(&h4, false);
                                         send_notification(&h4, format!("Download of {inn} complete.", inn = inna.to_string()).as_str(), None);
@@ -84,6 +101,7 @@ pub fn register_download_handler(app: &AppHandle) {
                                 let far = ap.join(fnn.clone()).to_str().unwrap().to_string();
                                 let ext = extract_archive(far, install.directory.clone(), false);
                                 if ext {
+                                    if downloading_marker.exists() { std::fs::remove_dir(&downloading_marker).unwrap_or_default(); }
                                     h4.emit("download_complete", ()).unwrap();
                                     prevent_exit(&h4, false);
                                     send_notification(&h4, format!("Download of {inn} complete.", inn = inna.to_string()).as_str(), None);
@@ -94,9 +112,11 @@ pub fn register_download_handler(app: &AppHandle) {
                     // HoYoverse sophon chunk mode
                     "DOWNLOAD_MODE_CHUNK" => {
                         let urls = if payload.biz == "bh3_global" { picked.game.full.clone().iter().filter(|e| e.region_code.clone().unwrap() == payload.region).cloned().collect::<Vec<FullGameFile>>() } else { picked.game.full.clone()};
+                        let mut success = true;
                         for e in urls.clone() {
                             let h4 = h4.clone();
-                            run_async_command(async {
+                            let cancel_token = cancel_token.clone();
+                            let rslt = run_async_command(async {
                                 <Game as Sophon>::download(e.file_url.clone(), e.file_path.clone(), install.directory.clone(), {
                                     let dlpayload = dlpayload.clone();
                                     let instn = instn.clone();
@@ -110,22 +130,27 @@ pub fn register_download_handler(app: &AppHandle) {
                                         h4.emit("download_progress", dlp.clone()).unwrap();
                                         drop(dlp);
                                     }
-                                }).await
+                                }, Some(cancel_token)).await
                             });
+                            if !rslt { success = false; break; }
                         }
-                        // We finished the loop emit complete
-                        h4.emit("download_complete", ()).unwrap();
-                        prevent_exit(&h4, false);
-                        send_notification(&h4, format!("Download of {inn} complete.", inn = inna.to_string()).as_str(), None);
+                        if success {
+                            // We finished the loop emit complete
+                            h4.emit("download_complete", ()).unwrap();
+                            prevent_exit(&h4, false);
+                            send_notification(&h4, format!("Download of {inn} complete.", inn = inna.to_string()).as_str(), None);
+                        }
                     }
                     // KuroGame only
                     "DOWNLOAD_MODE_RAW" => {
                         let urls = picked.game.full.iter().map(|v| v.file_url.clone()).collect::<Vec<String>>();
                         let manifest = urls.get(0).unwrap();
+                        let cancel_token = cancel_token.clone();
                         let rslt = run_async_command(async {
                             <Game as Kuro>::download(manifest.to_owned(), picked.metadata.res_list_url.clone(), install.directory.clone(), {
                                 let dlpayload = dlpayload.clone();
                                 let h4 = h4.clone();
+                                let instn = instn.clone();
                                 move |current, total, speed| {
                                     let mut dlp = dlpayload.lock().unwrap();
                                     dlp.insert("name", instn.to_string());
@@ -135,7 +160,7 @@ pub fn register_download_handler(app: &AppHandle) {
                                     h4.emit("download_progress", dlp.clone()).unwrap();
                                     drop(dlp);
                                 }
-                            }).await
+                            }, Some(cancel_token)).await
                         });
                         if rslt {
                             h4.emit("download_complete", ()).unwrap();
@@ -150,6 +175,30 @@ pub fn register_download_handler(app: &AppHandle) {
                     }
                     // Fallback mode
                     _ => {}
+                }
+
+                let mut cancelled = false;
+                {
+                    let state = h4.state::<DownloadState>();
+                    let tokens = state.tokens.lock().unwrap();
+                    if let Some(token) = tokens.get(&payload.install) {
+                        if token.load(Ordering::Relaxed) {
+                            cancelled = true;
+                        }
+                    }
+                }
+
+                {
+                    let state = h4.state::<DownloadState>();
+                    let mut tokens = state.tokens.lock().unwrap();
+                    tokens.remove(&payload.install);
+                }
+
+                if cancelled {
+                    let mut dlp = HashMap::new();
+                    dlp.insert("name", instn.to_string());
+                    h4.emit("download_paused", dlp).unwrap();
+                    prevent_exit(&h4, false);
                 }
             } else { eprintln!("Failed to download game!"); }
         });

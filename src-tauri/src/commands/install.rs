@@ -28,6 +28,8 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 #[cfg(target_os = "linux")]
 use crate::utils::db_manager::{update_install_shortcut_is_steam_by_id, create_installed_runner, get_installed_runner_info_by_version, update_installed_runner_is_installed_by_version};
 use crate::utils::models::XXMISettings;
+use crate::DownloadState;
+use std::sync::atomic::Ordering;
 
 #[tauri::command]
 pub async fn list_installs(app: AppHandle) -> Option<String> {
@@ -1162,4 +1164,15 @@ pub fn remove_shortcut(app: AppHandle, install_id: String, shortcut_type: String
           _ => {}
       }
     };
+}
+
+#[tauri::command]
+pub fn pause_game_download(app: AppHandle, install_id: String) -> bool {
+    let state = app.state::<DownloadState>();
+    let tokens = state.tokens.lock().unwrap();
+    if let Some(token) = tokens.get(&install_id) {
+        token.store(true, Ordering::Relaxed);
+        return true;
+    }
+    false
 }

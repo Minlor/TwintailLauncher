@@ -113,6 +113,7 @@ export default class App extends React.Component<any, any> {
             gameManifest: this.state.gameManifest,
             preloadAvailable: this.state.preloadAvailable,
             resumeStates: this.state.resumeStates,
+            isDownloading: !this.state.hideProgressBar,
         });
 
         return (
