@@ -13,9 +13,9 @@ use fischl::compat::Compat;
 #[cfg(target_os = "linux")]
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 #[cfg(target_os = "linux")]
-use crate::utils::repo_manager::{get_compatibility, LauncherRunner};
+use crate::utils::repo_manager::{get_compatibility};
 #[cfg(target_os = "linux")]
-use crate::utils::{runner_from_runner_version, prevent_exit, run_async_command};
+use crate::utils::{runner_from_runner_version, prevent_exit, run_async_command, models::LauncherRunner};
 #[cfg(target_os = "linux")]
 use crate::utils::db_manager::{create_installed_runner};
 
@@ -156,7 +156,7 @@ pub fn add_installed_runner(app: AppHandle, runner_url: String, runner_version: 
                             .show(move |_action| {
                                 prevent_exit(&app, false);
                                 app.emit("download_complete", ()).unwrap();
-                                if runpc.exists() { fs::remove_dir_all(&runpc).unwrap(); }
+                                if runpc.exists() { fs::remove_dir_all(&runpc).unwrap(); update_installed_runner_is_installed_by_version(&app, runv.clone(), false); }
                             });
                         false
                     }

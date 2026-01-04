@@ -8,15 +8,16 @@ use fischl::download::Extras;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Listener, Manager};
 use tauri_plugin_notification::NotificationExt;
-use crate::utils::db_manager::{get_settings, update_settings_default_fps_unlock_location, update_settings_default_game_location, update_settings_default_xxmi_location};
+use crate::utils::db_manager::{get_installs, get_manifest_info_by_id, get_settings, update_install_after_update_by_id, update_settings_default_fps_unlock_location, update_settings_default_game_location, update_settings_default_xxmi_location};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+use sqlx::types::Json;
+use crate::utils::models::{GameVersion, XXMISettings};
+use crate::utils::repo_manager::{get_manifest, get_manifests};
 
 #[cfg(target_os = "linux")]
 use std::io::BufRead;
 #[cfg(target_os = "linux")]
-use crate::utils::repo_manager::get_manifests;
-#[cfg(target_os = "linux")]
-use crate::utils::db_manager::{create_installed_runner, get_installed_runner_info_by_version, get_installs, get_manifest_info_by_id, update_install_use_jadeite_by_id, update_settings_default_jadeite_location, update_settings_default_prefix_location, update_settings_default_runner_location, update_settings_default_dxvk_location};
+use crate::utils::db_manager::{get_installed_runners, get_install_info_by_id, update_installed_runner_is_installed_by_version, update_install_xxmi_config_by_id, create_installed_runner, get_installed_runner_info_by_version, update_install_use_jadeite_by_id, update_settings_default_jadeite_location, update_settings_default_prefix_location, update_settings_default_runner_location, update_settings_default_dxvk_location};
 #[cfg(target_os = "linux")]
 use libc::{getrlimit, rlim_t, rlimit, setrlimit, RLIMIT_NOFILE};
 #[cfg(target_os = "linux")]
@@ -29,6 +30,7 @@ pub mod game_launch_manager;
 pub mod system_tray;
 pub mod args;
 pub mod shortcuts;
+pub mod models;
 #[cfg(target_os = "linux")]
 pub mod gpu;
 
@@ -339,7 +341,7 @@ pub fn download_or_update_jadeite(path: PathBuf, update_mode: bool) {
                 let dl = run_async_command(async {
                     Extras::download_jadeite("MrLGamer/jadeite".parse().unwrap(), path.as_path().to_str().unwrap().parse().unwrap(), |_current, _total| {}).await
                 });
-                if dl { extract_archive("".to_string(), path.join("jadeite.zip").as_path().to_str().unwrap().parse().unwrap(), path.as_path().to_str().unwrap().parse().unwrap(), false); }
+                if dl { extract_archive(path.join("jadeite.zip").as_path().to_str().unwrap().parse().unwrap(), path.as_path().to_str().unwrap().parse().unwrap(), false); }
             });
         }
     } else {
@@ -348,7 +350,7 @@ pub fn download_or_update_jadeite(path: PathBuf, update_mode: bool) {
                 let dl = run_async_command(async {
                     Extras::download_jadeite("MrLGamer/jadeite".parse().unwrap(), path.as_path().to_str().unwrap().parse().unwrap(), |_current, _total| {}).await
                 });
-                if dl { extract_archive("".to_string(), path.join("jadeite.zip").as_path().to_str().unwrap().parse().unwrap(), path.as_path().to_str().unwrap().parse().unwrap(), false); }
+                if dl { extract_archive(path.join("jadeite.zip").as_path().to_str().unwrap().parse().unwrap(), path.as_path().to_str().unwrap().parse().unwrap(), false); }
             });
         }
     }
@@ -375,9 +377,11 @@ pub fn download_or_update_fps_unlock(path: PathBuf, update_mode: bool) {
     }
 }
 
-pub fn download_or_update_xxmi(app: &AppHandle, path: PathBuf, update_mode: bool) {
+#[allow(unused_variables)]
+pub fn download_or_update_xxmi(app: &AppHandle, path: PathBuf, install_id: Option<String>, update_mode: bool) {
     if update_mode {
         if fs::read_dir(&path).unwrap().next().is_some() {
+            let app = app.clone();
             std::thread::spawn(move || {
                 let dl = run_async_command(async {
                     Extras::download_xxmi("SpectrumQT/XXMI-Libs-Package".parse().unwrap(), path.as_path().to_str().unwrap().parse().unwrap(), true, {
@@ -385,7 +389,7 @@ pub fn download_or_update_xxmi(app: &AppHandle, path: PathBuf, update_mode: bool
                     }).await
                 });
                 if dl {
-                    extract_archive("".to_string(), path.join("xxmi.zip").as_path().to_str().unwrap().parse().unwrap(), path.as_path().to_str().unwrap().parse().unwrap(), false);
+                    extract_archive(path.join("xxmi.zip").as_path().to_str().unwrap().parse().unwrap(), path.as_path().to_str().unwrap().parse().unwrap(), false);
                     let gimi = String::from("SilentNightSound/GIMI-Package");
                     let srmi = String::from("SpectrumQT/SRMI-Package");
                     let zzmi = String::from("leotorrez/ZZMI-Package");
@@ -397,7 +401,7 @@ pub fn download_or_update_xxmi(app: &AppHandle, path: PathBuf, update_mode: bool
                     });
                     if dl1 {
                         for mi in ["gimi", "srmi", "zzmi", "wwmi", "himi"] {
-                            extract_archive("".to_string(), path.join(format!("{mi}.zip")).as_path().to_str().unwrap().parse().unwrap(), path.join(mi).as_path().to_str().unwrap().parse().unwrap(), false);
+                            extract_archive(path.join(format!("{mi}.zip")).as_path().to_str().unwrap().parse().unwrap(), path.join(mi).as_path().to_str().unwrap().parse().unwrap(), false);
                             for lib in ["d3d11.dll", "d3dcompiler_47.dll"] {
                                 let linkedpath = path.join(mi).join(lib);
                                 if !linkedpath.exists() {
@@ -408,6 +412,19 @@ pub fn download_or_update_xxmi(app: &AppHandle, path: PathBuf, update_mode: bool
                                 }
                             }
                         }
+                        #[cfg(target_os = "linux")]
+                        {
+                            if let Some(id) = install_id {
+                                let ai = get_install_info_by_id(&app, id).unwrap();
+                                let repm = get_manifest_info_by_id(&app, ai.manifest_id).unwrap();
+                                let gm = get_manifest(&app, repm.filename).unwrap();
+                                let exe = gm.paths.exe_filename.clone().split('/').last().unwrap().to_string();
+                                let mi = get_mi_path_from_game(exe).unwrap();
+                                let base = path.join(mi);
+                                let data = apply_xxmi_tweaks(base, ai.xxmi_config);
+                                update_install_xxmi_config_by_id(&app, ai.id, data);
+                            }
+                        }
                     }
                 }
             });
@@ -415,8 +432,8 @@ pub fn download_or_update_xxmi(app: &AppHandle, path: PathBuf, update_mode: bool
     } else {
         if fs::read_dir(&path).unwrap().next().is_none() {
             let app = app.clone();
+            let path = path.clone();
             std::thread::spawn(move || {
-                let app = app.clone();
                 let mut dlpayload = HashMap::new();
                 dlpayload.insert("name", String::from("XXMI Modding tool"));
                 dlpayload.insert("progress", "0".to_string());
@@ -437,7 +454,7 @@ pub fn download_or_update_xxmi(app: &AppHandle, path: PathBuf, update_mode: bool
                     }).await
                 });
                 if dl {
-                    extract_archive("".to_string(), path.join("xxmi.zip").as_path().to_str().unwrap().parse().unwrap(), path.as_path().to_str().unwrap().parse().unwrap(), false);
+                    extract_archive(path.join("xxmi.zip").as_path().to_str().unwrap().parse().unwrap(), path.as_path().to_str().unwrap().parse().unwrap(), false);
                     let gimi = String::from("SilentNightSound/GIMI-Package");
                     let srmi = String::from("SpectrumQT/SRMI-Package");
                     let zzmi = String::from("leotorrez/ZZMI-Package");
@@ -449,7 +466,7 @@ pub fn download_or_update_xxmi(app: &AppHandle, path: PathBuf, update_mode: bool
                     });
                     if dl1 {
                         for mi in ["gimi", "srmi", "zzmi", "wwmi", "himi"] {
-                            extract_archive("".to_string(), path.join(format!("{mi}.zip")).as_path().to_str().unwrap().parse().unwrap(), path.join(mi).as_path().to_str().unwrap().parse().unwrap(), false);
+                            extract_archive(path.join(format!("{mi}.zip")).as_path().to_str().unwrap().parse().unwrap(), path.join(mi).as_path().to_str().unwrap().parse().unwrap(), false);
                             for lib in ["d3d11.dll", "d3dcompiler_47.dll"] {
                                 let linkedpath = path.join(mi).join(lib);
                                 if !linkedpath.exists() {
@@ -462,6 +479,19 @@ pub fn download_or_update_xxmi(app: &AppHandle, path: PathBuf, update_mode: bool
                         }
                         app.emit("download_complete", String::from("XXMI Modding tool")).unwrap();
                         prevent_exit(&app, false);
+                        #[cfg(target_os = "linux")]
+                        {
+                            if let Some(id) = install_id {
+                                let ai = get_install_info_by_id(&app, id).unwrap();
+                                let repm = get_manifest_info_by_id(&app, ai.manifest_id).unwrap();
+                                let gm = get_manifest(&app, repm.filename).unwrap();
+                                let exe = gm.paths.exe_filename.clone().split('/').last().unwrap().to_string();
+                                let mi = get_mi_path_from_game(exe).unwrap();
+                                let base = path.join(mi);
+                                let data = apply_xxmi_tweaks(base, ai.xxmi_config);
+                                update_install_xxmi_config_by_id(&app, ai.id, data);
+                            }
+                        }
                     }
                 } else {
                     app.dialog().message("Error occurred while trying to download XXMI Modding tool! Please retry later by re-enabling the \"Inject XXMI\" in Install Settings.").title("TwintailLauncher")
@@ -486,6 +516,16 @@ pub fn sync_installed_runners(app: &AppHandle) {
         let runners = Path::new(&s.default_runner_path).follow_symlink().unwrap();
         if !runners.exists() { return; }
 
+        // Mark non-existing ones as uninstalled
+        let all_runners = get_installed_runners(app);
+        if all_runners.is_some() {
+            let ar = all_runners.unwrap();
+            for r in ar {
+                let dir_path = runners.join(&r.version).follow_symlink().unwrap();
+                if !dir_path.exists() && dir_path.to_str().unwrap().to_string() != "steamrt" { update_installed_runner_is_installed_by_version(app, r.version.clone(), false); }
+            }
+        }
+
         for e in fs::read_dir(runners).unwrap() {
             match e {
                 Ok(d) => {
@@ -497,7 +537,7 @@ pub fn sync_installed_runners(app: &AppHandle) {
                             Ok(mut subdir) => {
                                 if subdir.next().is_some() {
                                     let installed_runner = get_installed_runner_info_by_version(app, dir_name.to_string());
-                                    if installed_runner.is_none() && dir_name != "steamrt" { create_installed_runner(app, dir_name.to_string(), true, path.to_str().unwrap().parse().unwrap()).unwrap(); }
+                                    if installed_runner.is_none() && dir_name != "steamrt" { create_installed_runner(app, dir_name.to_string(), true, path.to_str().unwrap().parse().unwrap()).unwrap(); } else if dir_name != "steamrt" { update_installed_runner_is_installed_by_version(app, dir_name.to_string(), true); }
                                 }
                             },
                             Err(_) => {}
@@ -505,6 +545,27 @@ pub fn sync_installed_runners(app: &AppHandle) {
                     }
                 },
                 Err(_) => {}
+            }
+        }
+    }
+}
+
+pub fn sync_install_backgrounds(app: &AppHandle) {
+    let installs = get_installs(app);
+    if let Some(is) = installs {
+        for i in is {
+            let repm = get_manifest_info_by_id(app, i.manifest_id).unwrap();
+            let gm = get_manifest(&app, repm.filename);
+            if let Some(g) = gm {
+                let is_live = i.game_background.ends_with(".webm") || i.game_background.ends_with(".mp4");
+                let ver = g.game_versions.iter().filter(|e| e.metadata.version == i.version).collect::<Vec<&GameVersion>>();
+                if ver.is_empty() { return; }
+                let cur = ver.get(0).unwrap();
+                let comparator = if is_live { i.game_background != cur.assets.game_live_background.clone().unwrap() } else { i.game_background != cur.assets.game_background.clone() };
+                if !i.ignore_updates && comparator {
+                    let bg = if is_live { cur.assets.game_live_background.clone().unwrap() } else { cur.assets.game_background.clone() };
+                    update_install_after_update_by_id(app, i.id, i.name, i.game_icon, bg, i.version);
+                }
             }
         }
     }
@@ -787,51 +848,64 @@ pub fn edit_wuwa_configs_xxmi(engine_ini: String) {
             Ok(_) => {
                 let perf_tweaks: HashMap<&str, HashMap<&str, String>> = HashMap::from([(
                     "SystemSettings",
-                    HashMap::from([
-                        ("r.Streaming.HLODStrategy", "2".to_string()),
-                        ("r.Streaming.PoolSizeForMeshes", "-1".to_string()),
-                        ("r.XGEShaderCompile", "0".to_string()),
-                        ("FX.BatchAsync", "1".to_string()),
-                        ("FX.EarlyScheduleAsync", "1".to_string()),
-                        ("fx.Niagara.ForceAutoPooling", "1".to_string()),
+                    HashMap::from([("r.Streaming.HLODStrategy", "2".to_string()), ("r.Streaming.PoolSizeForMeshes", "-1".to_string()), ("r.XGEShaderCompile", "0".to_string()),
+                        ("FX.BatchAsync", "1".to_string()), ("FX.EarlyScheduleAsync", "1".to_string()), ("fx.Niagara.ForceAutoPooling", "1".to_string()),
                         ("wp.Runtime.KuroRuntimeStreamingRangeOverallScale", "0.5".to_string()),
-                        ("tick.AllowAsyncTickCleanup", "1".to_string()),
-                        ("tick.AllowAsyncTickDispatch", "1".to_string()),
-                    ])
+                        ("tick.AllowAsyncTickCleanup", "1".to_string()), ("tick.AllowAsyncTickDispatch", "1".to_string())])
                 )]);
                 for (section_name, section_data) in perf_tweaks {
                     for (option_name, option_value) in section_data { ini.set(section_name, option_name, Some(option_value)); }
                 }
-
                 for section in ini.get_map_ref().keys().cloned().collect::<Vec<_>>() {
-                    ini.set(&section, "r.Streaming.UsingNewKuroStreaming", None); // Ancient 3rd-party configs set it to 0 with bad results
-                    ini.set(&section, "r.Streaming.FullyLoadUsedTextures", None); // No longer works since 14/06
+                    ini.remove_key(&section, "r.Streaming.UsingNewKuroStreaming"); // Ancient 3rd-party configs set it to 0 with bad results
+                    ini.remove_key(&section, "r.Streaming.Boost"); // Replaced with r.Streaming.MinBoost
                 }
-                if !ini.sections().contains(&"ConsoleVariables".to_string()) {
-                    ini.set("ConsoleVariables", "temp", Some("".to_string()));
-                    ini.set("ConsoleVariables", "temp", None);
-                }
-                // Controls how far game starts to replace weighted meshes with LoDs
-                // Mods contain mesh metadata only for original model and won't apply to LoDs
-                ini.set("ConsoleVariables", "r.Kuro.SkeletalMesh.LODDistanceScale", Some("24".to_string()));
-                // Controls how aggressively higher resolution textures are pushed to VRAM
-                // Mods contain texture hashes only for original model and won't apply to LoDs
-                ini.set("ConsoleVariables", "r.Streaming.Boost", Some("30.0".to_string()));
-                // Controls amount of VRAM used for textures streaming
-                // When set to 0, tends to keep full resolution textures in VRAM, so LoDs don't break mods
-                ini.set("ConsoleVariables", "r.Streaming.PoolSize", Some("0".to_string()));
-                // Prevents pool size from exceeding VRAM
-                // Doesn't explicitly affect mods, but acts as failsafe for low and mid-range GPUs for PoolSize=0
                 ini.set("ConsoleVariables", "r.Streaming.LimitPoolSizeToVRAM", Some("1".to_string()));
+                ini.set("ConsoleVariables", "r.Streaming.PoolSize", Some("0".to_string()));
+                ini.set("ConsoleVariables", "r.Streaming.UseAllMips", Some("1".to_string()));
+                ini.set("ConsoleVariables", "r.Streaming.MinBoost", Some("20.0".to_string()));
+                ini.set("ConsoleVariables", "r.Kuro.SkeletalMesh.LODDistanceScale", Some("24".to_string()));
+                ini.set("ConsoleVariables", "r.Kuro.SkeletalMesh.LODDistanceScaleDeviceOffset", Some("-50".to_string()));
                 let r = ini.write(&file);
-                match r {
-                    Ok(_) => {}
-                    Err(_) => {}
-                }
+                match r { Ok(_) => {} Err(_) => {} }
             }
             Err(_) => {}
         }
     }
+}
+
+#[allow(unused_mut)]
+pub fn apply_xxmi_tweaks(package: PathBuf, mut data: Json<XXMISettings>) -> Json<XXMISettings> {
+    if package.exists() {
+        let cfg = package.join("d3dx.ini").follow_symlink().unwrap();
+        if cfg.exists() {
+            let mut ini = configparser::ini::Ini::new_cs();
+            let f = ini.load(&cfg);
+            match f {
+                Ok(_) => {
+                    ini.set("Hunting", "hunting", Some(data.hunting_mode.to_string()));
+                    let actions = if data.dump_shaders { "clipboard hlsl asm regex" } else { "clipboard" };
+                    ini.set("Hunting", "marking_actions", Some(actions.to_string()));
+                    ini.set("Logging", "show_warnings", Some(data.show_warnings.to_string()));
+                    #[cfg(target_os = "linux")]
+                    {
+                        if package.to_str().unwrap().contains("gimi") || package.to_str().unwrap().contains("zzmi") {
+                            data.require_admin = false;
+                            data.dll_init_delay = 500;
+                            data.close_delay = 20;
+                            ini.set("Loader", "require_admin", Some(data.require_admin.to_string()));
+                            ini.set("Loader", "delay", Some(data.close_delay.to_string()));
+                            ini.set("System", "dll_initialization_delay", Some(data.dll_init_delay.to_string()));
+                        }
+                    }
+                    let r = ini.write(&cfg);
+                    match r { Ok(_) => {} Err(_) => {} }
+                }
+                Err(_) => {}
+            }
+            data
+        } else { data }
+    } else { data }
 }
 
 #[cfg(target_os = "linux")]
@@ -873,6 +947,21 @@ fn compare_version(a: &str, b: &str) -> std::cmp::Ordering {
     let va = parse(a);
     let vb = parse(b);
     va.cmp(&vb)
+}
+
+#[cfg(target_os = "linux")]
+pub fn is_runner_lower(min_runner_versions: Vec<String>, runner_version: String) -> bool {
+    let idx = match runner_version.find("proton-") { Some(i) => i, None => return false };
+    let (left, right) = runner_version.split_at(idx);
+    let cand_ver = left.strip_suffix('-').unwrap_or(left).replace("-", ".");
+
+    for s in min_runner_versions {
+        let idx = match s.find("proton-") { Some(i) => i, None => continue };
+        let (l, r) = s.split_at(idx);
+        let ver = l.strip_suffix('-').unwrap_or(l).replace("-", ".");
+        if r == right && compare_version(cand_ver.as_str(), ver.as_str()).is_lt() { return true; }
+    }
+    false
 }
 
 #[allow(dead_code)]

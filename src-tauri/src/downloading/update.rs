@@ -6,8 +6,8 @@ use fischl::download::game::{Game, Kuro, Sophon};
 use fischl::utils::free_space::available;
 use tauri::{AppHandle, Emitter, Listener, Manager};
 use crate::utils::db_manager::{get_install_info_by_id, get_manifest_info_by_id, update_install_after_update_by_id};
-use crate::utils::{empty_dir, prevent_exit, run_async_command, send_notification, PathResolve};
-use crate::utils::repo_manager::{get_manifest, DiffGameFile, GameVersion};
+use crate::utils::{empty_dir, prevent_exit, run_async_command, send_notification, PathResolve, models::{DiffGameFile, GameVersion}};
+use crate::utils::repo_manager::{get_manifest};
 use crate::downloading::DownloadGamePayload;
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
@@ -54,7 +54,7 @@ pub fn register_update_handler(app: &AppHandle) {
                         if urls.is_empty() {
                             h5.dialog().message(format!("Could not find update for {inn}!\nRedownload latest version by pressing \"Redownload\" button.", inn = install.name.clone()).as_str()).title("TwintailLauncher")
                                 .kind(MessageDialogKind::Info)
-                                .buttons(MessageDialogButtons::OkCancelCustom("Redownload".to_string(), "I will figure it out".to_string()))
+                                .buttons(MessageDialogButtons::OkCancelCustom("Redownload".to_string(), "Cancel".to_string()))
                                 .show(move |action| {
                                     if action {
                                         let ip = Path::new(&install.directory).follow_symlink().unwrap();
@@ -83,7 +83,7 @@ pub fn register_update_handler(app: &AppHandle) {
                         if urls.is_empty() {
                             h5.dialog().message(format!("Could not find update for {inn}!\nRedownload latest version by pressing \"Redownload\" button.", inn = install.name.clone()).as_str()).title("TwintailLauncher")
                                 .kind(MessageDialogKind::Info)
-                                .buttons(MessageDialogButtons::OkCancelCustom("Redownload".to_string(), "I will figure it out".to_string()))
+                                .buttons(MessageDialogButtons::OkCancelCustom("Redownload".to_string(), "Cancel".to_string()))
                                 .show(move |action| {
                                     if action {
                                         let ip = Path::new(&install.directory).follow_symlink().unwrap();
@@ -147,7 +147,7 @@ pub fn register_update_handler(app: &AppHandle) {
                         if urls.is_empty() {
                             h5.dialog().message(format!("Could not find update for {inn}!\nRedownload latest version by pressing \"Redownload\" button.", inn = install.name.clone()).as_str()).title("TwintailLauncher")
                                 .kind(MessageDialogKind::Info)
-                                .buttons(MessageDialogButtons::OkCancelCustom("Redownload".to_string(), "I will figure it out".to_string()))
+                                .buttons(MessageDialogButtons::OkCancelCustom("Redownload".to_string(), "Cancel".to_string()))
                                 .show(move |action| {
                                     if action {
                                         let ip = Path::new(&install.directory).follow_symlink().unwrap();
