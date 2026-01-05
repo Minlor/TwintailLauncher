@@ -3,7 +3,7 @@ use std::path::Path;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_opener::OpenerExt;
 use crate::utils::{block_telemetry, download_or_update_fps_unlock, download_or_update_jadeite, download_or_update_xxmi, get_mi_path_from_game, send_notification, PathResolve};
-use crate::utils::db_manager::{get_install_info_by_id, get_installed_runner_info_by_version, get_manifest_info_by_id, get_settings, update_settings_default_dxvk_location, update_settings_default_fps_unlock_location, update_settings_default_game_location, update_settings_default_jadeite_location, update_settings_default_mangohud_config_location, update_settings_default_prefix_location, update_settings_default_runner_location, update_settings_default_xxmi_location, update_settings_hide_manifests, update_settings_launch_action, update_settings_third_party_repo_update};
+use crate::utils::db_manager::{get_install_info_by_id, get_installed_runner_info_by_version, get_manifest_info_by_id, get_settings, update_settings_default_dxvk_location, update_settings_default_fps_unlock_location, update_settings_default_game_location, update_settings_default_jadeite_location, update_settings_default_mangohud_config_location, update_settings_default_prefix_location, update_settings_default_runner_location, update_settings_default_xxmi_location, update_settings_download_speed_limit, update_settings_hide_manifests, update_settings_launch_action, update_settings_third_party_repo_update};
 use crate::utils::repo_manager::get_manifest;
 use tauri_plugin_notification::NotificationExt;
 
@@ -13,11 +13,21 @@ pub async fn list_settings(app: AppHandle) -> Option<String> {
 
     if settings.is_some() {
         let s = settings.unwrap();
+        // Ensure fischl's global limiter is synced with persisted settings.
+        fischl::utils::downloader::set_global_download_speed_limit_kib(s.download_speed_limit.max(0) as u64);
         let stringified = serde_json::to_string(&s).unwrap();
         Some(stringified)
     } else {
         None
     }
+}
+
+#[tauri::command]
+pub fn update_settings_download_speed_limit_cmd(app: AppHandle, speed_limit: i64) -> Option<bool> {
+    let clamped = speed_limit.max(0);
+    update_settings_download_speed_limit(&app, clamped);
+    fischl::utils::downloader::set_global_download_speed_limit_kib(clamped as u64);
+    Some(true)
 }
 
 #[tauri::command]

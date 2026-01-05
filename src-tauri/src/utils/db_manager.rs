@@ -128,6 +128,12 @@ pub async fn init_db(app: &AppHandle) {
             sql: r#"ALTER TABLE install ADD COLUMN xxmi_config TEXT DEFAULT '{"hunting_mode":0,"require_admin":true,"dll_init_delay":500,"close_delay":20,"show_warnings":0,"dump_shaders":false}' NOT NULL;"#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 20,
+            description: "alter_settings_table_download_speed_limit",
+            sql: r#"ALTER TABLE settings ADD COLUMN download_speed_limit integer DEFAULT 0 NOT NULL;"#,
+            kind: MigrationKind::Up,
+        },
     ];
 
     let mut migrations = add_migrations("db", migrationsl);
@@ -182,6 +188,7 @@ pub fn get_settings(app: &AppHandle) -> Option<GlobalSettings> {
             jadeite_path: rslt.get(0).unwrap().get("jadeite_path"),
             third_party_repo_updates: rslt.get(0).unwrap().get("third_party_repo_updates"),
             default_runner_prefix_path: rslt.get(0).unwrap().get("default_runner_prefix_path"),
+            download_speed_limit: rslt.get(0).unwrap().get("download_speed_limit"),
             launcher_action: rslt.get(0).unwrap().get("launcher_action"),
             hide_manifests: rslt.get(0).unwrap().get("hide_manifests"),
             default_runner_path: rslt.get(0).unwrap().get("default_runner_path"),
@@ -254,6 +261,15 @@ pub fn update_settings_default_runner_location(app: &AppHandle, path: String) {
         let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
 
         let query = query("UPDATE settings SET 'default_runner_path' = $1 WHERE id = 1").bind(path);
+        query.execute(&db).await.unwrap();
+    });
+}
+
+pub fn update_settings_download_speed_limit(app: &AppHandle, limit_kib_per_sec: i64) {
+    run_async_command(async {
+        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+
+        let query = query("UPDATE settings SET 'download_speed_limit' = $1 WHERE id = 1").bind(limit_kib_per_sec);
         query.execute(&db).await.unwrap();
     });
 }

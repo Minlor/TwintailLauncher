@@ -21,6 +21,7 @@ pub struct GlobalSettings {
     pub jadeite_path: String,
     pub third_party_repo_updates: i32,
     pub default_runner_prefix_path: String,
+    pub download_speed_limit: i64,
     pub launcher_action: String,
     pub hide_manifests: bool,
     pub default_runner_path: String,

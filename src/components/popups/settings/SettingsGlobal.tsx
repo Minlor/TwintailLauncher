@@ -3,6 +3,7 @@ import {POPUPS} from "../POPUPS.ts";
 import CheckBox from "../../common/CheckBox.tsx";
 import FolderInput from "../../common/FolderInput.tsx";
 import SelectMenu from "../../common/SelectMenu.tsx";
+import NumberInput from "../../common/NumberInput.tsx";
 import {invoke} from "@tauri-apps/api/core";
 import TTLVersion from "../../common/TTLVersion.tsx";
 import {useState} from "react";
@@ -19,6 +20,7 @@ export default function SettingsGlobal({setOpenPopup, settings, fetchSettings}: 
             <div className="w-full overflow-y-auto overflow-x-hidden hover-scrollbar pr-4 -mr-4 flex-1">
                 <div className="p-6 flex flex-col gap-2">
                     <CheckBox enabled={Boolean(settings.third_party_repo_updates)} name={"Auto update 3rd party repositories"} fetchSettings={fetchSettings} id={"third_party_repo_updates"} helpText={"Allow launcher to automatically update 3rd party repositories and their manifests."}/>
+                    <NumberInput id={"download_speed_limit"} name={"Download speed limit"} value={Number(settings.download_speed_limit ?? 0)} min={0} suffix={"KiB/s"} helpText={"Limit total download speed for all launcher downloads. Set to 0 for unlimited."} fetchSettings={fetchSettings}/>
                     <FolderInput name={"Default game install location"} clearable={true} value={`${settings.default_game_path}`} folder={true} id={"default_game_path"} fetchSettings={fetchSettings} helpText={"Default base directory where all games will be installed."}/>
                     <FolderInput name={"XXMI location"} clearable={true} folder={true} value={`${settings.xxmi_path}`} id={"default_xxmi_path"} fetchSettings={fetchSettings} helpText={"Location where all XXMI modding tool files will be stored."}/>
                     <FolderInput name={"FPS Unlocker location"} clearable={true} folder={true} value={`${settings.fps_unlock_path}`} id={"default_fps_unlock_path"} fetchSettings={fetchSettings} helpText={"Location where fps unlocker is stored."}/>
