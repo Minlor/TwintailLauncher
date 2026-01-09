@@ -156,16 +156,12 @@ pub fn send_notification(app: &AppHandle, body: &str, icon: Option<&str>) {
 pub fn prevent_exit(app: &AppHandle, val: bool) {
     let blocks = app.state::<Mutex<ActionBlocks>>();
     let mut state = blocks.lock().unwrap();
-    match val {
-        true => {
-            state.action_exit = true;
-            drop(state);
-        }
-        false => {
-            state.action_exit = false;
-            drop(state);
-        }
+    if val {
+        state.prevent_exit_count = state.prevent_exit_count.saturating_add(1);
+    } else {
+        state.prevent_exit_count = state.prevent_exit_count.saturating_sub(1);
     }
+    state.action_exit = state.prevent_exit_count > 0;
 }
 
 #[cfg(target_os = "linux")]
@@ -1010,6 +1006,7 @@ pub fn get_steam_appid() -> u32 {
 
 pub struct ActionBlocks {
     pub action_exit: bool,
+    pub prevent_exit_count: usize,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

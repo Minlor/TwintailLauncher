@@ -4,6 +4,7 @@ pub mod preload;
 pub mod repair;
 pub mod update;
 pub mod download;
+pub mod queue;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DownloadGamePayload {

@@ -10,6 +10,8 @@ import FpsUnlockSettings from "../popups/settings/FpsUnlockSettings.tsx";
 import MangoHudSettings from "../popups/settings/MangoHudSettings.tsx";
 import RunnerManager from "../popups/runnermanager/RunnerManager.tsx";
 import XXMISettings from "../popups/settings/XXMISettings.tsx";
+import DownloadsModal from "../popups/downloads/DownloadsModal";
+import type { DownloadJobProgress, DownloadQueueStatePayload } from "../../types/downloadQueue";
 
 export type PopupOverlayProps = {
   openPopup: POPUPS;
@@ -57,6 +59,10 @@ export type PopupOverlayProps = {
 
   // Delete confirmation
   installs: any[];
+
+  // Downloads
+  downloadQueueState: DownloadQueueStatePayload | null;
+  downloadProgressByJobId: Record<string, DownloadJobProgress>;
 };
 
 export default function PopupOverlay(props: PopupOverlayProps) {
@@ -90,6 +96,8 @@ export default function PopupOverlay(props: PopupOverlayProps) {
     installGameSwitches,
     installGameFps,
     installs,
+    downloadQueueState,
+    downloadProgressByJobId,
   } = props;
 
   // ESC to close and scroll lock while a popup is open
@@ -163,6 +171,16 @@ export default function PopupOverlay(props: PopupOverlayProps) {
           openAsExisting={openDownloadAsExisting}
         />
       )}
+
+      {openPopup == POPUPS.DOWNLOADS && (
+        <DownloadsModal
+          setOpenPopup={setOpenPopup}
+          queue={downloadQueueState}
+          progressByJobId={downloadProgressByJobId}
+          installs={installs}
+        />
+      )}
+
       {openPopup == POPUPS.INSTALLSETTINGS && (
         <SettingsInstall
           games={gamesinfo}

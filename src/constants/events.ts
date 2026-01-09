@@ -1,4 +1,5 @@
 export const Events = [
+  'download_queue_state',
   'download_progress',
   'download_complete',
   'download_paused',

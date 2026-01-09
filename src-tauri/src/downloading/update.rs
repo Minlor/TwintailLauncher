@@ -10,6 +10,8 @@ use crate::utils::{empty_dir, prevent_exit, run_async_command, send_notification
 use crate::utils::repo_manager::{get_manifest};
 use crate::downloading::DownloadGamePayload;
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+use crate::DownloadState;
+use crate::downloading::queue::{QueueJobKind, QueueJobOutcome};
 
 #[cfg(target_os = "linux")]
 use crate::utils::patch_aki;
@@ -17,37 +19,71 @@ use crate::utils::patch_aki;
 pub fn register_update_handler(app: &AppHandle) {
     let a = app.clone();
     app.listen("start_game_update", move |event| {
-        let h5 = a.clone();
-        std::thread::spawn(move || {
-            let payload: DownloadGamePayload = serde_json::from_str(event.payload()).unwrap();
-            let install = get_install_info_by_id(&h5, payload.install).unwrap(); // Should exist by now, if not we FUCKED UP
-            let gid = get_manifest_info_by_id(&h5, install.manifest_id).unwrap();
+        let payload: DownloadGamePayload = serde_json::from_str(event.payload()).unwrap();
+        let state = a.state::<DownloadState>();
+        let q = state.queue.lock().unwrap().clone();
+        if let Some(queue) = q {
+            queue.enqueue(QueueJobKind::GameUpdate, payload);
+        } else {
+            let h5 = a.clone();
+            std::thread::spawn(move || {
+                let job_id = format!(
+                    "direct_update_{}",
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_millis()
+                );
+                let _ = run_game_update(h5, payload, job_id);
+            });
+        }
+    });
+}
 
-            let mm = get_manifest(&h5, gid.filename);
-            if let Some(gm) = mm {
-                let lv = gm.latest_version.clone();
-                let version = gm.game_versions.iter().filter(|e| e.metadata.version == lv).collect::<Vec<&GameVersion>>();
-                let picked = version.get(0).unwrap();
-                let tmp = Arc::new(h5.clone());
-                let vn = picked.metadata.versioned_name.clone();
-                let vc = picked.metadata.version.clone();
-                let ig = picked.assets.game_icon.clone();
-                let gb = picked.assets.game_background.clone();
-                let gbiz = gm.biz.clone();
+pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: String) -> QueueJobOutcome {
+    let job_id = Arc::new(job_id);
+    let install = match get_install_info_by_id(&h5, payload.install) {
+        Some(v) => v,
+        None => return QueueJobOutcome::Failed,
+    };
+    let gid = match get_manifest_info_by_id(&h5, install.manifest_id) {
+        Some(v) => v,
+        None => return QueueJobOutcome::Failed,
+    };
 
-                let instn = Arc::new(install.name.clone());
-                let dlpayload = Arc::new(Mutex::new(HashMap::new()));
+    let mm = get_manifest(&h5, gid.filename);
+    if let Some(gm) = mm {
+        let lv = gm.latest_version.clone();
+        let version = gm
+            .game_versions
+            .iter()
+            .filter(|e| e.metadata.version == lv)
+            .collect::<Vec<&GameVersion>>();
+        let picked = match version.get(0) {
+            Some(v) => *v,
+            None => return QueueJobOutcome::Failed,
+        };
+        let tmp = Arc::new(h5.clone());
+        let vn = picked.metadata.versioned_name.clone();
+        let vc = picked.metadata.version.clone();
+        let ig = picked.assets.game_icon.clone();
+        let gb = picked.assets.game_background.clone();
+        let gbiz = gm.biz.clone();
 
-                let mut dlp = dlpayload.lock().unwrap();
-                dlp.insert("name", install.name.clone());
-                dlp.insert("progress", "0".to_string());
-                dlp.insert("total", "1000".to_string());
+        let instn = Arc::new(install.name.clone());
+        let dlpayload = Arc::new(Mutex::new(HashMap::new()));
 
-                h5.emit("update_progress", dlp.clone()).unwrap();
-                drop(dlp);
-                prevent_exit(&h5, true);
+        let mut dlp = dlpayload.lock().unwrap();
+        dlp.insert("job_id", job_id.to_string());
+        dlp.insert("name", install.name.clone());
+        dlp.insert("progress", "0".to_string());
+        dlp.insert("total", "1000".to_string());
 
-                match picked.metadata.download_mode.as_str() {
+        h5.emit("update_progress", dlp.clone()).unwrap();
+        drop(dlp);
+        prevent_exit(&h5, true);
+
+        match picked.metadata.download_mode.as_str() {
                     // Generic zipped mode, Variety per game
                     "DOWNLOAD_MODE_FILE" => {
                         let urls = picked.game.diff.iter().filter(|e| e.original_version.as_str() == install.version.clone().as_str()).collect::<Vec<&DiffGameFile>>();
@@ -117,12 +153,15 @@ pub fn register_update_handler(app: &AppHandle) {
                                             let dlpayload = dlpayload.clone();
                                             let tmp = tmp.clone();
                                             let instn = instn.clone();
+                                            let job_id = job_id.clone();
                                             move |current, total, speed| {
                                                 let mut dlp = dlpayload.lock().unwrap();
+                                                dlp.insert("job_id", job_id.to_string());
                                                 dlp.insert("name", instn.to_string());
                                                 dlp.insert("progress", current.to_string());
                                                 dlp.insert("total", total.to_string());
                                                 dlp.insert("speed", speed.to_string());
+                                                dlp.insert("disk", speed.to_string());
                                                 tmp.emit("update_progress", dlp.clone()).unwrap();
                                                 drop(dlp);
                                             }
@@ -176,12 +215,15 @@ pub fn register_update_handler(app: &AppHandle) {
                                 let rslt = run_async_command(async {
                                     <Game as Kuro>::patch(manifest.file_url.to_owned(), manifest.file_hash.clone(), picked.metadata.res_list_url.clone(), install.directory.clone(), is_preload, {
                                         let dlpayload = dlpayload.clone();
+                                        let job_id = job_id.clone();
                                         move |current: u64, total: u64, speed: u64| {
                                             let mut dlp = dlpayload.lock().unwrap();
+                                            dlp.insert("job_id", job_id.to_string());
                                             dlp.insert("name", instn.to_string());
                                             dlp.insert("progress", current.to_string());
                                             dlp.insert("total", total.to_string());
                                             dlp.insert("speed", speed.to_string());
+                                            dlp.insert("disk", speed.to_string());
                                             tmp.emit("update_progress", dlp.clone()).unwrap();
                                             drop(dlp);
                                         }
@@ -208,7 +250,9 @@ pub fn register_update_handler(app: &AppHandle) {
                     // Fallback mode
                     _ => {}
                 }
-            } else { eprintln!("Failed to update game!"); }
-        });
-    });
+        QueueJobOutcome::Completed
+    } else {
+        eprintln!("Failed to update game!");
+        QueueJobOutcome::Failed
+    }
 }

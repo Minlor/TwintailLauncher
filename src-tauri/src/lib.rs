@@ -3,7 +3,7 @@ extern crate core;
 use std::sync::{Mutex, Arc};
 use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
-use tauri::{Emitter, Manager, RunEvent, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
 use crate::commands::install::{add_install, game_launch, get_download_sizes, get_resume_states, get_install_by_id, list_installs, list_installs_by_manifest_id, remove_install, update_install_dxvk_path, update_install_dxvk_version, update_install_env_vars, update_install_fps_value, update_install_game_path, update_install_launch_args, update_install_launch_cmd, update_install_pre_launch_cmd, update_install_prefix_path, update_install_runner_path, update_install_runner_version, update_install_skip_hash_valid, update_install_skip_version_updates, update_install_use_fps_unlock, update_install_use_jadeite, update_install_use_xxmi, update_install_use_gamemode, update_install_use_mangohud, update_install_mangohud_config_path, add_shortcut, remove_shortcut, update_install_xxmi_config, pause_game_download};
 use crate::commands::manifest::{get_manifest_by_filename, get_manifest_by_id, list_game_manifests, get_game_manifest_by_filename, list_manifests_by_repository_id, update_manifest_enabled, get_game_manifest_by_manifest_id, list_compatibility_manifests, get_compatibility_manifest_by_manifest_id};
 use crate::commands::repository::{list_repositories, remove_repository, add_repository, get_repository};
@@ -12,6 +12,7 @@ use crate::downloading::download::register_download_handler;
 use crate::downloading::preload::register_preload_handler;
 use crate::downloading::repair::register_repair_handler;
 use crate::downloading::update::register_update_handler;
+use crate::downloading::queue::{start_download_queue_worker, QueueJob, QueueJobKind, QueueJobOutcome};
 use crate::utils::db_manager::{init_db, DbInstances};
 use crate::utils::repo_manager::{load_manifests, ManifestLoader, ManifestLoaders};
 use crate::utils::{args, notify_update, register_listeners, run_async_command, setup_or_fix_default_paths, sync_install_backgrounds, ActionBlocks, PathResolve};
@@ -29,6 +30,7 @@ mod downloading;
 
 pub struct DownloadState {
     pub tokens: Mutex<HashMap<String, Arc<AtomicBool>>>,
+    pub queue: Mutex<Option<crate::downloading::queue::DownloadQueueHandle>>,
 }
 
 #[derive(Clone, serde::Serialize)]
@@ -46,9 +48,9 @@ pub fn run() {
             // Raise file descriptor limit for the app so downloads go smoothly
             utils::raise_fd_limit(999999);
             tauri::Builder::default()
-                .manage(Mutex::new(ActionBlocks { action_exit: false }))
+                .manage(Mutex::new(ActionBlocks { action_exit: false, prevent_exit_count: 0 }))
                 .manage(ManifestLoaders {game: ManifestLoader::default(), runner: RunnerLoader::default()})
-                .manage(DownloadState { tokens: Mutex::new(HashMap::new()) })
+                .manage(DownloadState { tokens: Mutex::new(HashMap::new()), queue: Mutex::new(None) })
                 .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| { app.emit("single-instance", Payload { args: argv, cwd }).unwrap(); }))
                 .plugin(tauri_plugin_notification::init())
                 .plugin(tauri_plugin_dialog::init())
@@ -57,8 +59,8 @@ pub fn run() {
         #[cfg(target_os = "windows")]
         {
             tauri::Builder::default()
-                .manage(Mutex::new(ActionBlocks { action_exit: false }))
-                .manage(DownloadState { tokens: Mutex::new(HashMap::new()) })
+                .manage(Mutex::new(ActionBlocks { action_exit: false, prevent_exit_count: 0 }))
+                .manage(DownloadState { tokens: Mutex::new(HashMap::new()), queue: Mutex::new(None) })
                 .manage(ManifestLoaders {game: ManifestLoader::default()})
                 .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| { app.emit("single-instance", Payload { args: argv, cwd }).unwrap(); }))
                 .plugin(tauri_plugin_notification::init())
@@ -78,6 +80,23 @@ pub fn run() {
             {
                 notify_update(handle);
                 run_async_command(async { init_db(handle).await; });
+
+                // Start download queue worker (limits concurrent download-like jobs)
+                fn run_queued_job(app: AppHandle, job: QueueJob) -> QueueJobOutcome {
+                    match job.kind {
+                        QueueJobKind::GameDownload => crate::downloading::download::run_game_download(app, job.payload, job.id),
+                        QueueJobKind::GameUpdate => crate::downloading::update::run_game_update(app, job.payload, job.id),
+                        QueueJobKind::GamePreload => crate::downloading::preload::run_game_preload(app, job.payload, job.id),
+                        QueueJobKind::GameRepair => crate::downloading::repair::run_game_repair(app, job.payload, job.id),
+                    }
+                }
+
+                let queue_handle = start_download_queue_worker(handle.clone(), 3, run_queued_job);
+                {
+                    let state = handle.state::<DownloadState>();
+                    let mut q = state.queue.lock().unwrap();
+                    *q = Some(queue_handle);
+                }
 
                 load_manifests(handle);
                 init_tray(handle).unwrap();

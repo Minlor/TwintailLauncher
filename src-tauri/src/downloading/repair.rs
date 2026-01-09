@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use fischl::download::game::{Game, Kuro, Sophon};
-use tauri::{AppHandle, Emitter, Listener};
+use tauri::{AppHandle, Emitter, Listener, Manager};
 use crate::utils::db_manager::{get_install_info_by_id, get_manifest_info_by_id};
 use crate::utils::{prevent_exit, run_async_command, send_notification, models::{FullGameFile, GameVersion}};
 use crate::utils::repo_manager::{get_manifest};
 use crate::downloading::DownloadGamePayload;
+use crate::DownloadState;
+use crate::downloading::queue::{QueueJobKind, QueueJobOutcome};
 
 #[cfg(target_os = "linux")]
 use crate::utils::{PathResolve, patch_aki, empty_dir};
@@ -13,39 +15,79 @@ use crate::utils::{PathResolve, patch_aki, empty_dir};
 pub fn register_repair_handler(app: &AppHandle) {
     let a = app.clone();
     app.listen("start_game_repair", move |event| {
-        let h5 = a.clone();
-        std::thread::spawn(move || {
-            let payload: DownloadGamePayload = serde_json::from_str(event.payload()).unwrap();
-            let install = get_install_info_by_id(&h5, payload.install); // Should exist by now, if not we FUCKED UP
-            let lm = get_manifest_info_by_id(&h5, install.clone().unwrap().manifest_id.clone()).unwrap();
-            let gm = get_manifest(&h5, lm.filename).unwrap();
+        let payload: DownloadGamePayload = serde_json::from_str(event.payload()).unwrap();
+        let state = a.state::<DownloadState>();
+        let q = state.queue.lock().unwrap().clone();
+        if let Some(queue) = q {
+            queue.enqueue(QueueJobKind::GameRepair, payload);
+        } else {
+            let h5 = a.clone();
+            std::thread::spawn(move || {
+                let job_id = format!(
+                    "direct_repair_{}",
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_millis()
+                );
+                let _ = run_game_repair(h5, payload, job_id);
+            });
+        }
+    });
+}
 
-            if install.is_some() {
-                let i = install.unwrap();
-                let version = gm.game_versions.iter().filter(|e| e.metadata.version == i.version).collect::<Vec<&GameVersion>>();
-                let picked = version.get(0).unwrap();
+pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: String) -> QueueJobOutcome {
+    let job_id = Arc::new(job_id);
+    let install = get_install_info_by_id(&h5, payload.install);
+    if install.is_none() {
+        eprintln!("Failed to find installation for repair!");
+        return QueueJobOutcome::Failed;
+    }
 
-                let tmp = Arc::new(h5.clone());
-                let instn = Arc::new(i.name.clone());
-                let dlpayload = Arc::new(Mutex::new(HashMap::new()));
+    let i = install.unwrap();
+    let lm = match get_manifest_info_by_id(&h5, i.manifest_id.clone()) {
+        Some(v) => v,
+        None => return QueueJobOutcome::Failed,
+    };
+    let gm = match get_manifest(&h5, lm.filename) {
+        Some(v) => v,
+        None => return QueueJobOutcome::Failed,
+    };
 
-                let mut dlp = dlpayload.lock().unwrap();
-                dlp.insert("name", i.name.clone());
-                dlp.insert("progress", "0".to_string());
-                dlp.insert("total", "1000".to_string());
+    let version = gm
+        .game_versions
+        .iter()
+        .filter(|e| e.metadata.version == i.version)
+        .collect::<Vec<&GameVersion>>();
+    let picked = match version.get(0) {
+        Some(v) => *v,
+        None => return QueueJobOutcome::Failed,
+    };
 
-                h5.emit("repair_progress", dlp.clone()).unwrap();
-                drop(dlp);
-                prevent_exit(&h5, true);
+    let tmp = Arc::new(h5.clone());
+    let instn = Arc::new(i.name.clone());
+    let dlpayload = Arc::new(Mutex::new(HashMap::new()));
 
-                #[cfg(target_os = "linux")]
-                {
-                    // Set prefix in repair state by emptying the directory
-                    let prefix_path = std::path::Path::new(&i.runner_prefix).follow_symlink().unwrap();
-                    if prefix_path.exists() && !gm.extra.compat_overrides.install_to_prefix { empty_dir(prefix_path).unwrap(); }
-                }
+    let mut dlp = dlpayload.lock().unwrap();
+    dlp.insert("job_id", job_id.to_string());
+    dlp.insert("name", i.name.clone());
+    dlp.insert("progress", "0".to_string());
+    dlp.insert("total", "1000".to_string());
 
-                match picked.metadata.download_mode.as_str() {
+    h5.emit("repair_progress", dlp.clone()).unwrap();
+    drop(dlp);
+    prevent_exit(&h5, true);
+
+    #[cfg(target_os = "linux")]
+    {
+        // Set prefix in repair state by emptying the directory
+        let prefix_path = std::path::Path::new(&i.runner_prefix).follow_symlink().unwrap();
+        if prefix_path.exists() && !gm.extra.compat_overrides.install_to_prefix {
+            empty_dir(prefix_path).unwrap();
+        }
+    }
+
+    match picked.metadata.download_mode.as_str() {
                     // Generic zipped mode, Variety per game
                     "DOWNLOAD_MODE_FILE" => {
                         h5.emit("repair_complete", ()).unwrap();
@@ -60,14 +102,17 @@ pub fn register_repair_handler(app: &AppHandle) {
                                     let dlpayload = dlpayload.clone();
                                     let instn = instn.clone();
                                     let tmp = tmp.clone();
+                                    let job_id = job_id.clone();
                                     move |current, total, speed| {
                                         let mut dlp = dlpayload.lock().unwrap();
                                         let instn = instn.clone();
                                         let tmp = tmp.clone();
+                                        dlp.insert("job_id", job_id.to_string());
                                         dlp.insert("name", instn.to_string());
                                         dlp.insert("progress", current.to_string());
                                         dlp.insert("total", total.to_string());
                                         dlp.insert("speed", speed.to_string());
+                                        dlp.insert("disk", speed.to_string());
                                         tmp.emit("repair_progress", dlp.clone()).unwrap();
                                         drop(dlp);
                                     }
@@ -86,12 +131,15 @@ pub fn register_repair_handler(app: &AppHandle) {
                         let rslt = run_async_command(async {
                             <Game as Kuro>::repair_game(manifest.to_owned(), picked.metadata.res_list_url.clone(), i.directory.clone(), false, {
                                 let dlpayload = dlpayload.clone();
+                                let job_id = job_id.clone();
                                 move |current, total, speed| {
                                     let mut dlp = dlpayload.lock().unwrap();
+                                    dlp.insert("job_id", job_id.to_string());
                                     dlp.insert("name", instn.to_string());
                                     dlp.insert("progress", current.to_string());
                                     dlp.insert("total", total.to_string());
                                     dlp.insert("speed", speed.to_string());
+                                    dlp.insert("disk", speed.to_string());
                                     tmp.emit("repair_progress", dlp.clone()).unwrap();
                                     drop(dlp);
                                 }
@@ -111,7 +159,6 @@ pub fn register_repair_handler(app: &AppHandle) {
                     // Fallback mode
                     _ => {}
                 }
-            } else { eprintln!("Failed to find installation for repair!"); }
-        });
-    });
+
+    QueueJobOutcome::Completed
 }

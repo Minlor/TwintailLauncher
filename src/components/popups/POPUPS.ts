@@ -4,6 +4,7 @@ export enum POPUPS {
     ADDREPO = 'popups/addrepo',
     SETTINGS = 'popups/settings',
     DOWNLOADGAME = 'popups/downloadgame',
+    DOWNLOADS = 'popups/downloads',
     INSTALLSETTINGS = 'popups/installationsettings',
     INSTALLDELETECONFIRMATION = 'popups/deleteinstall',
     FPSUNLOCKERSETTINGS = 'popups/fpssettings',

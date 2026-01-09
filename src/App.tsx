@@ -12,10 +12,11 @@ import { determineButtonType } from "./utils/determineButtonType";
 import BackgroundLayer from "./components/layout/BackgroundLayer";
 import ManifestsPanel from "./components/layout/ManifestsPanel";
 import ActionBar from "./components/layout/ActionBar";
-import DownloadProgress from "./components/layout/DownloadProgress";
 import PopupOverlay from "./components/layout/PopupOverlay";
 import { startInitialLoad } from "./services/loader";
 import SidebarRunners from "./components/sidebar/SidebarRunners.tsx";
+import SidebarDownloads from "./components/sidebar/SidebarDownloads";
+import { toPercent } from "./utils/progress";
 
 
 export default class App extends React.Component<any, any> {
@@ -101,19 +102,34 @@ export default class App extends React.Component<any, any> {
             progressSpeed: "",
             progressPretty: 0,
             progressPrettyTotal: 0,
+            downloadQueueState: null,
+            downloadProgressByJobId: {},
             resumeStates: {},
             openDownloadAsExisting: false
         }
     }
 
     render() {
+        const isCurrentInstallDownloading =
+            (this.state.downloadQueueState?.running || []).some((j: any) => j.installId === this.state.currentInstall);
+
+        const runningJobs = this.state.downloadQueueState?.running || [];
+        const queuedJobs = this.state.downloadQueueState?.queued || [];
+        const hasDownloads = runningJobs.length + queuedJobs.length > 0;
+
+        const primaryRunningJobId = runningJobs.length > 0 ? runningJobs[0].id : undefined;
+        const primaryProgress = primaryRunningJobId ? this.state.downloadProgressByJobId?.[primaryRunningJobId] : undefined;
+        const downloadsPercent =
+            typeof primaryProgress?.progress === "number" && typeof primaryProgress?.total === "number" && primaryProgress.total > 0
+                ? Math.max(0, Math.min(100, toPercent(primaryProgress.progress, primaryProgress.total)))
+                : undefined;
         const buttonType = determineButtonType({
             currentInstall: this.state.currentInstall,
             installSettings: this.state.installSettings,
             gameManifest: this.state.gameManifest,
             preloadAvailable: this.state.preloadAvailable,
             resumeStates: this.state.resumeStates,
-            isDownloading: !this.state.hideProgressBar,
+            isDownloading: isCurrentInstallDownloading,
         });
 
         return (
@@ -235,6 +251,14 @@ export default class App extends React.Component<any, any> {
                     </div>
                     <div className="flex flex-col gap-4 flex-shrink overflow-visible scrollbar-none animate-slideInLeft mt-auto" style={{ animationDelay: '900ms' }}>
                         <hr className="text-white/20 bg-white/20 p-0 animate-slideInLeft" style={{borderColor: "rgb(255 255 255 / 0.2)", animationDelay: '950ms'}}/>
+                        <div className="animate-slideInLeft" style={{ animationDelay: '975ms' }}>
+                            <SidebarDownloads
+                                popup={this.state.openPopup}
+                                setOpenPopup={this.setOpenPopup}
+                                hasDownloads={hasDownloads}
+                                progressPercent={downloadsPercent}
+                            />
+                        </div>
                         {(window.navigator.platform.includes("Linux")) && (
                             <div className="animate-slideInLeft" style={{ animationDelay: '1000ms' }}>
                                 <SidebarRunners popup={this.state.openPopup} setOpenPopup={this.setOpenPopup} />
@@ -272,15 +296,6 @@ export default class App extends React.Component<any, any> {
                         });
                     }}
                 />
-                <DownloadProgress
-                    hidden={this.state.hideProgressBar}
-                    name={this.state.progressName}
-                    percentText={this.state.progressPercent}
-                    speed={this.state.progressSpeed}
-                    pretty={this.state.progressPretty}
-                    prettyTotal={this.state.progressPrettyTotal}
-                    progressVal={this.state.progressVal}
-                />
                 <PopupOverlay
                     openPopup={this.state.openPopup}
                     setOpenPopup={this.setOpenPopup}
@@ -311,6 +326,8 @@ export default class App extends React.Component<any, any> {
                     installGameSwitches={this.state.installGameSwitches}
                     installGameFps={this.state.installGameFps}
                     installs={this.state.installs}
+                    downloadQueueState={this.state.downloadQueueState}
+                    downloadProgressByJobId={this.state.downloadProgressByJobId}
                 />
             </main>
             {this.state.showLoadingOverlay && (
@@ -338,7 +355,7 @@ export default class App extends React.Component<any, any> {
             setProgress: (progress, message) => this.setState({ loadingProgress: progress, loadingMessage: message }),
             completeInitialLoading: () => this.completeInitialLoading(),
             pushInstalls: this.pushInstalls,
-            applyEventState: (ns) => this.setState(() => ({ ...ns })),
+            applyEventState: (ns) => this.setState(ns as any),
             getCurrentInstall: () => this.state.currentInstall,
             fetchInstallResumeStates: this.fetchInstallResumeStates,
         });

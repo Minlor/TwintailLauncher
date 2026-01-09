@@ -23,7 +23,7 @@ export interface LoaderOptions {
   completeInitialLoading: () => void;
   // Event state wiring
   pushInstalls: () => void;
-  applyEventState: (ns: Record<string, any>) => void;
+  applyEventState: (ns: Record<string, any> | ((prev: any) => Record<string, any>)) => void;
   getCurrentInstall: () => string;
   fetchInstallResumeStates: (install: string) => void;
 }

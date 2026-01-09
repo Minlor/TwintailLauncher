@@ -1,13 +1,31 @@
 import { toPercent, formatBytes } from '../utils/progress.ts';
 
+export type EventStateUpdate = Record<string, any> | ((prev: any) => Record<string, any>);
+
 export function registerEvents(
   eventType: string, 
   event: any, 
   pushInstalls: () => void, 
   getCurrentInstall: () => string, 
   fetchInstallResumeStates: (install: string) => void
-) {
+) : EventStateUpdate | undefined {
   switch (eventType) {
+    case 'download_queue_state': {
+      const running = (event?.payload?.running || []) as any[];
+      const queued = (event?.payload?.queued || []) as any[];
+      const hasWork = running.length > 0 || queued.length > 0;
+      return {
+        downloadQueueState: event.payload,
+        // keep legacy fields hidden (UI is replaced)
+        hideProgressBar: true,
+        disableInstallEdit: hasWork,
+        disableRun: hasWork,
+        disableUpdate: hasWork,
+        disableDownload: hasWork,
+        disablePreload: hasWork,
+        disableResume: hasWork,
+      };
+    }
     case 'move_complete':
     case 'download_complete':
     case 'update_complete':
@@ -20,22 +38,7 @@ export function registerEvents(
       if (currentInstall) {
         fetchInstallResumeStates(currentInstall);
       }
-      
-      return {
-        hideProgressBar: true,
-        disableInstallEdit: false,
-        disableRun: false,
-        disableUpdate: false,
-        disableDownload: false,
-        disablePreload: false,
-        disableResume: false,
-        progressName: `?`,
-        progressVal: 0,
-        progressPercent: `0%`,
-        progressSpeed: "",
-        progressPretty: 0,
-        progressPrettyTotal: 0,
-      };
+      return undefined;
     }
     case 'move_progress': {
       return {
@@ -55,20 +58,20 @@ export function registerEvents(
       };
     }
     case 'download_progress': {
-      return {
-        hideProgressBar: false,
-        disableInstallEdit: true,
-        disableRun: true,
-        disableUpdate: true,
-        disableDownload: true,
-        disablePreload: true,
-        disableResume: true,
-        progressName: `Downloading "${event.payload.name}"`,
-        progressVal: Math.round(toPercent(event.payload.progress, event.payload.total)),
-        progressPercent: `${toPercent(event.payload.progress, event.payload.total).toFixed(2)}%`,
-        progressSpeed: event.payload.speed ? `${formatBytes(event.payload.speed)}/s` : "",
-        progressPretty: `${formatBytes(event.payload.progress)}`,
-        progressPrettyTotal: `${formatBytes(event.payload.total)}`,
+      const jobId = event?.payload?.job_id ?? event?.payload?.jobId;
+      if (!jobId) return undefined;
+      return (prev) => {
+        const next = { ...(prev?.downloadProgressByJobId || {}) };
+        next[jobId] = {
+          jobId,
+          name: event.payload.name,
+          progress: parseInt(event.payload.progress),
+          total: parseInt(event.payload.total),
+          speed: event.payload.speed ? parseInt(event.payload.speed) : undefined,
+          disk: event.payload.disk ? parseInt(event.payload.disk) : undefined,
+          eventType,
+        };
+        return { downloadProgressByJobId: next };
       };
     }
     case 'download_paused': {
@@ -76,71 +79,57 @@ export function registerEvents(
       if (currentInstall) {
         fetchInstallResumeStates(currentInstall);
       }
-      return {
-        hideProgressBar: true,
-        disableInstallEdit: false,
-        disableRun: true,
-        disableUpdate: true,
-        disableDownload: true,
-        disablePreload: true,
-        disableResume: false,
-        progressName: `Paused "${event.payload.name}"`,
-        progressVal: 0,
-        progressPercent: `0%`,
-        progressSpeed: "",
-        progressPretty: 0,
-        progressPrettyTotal: 0,
-      };
+      return undefined;
     }
     case 'update_progress': {
-      return {
-        hideProgressBar: false,
-        disableInstallEdit: true,
-        disableRun: true,
-        disableUpdate: true,
-        disableDownload: true,
-        disablePreload: true,
-        disableResume: true,
-        progressName: `Updating "${event.payload.name}"`,
-        progressVal: Math.round(toPercent(event.payload.progress, event.payload.total)),
-        progressPercent: `${toPercent(event.payload.progress, event.payload.total).toFixed(2)}%`,
-        progressSpeed: event.payload.speed ? `${formatBytes(event.payload.speed)}/s` : "",
-        progressPretty: `${formatBytes(event.payload.progress)}`,
-        progressPrettyTotal: `${formatBytes(event.payload.total)}`,
+      const jobId = event?.payload?.job_id ?? event?.payload?.jobId;
+      if (!jobId) return undefined;
+      return (prev) => {
+        const next = { ...(prev?.downloadProgressByJobId || {}) };
+        next[jobId] = {
+          jobId,
+          name: event.payload.name,
+          progress: parseInt(event.payload.progress),
+          total: parseInt(event.payload.total),
+          speed: event.payload.speed ? parseInt(event.payload.speed) : undefined,
+          disk: event.payload.disk ? parseInt(event.payload.disk) : undefined,
+          eventType,
+        };
+        return { downloadProgressByJobId: next };
       };
     }
     case 'repair_progress': {
-      return {
-        hideProgressBar: false,
-        disableInstallEdit: true,
-        disableRun: true,
-        disableUpdate: true,
-        disableDownload: true,
-        disablePreload: true,
-        disableResume: true,
-        progressName: `Repairing "${event.payload.name}"`,
-        progressVal: Math.round(toPercent(event.payload.progress, event.payload.total)),
-        progressPercent: `${toPercent(event.payload.progress, event.payload.total).toFixed(2)}%`,
-        progressSpeed: event.payload.speed ? `${formatBytes(event.payload.speed)}/s` : "",
-        progressPretty: `${formatBytes(event.payload.progress)}`,
-        progressPrettyTotal: `${formatBytes(event.payload.total)}`,
+      const jobId = event?.payload?.job_id ?? event?.payload?.jobId;
+      if (!jobId) return undefined;
+      return (prev) => {
+        const next = { ...(prev?.downloadProgressByJobId || {}) };
+        next[jobId] = {
+          jobId,
+          name: event.payload.name,
+          progress: parseInt(event.payload.progress),
+          total: parseInt(event.payload.total),
+          speed: event.payload.speed ? parseInt(event.payload.speed) : undefined,
+          disk: event.payload.disk ? parseInt(event.payload.disk) : undefined,
+          eventType,
+        };
+        return { downloadProgressByJobId: next };
       };
     }
     case 'preload_progress': {
-      return {
-        hideProgressBar: false,
-        disableInstallEdit: true,
-        disableRun: true,
-        disableUpdate: true,
-        disableDownload: true,
-        disablePreload: true,
-        disableResume: true,
-        progressName: `Predownloading "${event.payload.name}"`,
-        progressVal: Math.round(toPercent(event.payload.progress, event.payload.total)),
-        progressPercent: `${toPercent(event.payload.progress, event.payload.total).toFixed(2)}%`,
-        progressSpeed: event.payload.speed ? `${formatBytes(event.payload.speed)}/s` : "",
-        progressPretty: `${formatBytes(event.payload.progress)}`,
-        progressPrettyTotal: `${formatBytes(event.payload.total)}`,
+      const jobId = event?.payload?.job_id ?? event?.payload?.jobId;
+      if (!jobId) return undefined;
+      return (prev) => {
+        const next = { ...(prev?.downloadProgressByJobId || {}) };
+        next[jobId] = {
+          jobId,
+          name: event.payload.name,
+          progress: parseInt(event.payload.progress),
+          total: parseInt(event.payload.total),
+          speed: event.payload.speed ? parseInt(event.payload.speed) : undefined,
+          disk: event.payload.disk ? parseInt(event.payload.disk) : undefined,
+          eventType,
+        };
+        return { downloadProgressByJobId: next };
       };
     }
   }
