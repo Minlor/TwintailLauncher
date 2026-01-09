@@ -1176,3 +1176,79 @@ pub fn pause_game_download(app: AppHandle, install_id: String) -> bool {
     }
     false
 }
+
+#[tauri::command]
+pub fn queue_move_up(app: AppHandle, job_id: String) -> bool {
+    let state = app.state::<DownloadState>();
+    let queue_guard = state.queue.lock().unwrap();
+    if let Some(ref queue_handle) = *queue_guard {
+        return queue_handle.move_up(job_id);
+    }
+    false
+}
+
+#[tauri::command]
+pub fn queue_move_down(app: AppHandle, job_id: String) -> bool {
+    let state = app.state::<DownloadState>();
+    let queue_guard = state.queue.lock().unwrap();
+    if let Some(ref queue_handle) = *queue_guard {
+        return queue_handle.move_down(job_id);
+    }
+    false
+}
+
+#[tauri::command]
+pub fn queue_remove(app: AppHandle, job_id: String) -> bool {
+    let state = app.state::<DownloadState>();
+    let queue_guard = state.queue.lock().unwrap();
+    if let Some(ref queue_handle) = *queue_guard {
+        return queue_handle.remove(job_id);
+    }
+    false
+}
+
+#[tauri::command]
+pub fn queue_set_paused(app: AppHandle, paused: bool) {
+    let state = app.state::<DownloadState>();
+    let queue_guard = state.queue.lock().unwrap();
+    if let Some(ref queue_handle) = *queue_guard {
+        queue_handle.set_paused(paused);
+    }
+}
+
+#[tauri::command]
+pub fn queue_activate_job(app: AppHandle, job_id: String) -> bool {
+    let state = app.state::<DownloadState>();
+    
+    // First, activate the job in the queue - this sets the `activating` flag
+    // so that when we cancel the running job, it knows to go back to queue
+    let success = {
+        let queue_guard = state.queue.lock().unwrap();
+        if let Some(ref queue_handle) = *queue_guard {
+            queue_handle.activate_job(job_id)
+        } else {
+            false
+        }
+    };
+    
+    if success {
+        // Now pause all currently running downloads by setting their cancel tokens
+        // The `activating` flag is already set, so cancelled jobs will go back to queue
+        let tokens = state.tokens.lock().unwrap();
+        for (_, token) in tokens.iter() {
+            token.store(true, Ordering::Relaxed);
+        }
+    }
+    
+    success
+}
+
+#[tauri::command]
+pub fn queue_reorder(app: AppHandle, job_id: String, new_position: usize) -> bool {
+    let state = app.state::<DownloadState>();
+    let queue_guard = state.queue.lock().unwrap();
+    if let Some(ref queue_handle) = *queue_guard {
+        return queue_handle.reorder(job_id, new_position);
+    }
+    false
+}

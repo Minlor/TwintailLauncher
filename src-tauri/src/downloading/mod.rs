@@ -6,7 +6,7 @@ pub mod update;
 pub mod download;
 pub mod queue;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DownloadGamePayload {
     pub install: String,
     pub biz: String,

@@ -12,8 +12,10 @@ export interface QueueJobView {
 
 export interface DownloadQueueStatePayload {
   maxConcurrent: number;
+  paused: boolean;
   running: QueueJobView[];
   queued: QueueJobView[];
+  completed?: QueueJobView[];
 }
 
 export interface DownloadJobProgress {

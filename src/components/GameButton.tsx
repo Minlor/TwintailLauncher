@@ -1,4 +1,4 @@
-import {DownloadIcon, HardDriveDownloadIcon, RefreshCcwIcon, Rocket, PauseIcon} from "lucide-react";
+import {DownloadIcon, HardDriveDownloadIcon, RefreshCcwIcon, Rocket, PauseIcon, Clock} from "lucide-react";
 import {emit} from "@tauri-apps/api/event";
 import {invoke} from "@tauri-apps/api/core";
 
@@ -26,6 +26,8 @@ export default function GameButton({currentInstall, globalSettings, buttonType, 
                 return { bg: "bg-amber-600 hover:bg-amber-700", border: "border-amber-500", ring: "focus:ring-amber-400/60", shadow: "shadow-amber-900/30", id: "resume_btn" };
             case "pause":
                 return { bg: "bg-yellow-600 hover:bg-yellow-700", border: "border-yellow-500", ring: "focus:ring-yellow-400/60", shadow: "shadow-yellow-900/30", id: "pause_btn" };
+            case "queued":
+                return { bg: "bg-gray-600 hover:bg-gray-700", border: "border-gray-500", ring: "focus:ring-gray-400/60", shadow: "shadow-gray-900/30", id: "queued_btn" };
             case "launch":
             default:
                 return { bg: "bg-purple-600 hover:bg-purple-700", border: "border-purple-500", ring: "focus:ring-purple-400/60", shadow: "shadow-purple-900/30", id: "launch_game_btn" };
@@ -36,18 +38,21 @@ export default function GameButton({currentInstall, globalSettings, buttonType, 
         : buttonType === "download" ? disableDownload
         : buttonType === "update" ? disableUpdate
         : buttonType === "pause" ? false
+        : buttonType === "queued" ? true
         : disableResume;
 
     const label = buttonType === "launch" ? "Play!"
         : buttonType === "download" ? "Download"
         : buttonType === "update" ? "Update"
         : buttonType === "pause" ? "Pause"
+        : buttonType === "queued" ? "Queued"
         : "Resume";
 
     const Icon = buttonType === "launch" ? Rocket
         : buttonType === "download" ? HardDriveDownloadIcon
         : buttonType === "update" ? DownloadIcon
         : buttonType === "pause" ? PauseIcon
+        : buttonType === "queued" ? Clock
         : RefreshCcwIcon;
 
     const handleClick = () => {

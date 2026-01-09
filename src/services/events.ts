@@ -20,10 +20,12 @@ export function registerEvents(
         hideProgressBar: true,
         disableInstallEdit: hasWork,
         disableRun: hasWork,
-        disableUpdate: hasWork,
-        disableDownload: hasWork,
-        disablePreload: hasWork,
-        disableResume: hasWork,
+        // Allow queueing new downloads/updates even while work is in progress
+        // The queue system handles multiple jobs
+        disableUpdate: false,
+        disableDownload: false,
+        disablePreload: false,
+        disableResume: false,
       };
     }
     case 'move_complete':
@@ -74,6 +76,23 @@ export function registerEvents(
         return { downloadProgressByJobId: next };
       };
     }
+    case 'download_installing': {
+      const jobId = event?.payload?.job_id ?? event?.payload?.jobId;
+      if (!jobId) return undefined;
+      return (prev) => {
+        const next = { ...(prev?.downloadProgressByJobId || {}) };
+        next[jobId] = {
+          jobId,
+          name: event.payload.name,
+          progress: event.payload.progress !== undefined ? parseInt(event.payload.progress) : undefined,
+          total: event.payload.total !== undefined ? parseInt(event.payload.total) : undefined,
+          speed: event.payload.speed ? parseInt(event.payload.speed) : undefined,
+          disk: event.payload.disk ? parseInt(event.payload.disk) : undefined,
+          eventType,
+        };
+        return { downloadProgressByJobId: next };
+      };
+    }
     case 'download_paused': {
       const currentInstall = getCurrentInstall();
       if (currentInstall) {
@@ -98,6 +117,23 @@ export function registerEvents(
         return { downloadProgressByJobId: next };
       };
     }
+    case 'update_installing': {
+      const jobId = event?.payload?.job_id ?? event?.payload?.jobId;
+      if (!jobId) return undefined;
+      return (prev) => {
+        const next = { ...(prev?.downloadProgressByJobId || {}) };
+        next[jobId] = {
+          jobId,
+          name: event.payload.name,
+          progress: event.payload.progress !== undefined ? parseInt(event.payload.progress) : undefined,
+          total: event.payload.total !== undefined ? parseInt(event.payload.total) : undefined,
+          speed: event.payload.speed ? parseInt(event.payload.speed) : undefined,
+          disk: event.payload.disk ? parseInt(event.payload.disk) : undefined,
+          eventType,
+        };
+        return { downloadProgressByJobId: next };
+      };
+    }
     case 'repair_progress': {
       const jobId = event?.payload?.job_id ?? event?.payload?.jobId;
       if (!jobId) return undefined;
@@ -115,6 +151,23 @@ export function registerEvents(
         return { downloadProgressByJobId: next };
       };
     }
+    case 'repair_installing': {
+      const jobId = event?.payload?.job_id ?? event?.payload?.jobId;
+      if (!jobId) return undefined;
+      return (prev) => {
+        const next = { ...(prev?.downloadProgressByJobId || {}) };
+        next[jobId] = {
+          jobId,
+          name: event.payload.name,
+          progress: event.payload.progress !== undefined ? parseInt(event.payload.progress) : undefined,
+          total: event.payload.total !== undefined ? parseInt(event.payload.total) : undefined,
+          speed: event.payload.speed ? parseInt(event.payload.speed) : undefined,
+          disk: event.payload.disk ? parseInt(event.payload.disk) : undefined,
+          eventType,
+        };
+        return { downloadProgressByJobId: next };
+      };
+    }
     case 'preload_progress': {
       const jobId = event?.payload?.job_id ?? event?.payload?.jobId;
       if (!jobId) return undefined;
@@ -125,6 +178,23 @@ export function registerEvents(
           name: event.payload.name,
           progress: parseInt(event.payload.progress),
           total: parseInt(event.payload.total),
+          speed: event.payload.speed ? parseInt(event.payload.speed) : undefined,
+          disk: event.payload.disk ? parseInt(event.payload.disk) : undefined,
+          eventType,
+        };
+        return { downloadProgressByJobId: next };
+      };
+    }
+    case 'preload_installing': {
+      const jobId = event?.payload?.job_id ?? event?.payload?.jobId;
+      if (!jobId) return undefined;
+      return (prev) => {
+        const next = { ...(prev?.downloadProgressByJobId || {}) };
+        next[jobId] = {
+          jobId,
+          name: event.payload.name,
+          progress: event.payload.progress !== undefined ? parseInt(event.payload.progress) : undefined,
+          total: event.payload.total !== undefined ? parseInt(event.payload.total) : undefined,
           speed: event.payload.speed ? parseInt(event.payload.speed) : undefined,
           disk: event.payload.disk ? parseInt(event.payload.disk) : undefined,
           eventType,

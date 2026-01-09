@@ -18,11 +18,13 @@ export default function SidebarDownloads({
   popup,
   hasDownloads,
   progressPercent,
+  onOpenDownloadManager,
 }: {
   setOpenPopup: (a: POPUPS) => void;
   popup: POPUPS;
   hasDownloads: boolean;
   progressPercent?: number;
+  onOpenDownloadManager?: () => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -58,7 +60,11 @@ export default function SidebarDownloads({
         {...getReferenceProps()}
         className="relative flex items-center justify-center w-8 h-10 text-white hover:text-white/55 cursor-pointer"
         onClick={() => {
-          setOpenPopup(popup === POPUPS.DOWNLOADS ? POPUPS.NONE : POPUPS.DOWNLOADS);
+          if (onOpenDownloadManager) {
+            onOpenDownloadManager();
+          } else {
+            setOpenPopup(popup === POPUPS.DOWNLOADS ? POPUPS.NONE : POPUPS.DOWNLOADS);
+          }
         }}
       >
         {ringPercent !== undefined && (

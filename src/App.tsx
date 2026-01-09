@@ -13,6 +13,7 @@ import BackgroundLayer from "./components/layout/BackgroundLayer";
 import ManifestsPanel from "./components/layout/ManifestsPanel";
 import ActionBar from "./components/layout/ActionBar";
 import PopupOverlay from "./components/layout/PopupOverlay";
+import DownloadManager from "./components/layout/DownloadManager";
 import { startInitialLoad } from "./services/loader";
 import SidebarRunners from "./components/sidebar/SidebarRunners.tsx";
 import SidebarDownloads from "./components/sidebar/SidebarDownloads";
@@ -47,6 +48,8 @@ export default class App extends React.Component<any, any> {
         this.fetchCompatibilityVersions = this.fetchCompatibilityVersions.bind(this);
         this.refreshDownloadButtonInfo = this.refreshDownloadButtonInfo.bind(this);
         this.fetchInstalledRunners = this.fetchInstalledRunners.bind(this);
+        this.handleSpeedSample = this.handleSpeedSample.bind(this);
+        this.handleClearSpeedHistory = this.handleClearSpeedHistory.bind(this);
 
     // @ts-ignore
     this.preloadedBackgrounds = new Set();
@@ -105,16 +108,21 @@ export default class App extends React.Component<any, any> {
             downloadQueueState: null,
             downloadProgressByJobId: {},
             resumeStates: {},
-            openDownloadAsExisting: false
+            openDownloadAsExisting: false,
+            downloadManagerOpen: false,
+            speedHistory: [] as { net: number; disk: number }[]
         }
     }
 
     render() {
-        const isCurrentInstallDownloading =
-            (this.state.downloadQueueState?.running || []).some((j: any) => j.installId === this.state.currentInstall);
-
         const runningJobs = this.state.downloadQueueState?.running || [];
         const queuedJobs = this.state.downloadQueueState?.queued || [];
+        
+        const isCurrentInstallDownloading =
+            runningJobs.some((j: any) => j.installId === this.state.currentInstall);
+        const isCurrentInstallQueued =
+            queuedJobs.some((j: any) => j.installId === this.state.currentInstall);
+        
         const hasDownloads = runningJobs.length + queuedJobs.length > 0;
 
         const primaryRunningJobId = runningJobs.length > 0 ? runningJobs[0].id : undefined;
@@ -130,6 +138,7 @@ export default class App extends React.Component<any, any> {
             preloadAvailable: this.state.preloadAvailable,
             resumeStates: this.state.resumeStates,
             isDownloading: isCurrentInstallDownloading,
+            isQueued: isCurrentInstallQueued,
         });
 
         return (
@@ -257,6 +266,7 @@ export default class App extends React.Component<any, any> {
                                 setOpenPopup={this.setOpenPopup}
                                 hasDownloads={hasDownloads}
                                 progressPercent={downloadsPercent}
+                                onOpenDownloadManager={() => this.setState({ downloadManagerOpen: true })}
                             />
                         </div>
                         {(window.navigator.platform.includes("Linux")) && (
@@ -330,6 +340,18 @@ export default class App extends React.Component<any, any> {
                     downloadProgressByJobId={this.state.downloadProgressByJobId}
                 />
             </main>
+            {/* Download Manager Modal */}
+            <DownloadManager
+                isOpen={this.state.downloadManagerOpen}
+                onClose={() => this.setState({ downloadManagerOpen: false })}
+                queue={this.state.downloadQueueState}
+                progressByJobId={this.state.downloadProgressByJobId}
+                installs={this.state.installs}
+                speedHistory={this.state.speedHistory}
+                onSpeedSample={this.handleSpeedSample}
+                onClearHistory={this.handleClearSpeedHistory}
+                downloadSpeedLimitKiB={this.state.globalSettings?.download_speed_limit ?? 0}
+            />
             {this.state.showLoadingOverlay && (
                 <AppLoadingScreen
                     progress={this.state.loadingProgress}
@@ -675,6 +697,20 @@ export default class App extends React.Component<any, any> {
     setOpenPopup(state: POPUPS) {this.setState({openPopup: state});}
     setCurrentGame(game: string) {this.setState({currentGame: game});}
     setDisplayName(name: string) {this.setState({displayName: name});}
+    
+    // Handle speed sample from DownloadManager for telemetry graph
+    handleSpeedSample(sample: { net: number; disk: number }) {
+        this.setState((prev: any) => {
+            const history = [...(prev.speedHistory || []), sample];
+            // Keep last 60 samples (~60 seconds of data)
+            return { speedHistory: history.slice(-60) };
+        });
+    }
+    
+    // Clear speed history when switching to a different download job
+    handleClearSpeedHistory() {
+        this.setState({ speedHistory: [] });
+    }
     // Store the background transition timeout
     bgTransitionTimeout?: number;
 

@@ -1,4 +1,4 @@
-export type ButtonType = "download" | "update" | "launch" | "resume" | "pause";
+export type ButtonType = "download" | "update" | "launch" | "resume" | "pause" | "queued";
 
 interface DetermineParams {
   currentInstall: any;
@@ -7,6 +7,7 @@ interface DetermineParams {
   preloadAvailable: boolean;
   resumeStates: { updating?: boolean; downloading?: boolean; preloading?: boolean; repairing?: boolean };
   isDownloading: boolean;
+  isQueued?: boolean;
 }
 
 export function determineButtonType({
@@ -17,8 +18,10 @@ export function determineButtonType({
   preloadAvailable,
   resumeStates,
   isDownloading,
+  isQueued,
 }: DetermineParams): ButtonType {
   if (isDownloading) return "pause";
+  if (isQueued) return "queued";
   let buttonType: ButtonType = "download";
   const hasResume = !!(resumeStates?.updating || resumeStates?.downloading || resumeStates?.preloading || resumeStates?.repairing);
 

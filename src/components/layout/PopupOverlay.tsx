@@ -178,6 +178,7 @@ export default function PopupOverlay(props: PopupOverlayProps) {
           queue={downloadQueueState}
           progressByJobId={downloadProgressByJobId}
           installs={installs}
+          downloadSpeedLimitKiB={Number(globalSettings?.download_speed_limit ?? 0)}
         />
       )}
 

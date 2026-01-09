@@ -155,8 +155,26 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
                         if r {
                             let aar = fnn.strip_suffix(".001").unwrap().to_string();
                             let far = ap.join(aar).to_str().unwrap().to_string();
+
+                            // Extraction stage (Steam-like "Installing files")
+                            {
+                                let mut dlp = dlpayload.lock().unwrap();
+                                dlp.insert("job_id", job_id.to_string());
+                                dlp.insert("name", instn.clone().to_string());
+                                dlp.insert("progress", "0".to_string());
+                                dlp.insert("total", "100".to_string());
+                                h4.emit("download_installing", dlp.clone()).unwrap();
+                            }
                             let ext = extract_archive(far, install.directory.clone(), false);
                             if ext {
+                                {
+                                    let mut dlp = dlpayload.lock().unwrap();
+                                    dlp.insert("job_id", job_id.to_string());
+                                    dlp.insert("name", instn.clone().to_string());
+                                    dlp.insert("progress", "100".to_string());
+                                    dlp.insert("total", "100".to_string());
+                                    h4.emit("download_installing", dlp.clone()).unwrap();
+                                }
                                 if downloading_marker.exists() {
                                     std::fs::remove_dir(&downloading_marker).unwrap_or_default();
                                 }
@@ -172,8 +190,26 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
                         }
                     } else {
                         let far = ap.join(fnn.clone()).to_str().unwrap().to_string();
+
+                        // Extraction stage (Steam-like "Installing files")
+                        {
+                            let mut dlp = dlpayload.lock().unwrap();
+                            dlp.insert("job_id", job_id.to_string());
+                            dlp.insert("name", instn.clone().to_string());
+                            dlp.insert("progress", "0".to_string());
+                            dlp.insert("total", "100".to_string());
+                            h4.emit("download_installing", dlp.clone()).unwrap();
+                        }
                         let ext = extract_archive(far, install.directory.clone(), false);
                         if ext {
+                            {
+                                let mut dlp = dlpayload.lock().unwrap();
+                                dlp.insert("job_id", job_id.to_string());
+                                dlp.insert("name", instn.clone().to_string());
+                                dlp.insert("progress", "100".to_string());
+                                dlp.insert("total", "100".to_string());
+                                h4.emit("download_installing", dlp.clone()).unwrap();
+                            }
                             if downloading_marker.exists() {
                                 std::fs::remove_dir(&downloading_marker).unwrap_or_default();
                             }
