@@ -1,16 +1,20 @@
-use std::collections::HashMap;
-use std::path::Path;
-use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicBool, Ordering};
+use crate::DownloadState;
+use crate::downloading::DownloadGamePayload;
+use crate::downloading::queue::{QueueJobKind, QueueJobOutcome};
+use crate::utils::db_manager::{get_install_info_by_id, get_manifest_info_by_id};
+use crate::utils::repo_manager::get_manifest;
+use crate::utils::{
+    PathResolve,
+    models::{FullGameFile, GameVersion},
+    prevent_exit, run_async_command, send_notification,
+};
 use fischl::download::game::{Game, Kuro, Sophon, Zipped};
 use fischl::utils::{assemble_multipart_archive, extract_archive};
+use std::collections::HashMap;
+use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Listener, Manager};
-use crate::utils::db_manager::{get_install_info_by_id, get_manifest_info_by_id};
-use crate::utils::{prevent_exit, run_async_command, send_notification, PathResolve, models::{FullGameFile, GameVersion}};
-use crate::utils::repo_manager::{get_manifest};
-use crate::downloading::DownloadGamePayload;
-use crate::DownloadState;
-use crate::downloading::queue::{QueueJobKind, QueueJobOutcome};
 
 #[cfg(target_os = "linux")]
 use crate::utils::patch_aki;
@@ -26,14 +30,24 @@ pub fn register_download_handler(app: &AppHandle) {
         } else {
             let h4 = a.clone();
             std::thread::spawn(move || {
-                let job_id = format!("direct_download_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis());
+                let job_id = format!(
+                    "direct_download_{}",
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_millis()
+                );
                 let _ = run_game_download(h4, payload, job_id);
             });
         }
     });
 }
 
-pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: String) -> QueueJobOutcome {
+pub fn run_game_download(
+    h4: AppHandle,
+    payload: DownloadGamePayload,
+    job_id: String,
+) -> QueueJobOutcome {
     let job_id = Arc::new(job_id);
     let install = match get_install_info_by_id(&h4, payload.install.clone()) {
         Some(v) => v,
@@ -147,7 +161,13 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
                     let aps = ap.to_str().unwrap().to_string();
                     let parts = urls
                         .into_iter()
-                        .map(|e| e.split('/').collect::<Vec<&str>>().last().unwrap().to_string())
+                        .map(|e| {
+                            e.split('/')
+                                .collect::<Vec<&str>>()
+                                .last()
+                                .unwrap()
+                                .to_string()
+                        })
                         .collect::<Vec<String>>();
 
                     if fnn.ends_with(".001") {
@@ -182,7 +202,8 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
                                 prevent_exit(&h4, false);
                                 send_notification(
                                     &h4,
-                                    format!("Download of {inn} complete.", inn = inna.to_string()).as_str(),
+                                    format!("Download of {inn} complete.", inn = inna.to_string())
+                                        .as_str(),
                                     None,
                                 );
                                 success = true;
@@ -217,7 +238,8 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
                             prevent_exit(&h4, false);
                             send_notification(
                                 &h4,
-                                format!("Download of {inn} complete.", inn = inna.to_string()).as_str(),
+                                format!("Download of {inn} complete.", inn = inna.to_string())
+                                    .as_str(),
                                 None,
                             );
                             success = true;

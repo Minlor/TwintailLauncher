@@ -3,12 +3,12 @@ import { toPercent, formatBytes } from '../utils/progress.ts';
 export type EventStateUpdate = Record<string, any> | ((prev: any) => Record<string, any>);
 
 export function registerEvents(
-  eventType: string, 
-  event: any, 
-  pushInstalls: () => void, 
-  getCurrentInstall: () => string, 
+  eventType: string,
+  event: any,
+  pushInstalls: () => void,
+  getCurrentInstall: () => string,
   fetchInstallResumeStates: (install: string) => void
-) : EventStateUpdate | undefined {
+): EventStateUpdate | undefined {
   switch (eventType) {
     case 'download_queue_state': {
       const running = (event?.payload?.running || []) as any[];
@@ -34,7 +34,7 @@ export function registerEvents(
     case 'repair_complete':
     case 'preload_complete': {
       pushInstalls();
-      
+
       // Refresh resume states for the current install after completion
       const currentInstall = getCurrentInstall();
       if (currentInstall) {
@@ -81,13 +81,14 @@ export function registerEvents(
       if (!jobId) return undefined;
       return (prev) => {
         const next = { ...(prev?.downloadProgressByJobId || {}) };
+        const existing = next[jobId] || {};
         next[jobId] = {
+          ...existing,
           jobId,
-          name: event.payload.name,
-          progress: event.payload.progress !== undefined ? parseInt(event.payload.progress) : undefined,
-          total: event.payload.total !== undefined ? parseInt(event.payload.total) : undefined,
-          speed: event.payload.speed ? parseInt(event.payload.speed) : undefined,
-          disk: event.payload.disk ? parseInt(event.payload.disk) : undefined,
+          name: event.payload.name || existing.name,
+          // Keep existing download progress, add installation progress
+          installProgress: event.payload.progress !== undefined ? parseInt(event.payload.progress) : existing.installProgress,
+          installTotal: event.payload.total !== undefined ? parseInt(event.payload.total) : existing.installTotal,
           eventType,
         };
         return { downloadProgressByJobId: next };
@@ -122,13 +123,14 @@ export function registerEvents(
       if (!jobId) return undefined;
       return (prev) => {
         const next = { ...(prev?.downloadProgressByJobId || {}) };
+        const existing = next[jobId] || {};
         next[jobId] = {
+          ...existing,
           jobId,
-          name: event.payload.name,
-          progress: event.payload.progress !== undefined ? parseInt(event.payload.progress) : undefined,
-          total: event.payload.total !== undefined ? parseInt(event.payload.total) : undefined,
-          speed: event.payload.speed ? parseInt(event.payload.speed) : undefined,
-          disk: event.payload.disk ? parseInt(event.payload.disk) : undefined,
+          name: event.payload.name || existing.name,
+          // Keep existing download progress, add installation progress
+          installProgress: event.payload.progress !== undefined ? parseInt(event.payload.progress) : existing.installProgress,
+          installTotal: event.payload.total !== undefined ? parseInt(event.payload.total) : existing.installTotal,
           eventType,
         };
         return { downloadProgressByJobId: next };
@@ -156,13 +158,14 @@ export function registerEvents(
       if (!jobId) return undefined;
       return (prev) => {
         const next = { ...(prev?.downloadProgressByJobId || {}) };
+        const existing = next[jobId] || {};
         next[jobId] = {
+          ...existing,
           jobId,
-          name: event.payload.name,
-          progress: event.payload.progress !== undefined ? parseInt(event.payload.progress) : undefined,
-          total: event.payload.total !== undefined ? parseInt(event.payload.total) : undefined,
-          speed: event.payload.speed ? parseInt(event.payload.speed) : undefined,
-          disk: event.payload.disk ? parseInt(event.payload.disk) : undefined,
+          name: event.payload.name || existing.name,
+          // Keep existing download progress, add installation progress
+          installProgress: event.payload.progress !== undefined ? parseInt(event.payload.progress) : existing.installProgress,
+          installTotal: event.payload.total !== undefined ? parseInt(event.payload.total) : existing.installTotal,
           eventType,
         };
         return { downloadProgressByJobId: next };

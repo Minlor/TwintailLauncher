@@ -25,5 +25,7 @@ export interface DownloadJobProgress {
   total?: number;
   speed?: number;
   disk?: number;
+  installProgress?: number;
+  installTotal?: number;
   eventType: string;
 }
