@@ -136,14 +136,15 @@ pub fn run_game_download(
                             let h4 = h4.clone();
                             let instn = instn.clone();
                             let job_id = job_id.clone();
-                            move |current, _, speed| {
+                            move |current, total, net_speed, disk_speed| {
                                 let mut dlp = dlpayload.lock().unwrap();
+                                let instn = instn.to_string();
                                 dlp.insert("job_id", job_id.to_string());
-                                dlp.insert("name", instn.to_string());
+                                dlp.insert("name", instn);
                                 dlp.insert("progress", current.to_string());
-                                dlp.insert("total", totalsize.to_string());
-                                dlp.insert("speed", speed.to_string());
-                                dlp.insert("disk", speed.to_string());
+                                dlp.insert("total", total.to_string());
+                                dlp.insert("speed", net_speed.to_string());
+                                dlp.insert("disk", disk_speed.to_string());
                                 h4.emit("download_progress", dlp.clone()).unwrap();
                                 drop(dlp);
                             }
@@ -274,15 +275,15 @@ pub fn run_game_download(
                                 let dlpayload = dlpayload.clone();
                                 let instn = instn.clone();
                                 let job_id = job_id.clone();
-                                move |current, total, speed| {
+                                move |current, total, net_speed, disk_speed| {
                                     let mut dlp = dlpayload.lock().unwrap();
-                                    let instn = instn.clone();
+                                    let instn = instn.to_string();
                                     dlp.insert("job_id", job_id.to_string());
-                                    dlp.insert("name", instn.to_string());
+                                    dlp.insert("name", instn);
                                     dlp.insert("progress", current.to_string());
                                     dlp.insert("total", total.to_string());
-                                    dlp.insert("speed", speed.to_string());
-                                    dlp.insert("disk", speed.to_string());
+                                    dlp.insert("speed", net_speed.to_string());
+                                    dlp.insert("disk", disk_speed.to_string());
                                     h4.emit("download_progress", dlp.clone()).unwrap();
                                     drop(dlp);
                                 }
@@ -327,14 +328,14 @@ pub fn run_game_download(
                             let h4 = h4.clone();
                             let instn = instn.clone();
                             let job_id = job_id.clone();
-                            move |current, total, speed| {
+                            move |current, total, net_speed, disk_speed| {
                                 let mut dlp = dlpayload.lock().unwrap();
                                 dlp.insert("job_id", job_id.to_string());
                                 dlp.insert("name", instn.to_string());
                                 dlp.insert("progress", current.to_string());
                                 dlp.insert("total", total.to_string());
-                                dlp.insert("speed", speed.to_string());
-                                dlp.insert("disk", speed.to_string());
+                                dlp.insert("speed", net_speed.to_string());
+                                dlp.insert("disk", disk_speed.to_string());
                                 h4.emit("download_progress", dlp.clone()).unwrap();
                                 drop(dlp);
                             }
