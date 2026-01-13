@@ -99,16 +99,18 @@ impl DownloadQueueHandle {
     }
 
     /// Move a queued job to the front and start it, pausing any currently running job
-    pub fn activate_job(&self, job_id: String) -> bool {
+    pub fn activate_job(&self, job_id: String) -> Option<String> {
         let (tx, rx) = std::sync::mpsc::channel();
         let _ = self.tx.send(QueueCommand::ActivateJob(job_id, tx));
-        rx.recv().unwrap_or(false)
+        rx.recv().unwrap_or(None)
     }
 
     /// Reorder by moving a job to a specific position (0 = front of queue)
     pub fn reorder(&self, job_id: String, new_position: usize) -> bool {
         let (tx, rx) = std::sync::mpsc::channel();
-        let _ = self.tx.send(QueueCommand::Reorder(job_id, new_position, tx));
+        let _ = self
+            .tx
+            .send(QueueCommand::Reorder(job_id, new_position, tx));
         rx.recv().unwrap_or(false)
     }
 }
@@ -120,7 +122,7 @@ pub enum QueueCommand {
     MoveUp(String, mpsc::Sender<bool>),
     MoveDown(String, mpsc::Sender<bool>),
     Remove(String, mpsc::Sender<bool>),
-    ActivateJob(String, mpsc::Sender<bool>),
+    ActivateJob(String, mpsc::Sender<Option<String>>),
     Reorder(String, usize, mpsc::Sender<bool>),
     Shutdown,
 }
@@ -172,7 +174,7 @@ pub fn start_download_queue_worker(
             while let Ok((job_id, outcome)) = done_rx.try_recv() {
                 if let Some(mut view) = active.remove(&job_id) {
                     let removed_job = active_jobs.remove(&job_id);
-                    
+
                     match outcome {
                         QueueJobOutcome::Completed => {
                             view.status = QueueJobStatus::Completed;
@@ -209,28 +211,49 @@ pub fn start_download_queue_worker(
                         }
                     };
                 }
-                emit_queue_state(&app, max_concurrent, paused, &active, &queued_views, &completed_views);
+                emit_queue_state(
+                    &app,
+                    max_concurrent,
+                    paused,
+                    &active,
+                    &queued_views,
+                    &completed_views,
+                );
             }
 
             // Only auto-start next job if not paused
             if !paused {
                 while active.len() < max_concurrent {
-                    let Some(job) = queued.pop_front() else { break; };
-                    let Some(mut view) = queued_views.pop_front() else { break; };
+                    let Some(job) = queued.pop_front() else {
+                        break;
+                    };
+                    let Some(mut view) = queued_views.pop_front() else {
+                        break;
+                    };
 
                     view.status = QueueJobStatus::Running;
                     let job_id = job.id.clone();
                     active.insert(job_id.clone(), view);
-                    active_jobs.insert(job_id.clone(), QueueJob {
-                        id: job.id.clone(),
-                        kind: job.kind,
-                        payload: job.payload.clone(),
-                    });
+                    active_jobs.insert(
+                        job_id.clone(),
+                        QueueJob {
+                            id: job.id.clone(),
+                            kind: job.kind,
+                            payload: job.payload.clone(),
+                        },
+                    );
 
                     // Clear the activating flag since the new job is now starting
                     activating = false;
 
-                    emit_queue_state(&app, max_concurrent, paused, &active, &queued_views, &completed_views);
+                    emit_queue_state(
+                        &app,
+                        max_concurrent,
+                        paused,
+                        &active,
+                        &queued_views,
+                        &completed_views,
+                    );
 
                     let app2 = app.clone();
                     let done_tx2 = done_tx.clone();
@@ -247,10 +270,7 @@ pub fn start_download_queue_worker(
             match rx.recv_timeout(Duration::from_millis(200)) {
                 Ok(cmd) => match cmd {
                     QueueCommand::Enqueue(job) => {
-                        let name = job
-                            .payload
-                            .install
-                            .clone();
+                        let name = job.payload.install.clone();
                         // UI-visible name will be improved by the job runner via progress events.
                         queued_views.push_back(QueueJobView {
                             id: job.id.clone(),
@@ -260,15 +280,36 @@ pub fn start_download_queue_worker(
                             status: QueueJobStatus::Queued,
                         });
                         queued.push_back(job);
-                        emit_queue_state(&app, max_concurrent, paused, &active, &queued_views, &completed_views);
+                        emit_queue_state(
+                            &app,
+                            max_concurrent,
+                            paused,
+                            &active,
+                            &queued_views,
+                            &completed_views,
+                        );
                     }
                     QueueCommand::SetMaxConcurrent(n) => {
                         max_concurrent = n.max(1);
-                        emit_queue_state(&app, max_concurrent, paused, &active, &queued_views, &completed_views);
+                        emit_queue_state(
+                            &app,
+                            max_concurrent,
+                            paused,
+                            &active,
+                            &queued_views,
+                            &completed_views,
+                        );
                     }
                     QueueCommand::SetPaused(p) => {
                         paused = p;
-                        emit_queue_state(&app, max_concurrent, paused, &active, &queued_views, &completed_views);
+                        emit_queue_state(
+                            &app,
+                            max_concurrent,
+                            paused,
+                            &active,
+                            &queued_views,
+                            &completed_views,
+                        );
                     }
                     QueueCommand::MoveUp(job_id, reply) => {
                         let mut success = false;
@@ -277,7 +318,14 @@ pub fn start_download_queue_worker(
                                 queued.swap(idx, idx - 1);
                                 queued_views.swap(idx, idx - 1);
                                 success = true;
-                                emit_queue_state(&app, max_concurrent, paused, &active, &queued_views, &completed_views);
+                                emit_queue_state(
+                                    &app,
+                                    max_concurrent,
+                                    paused,
+                                    &active,
+                                    &queued_views,
+                                    &completed_views,
+                                );
                             }
                         }
                         let _ = reply.send(success);
@@ -289,7 +337,14 @@ pub fn start_download_queue_worker(
                                 queued.swap(idx, idx + 1);
                                 queued_views.swap(idx, idx + 1);
                                 success = true;
-                                emit_queue_state(&app, max_concurrent, paused, &active, &queued_views, &completed_views);
+                                emit_queue_state(
+                                    &app,
+                                    max_concurrent,
+                                    paused,
+                                    &active,
+                                    &queued_views,
+                                    &completed_views,
+                                );
                             }
                         }
                         let _ = reply.send(success);
@@ -300,7 +355,14 @@ pub fn start_download_queue_worker(
                             queued.remove(idx);
                             queued_views.remove(idx);
                             success = true;
-                            emit_queue_state(&app, max_concurrent, paused, &active, &queued_views, &completed_views);
+                            emit_queue_state(
+                                &app,
+                                max_concurrent,
+                                paused,
+                                &active,
+                                &queued_views,
+                                &completed_views,
+                            );
                         }
                         let _ = reply.send(success);
                     }
@@ -313,24 +375,38 @@ pub fn start_download_queue_worker(
                             queued.insert(insert_pos, job);
                             queued_views.insert(insert_pos, view);
                             success = true;
-                            emit_queue_state(&app, max_concurrent, paused, &active, &queued_views, &completed_views);
+                            emit_queue_state(
+                                &app,
+                                max_concurrent,
+                                paused,
+                                &active,
+                                &queued_views,
+                                &completed_views,
+                            );
                         }
                         let _ = reply.send(success);
                     }
                     QueueCommand::ActivateJob(job_id, reply) => {
                         // Find the job in queue and move it to front, then unpause
-                        let mut success = false;
+                        let mut install_id = None;
                         if let Some(idx) = queued.iter().position(|j| j.id == job_id) {
                             let job = queued.remove(idx).unwrap();
                             let view = queued_views.remove(idx).unwrap();
+                            install_id = Some(view.install_id.clone());
                             queued.push_front(job);
                             queued_views.push_front(view);
                             activating = true; // Prevent auto-pause when current job is cancelled
                             paused = false; // Unpause to start this job
-                            success = true;
-                            emit_queue_state(&app, max_concurrent, paused, &active, &queued_views, &completed_views);
+                            emit_queue_state(
+                                &app,
+                                max_concurrent,
+                                paused,
+                                &active,
+                                &queued_views,
+                                &completed_views,
+                            );
                         }
-                        let _ = reply.send(success);
+                        let _ = reply.send(install_id);
                     }
                     QueueCommand::Shutdown => break,
                 },

@@ -104,13 +104,24 @@ pub fn run_game_repair(
         }
         // HoYoverse sophon chunk mode
         "DOWNLOAD_MODE_CHUNK" => {
-            let urls = if payload.biz == "bh3_global" {
+            let biz = if payload.biz.is_empty() {
+                gm.biz.clone()
+            } else {
+                payload.biz.clone()
+            };
+            let region = if payload.region.is_empty() {
+                i.region_code.clone()
+            } else {
+                payload.region.clone()
+            };
+
+            let urls = if biz == "bh3_global" {
                 picked
                     .game
                     .full
                     .clone()
                     .iter()
-                    .filter(|e| e.region_code.clone().unwrap() == payload.region)
+                    .filter(|e| e.region_code.clone().unwrap() == region)
                     .cloned()
                     .collect::<Vec<FullGameFile>>()
             } else {

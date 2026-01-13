@@ -97,31 +97,31 @@ export default function DownloadManager({
 }: DownloadManagerProps) {
   // Canvas ref for graph
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  
+
   // Ref to track last sampled speed to avoid duplicate samples
   const lastSampleRef = useRef<{ net: number; disk: number; time: number } | null>(null);
-  
+
   // Hover state for graph tooltip
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
-  
+
   // Track completed items locally (items that disappeared from queue)
   const [completedItems, setCompletedItems] = useState<QueueJobView[]>([]);
   const prevJobIdsRef = useRef<Set<string>>(new Set());
-  
+
   // Track paused jobs (jobs that were paused and removed from queue)
   const [pausedJob, setPausedJob] = useState<{ job: QueueJobView; progress: DownloadJobProgress | null } | null>(null);
   const pauseRequestedRef = useRef<string | null>(null);
-  
+
   // Peak speed tracking
   const [peakSpeed, setPeakSpeed] = useState<number>(0);
-  
+
   // Pausing state - true when pause requested but not yet complete
   const [isPausing, setIsPausing] = useState<boolean>(false);
-  
+
   // Track previous job ID to detect job changes and reset history
   const previousJobIdRef = useRef<string | null>(null);
-  
+
   // Drag and drop state
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
   const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
@@ -131,16 +131,16 @@ export default function DownloadManager({
   const queuedJobs = queue?.queued ?? [];
   const isQueuePaused = queue?.paused ?? false;
   const allJobs = [...runningJobs, ...queuedJobs];
-  
+
   // Current download - either from running queue or paused state
   const currentJob = runningJobs[0] ?? pausedJob?.job ?? null;
-  const currentProgress = currentJob 
+  const currentProgress = currentJob
     ? (progressByJobId[currentJob.id] ?? pausedJob?.progress ?? null)
     : null;
-  
+
   // Derive paused state - either queue is paused, job status is cancelled, OR we have a pausedJob
   const isPaused = isQueuePaused || currentJob?.status === 'cancelled' || (pausedJob !== null && runningJobs.length === 0);
-  
+
   // Calculate progress values
   const progressBytes = currentProgress?.progress ?? 0;
   const totalBytes = currentProgress?.total ?? 0;
@@ -152,7 +152,7 @@ export default function DownloadManager({
   useEffect(() => {
     const currentIds = new Set(allJobs.map(j => j.id));
     const prevJobIds = prevJobIdsRef.current;
-    
+
     if (prevJobIds.size > 0) {
       const removed: QueueJobView[] = [];
       prevJobIds.forEach(id => {
@@ -164,7 +164,7 @@ export default function DownloadManager({
             pauseRequestedRef.current = null;
             return;
           }
-          
+
           // Find the job info - it might still be in progressByJobId
           const progress = progressByJobId[id];
           removed.push({
@@ -176,18 +176,18 @@ export default function DownloadManager({
           });
         }
       });
-      
+
       if (removed.length > 0) {
         setCompletedItems(prev => [...removed, ...prev].slice(0, 20));
       }
     }
-    
+
     // If a new job started running (different from our paused job), clear the paused state
     // This handles the case where resume worked and a new/resumed job is now active
     if (runningJobs.length > 0 && pausedJob !== null && runningJobs[0].id !== pausedJob.job.id) {
       setPausedJob(null);
     }
-    
+
     prevJobIdsRef.current = currentIds;
   }, [allJobs, progressByJobId, runningJobs.length, pausedJob]);
 
@@ -211,13 +211,13 @@ export default function DownloadManager({
   useEffect(() => {
     if (!currentJob || isPaused) return;
     if (currentSpeed <= 0 && currentDisk <= 0) return;
-    
+
     const now = Date.now();
     const last = lastSampleRef.current;
-    
+
     // Only sample if at least 900ms have passed since last sample
     if (last && now - last.time < 900) return;
-    
+
     lastSampleRef.current = { net: currentSpeed, disk: currentDisk, time: now };
     onSpeedSample({ net: currentSpeed, disk: currentDisk });
     setPeakSpeed(prev => Math.max(prev, currentSpeed));
@@ -227,17 +227,17 @@ export default function DownloadManager({
 
   // Draw canvas graph - always uses 60 fixed slots for consistent appearance
   const GRAPH_SLOTS = 60;
-  
+
   useEffect(() => {
     if (!canvasRef.current) return;
-    
+
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    
+
     const width = canvas.width;
     const height = canvas.height;
-    
+
     // Pad history to 60 slots, right-aligned (new data on right)
     const paddedHistory: { net: number; disk: number }[] = [];
     const emptySlots = GRAPH_SLOTS - speedHistory.length;
@@ -245,17 +245,17 @@ export default function DownloadManager({
       paddedHistory.push({ net: 0, disk: 0 });
     }
     paddedHistory.push(...speedHistory);
-    
+
     // Find max values for normalization (use at least 1MB to avoid tiny fluctuations looking huge)
     const maxNet = Math.max(...paddedHistory.map(s => s.net), 1024 * 1024);
     const maxDisk = Math.max(...paddedHistory.map(s => s.disk), 1024 * 1024);
     const maxValue = Math.max(maxNet, maxDisk);
-    
+
     ctx.clearRect(0, 0, width, height);
-    
+
     // Fixed bar width based on 60 slots
     const barWidth = width / GRAPH_SLOTS;
-    
+
     // Fade parameters
     const fadeLeftAlpha = 0.05;
     const fadeRightAlpha = 1.0;
@@ -266,14 +266,14 @@ export default function DownloadManager({
       const x = barWidth * index;
       const barHeight = (sample.net / maxValue) * height;
       const y = height - barHeight;
-      
+
       // Map hovered index from speedHistory to paddedHistory
       const actualIndex = index - emptySlots;
       const isHighlighted = hoveredIndex !== null && actualIndex === hoveredIndex;
       const t = index / (GRAPH_SLOTS - 1);
       const tAdjusted = Math.pow(t, fadeExponent);
       const alpha = isHighlighted ? 0.98 : (fadeLeftAlpha + tAdjusted * (fadeRightAlpha - fadeLeftAlpha));
-      
+
       ctx.fillStyle = `rgba(59, 130, 246, ${alpha})`;
       ctx.fillRect(x, y, barWidth - 1, barHeight);
     });
@@ -305,12 +305,12 @@ export default function DownloadManager({
       const x = barWidth * paddedIndex + barWidth / 2;
       const sample = speedHistory[hoveredIndex];
       const y = height - (sample.disk / maxValue) * height;
-      
+
       ctx.beginPath();
       ctx.arc(x, y, 6, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(16, 185, 129, 0.3)';
       ctx.fill();
-      
+
       ctx.beginPath();
       ctx.arc(x, y, 4, 0, Math.PI * 2);
       ctx.fillStyle = '#10b981';
@@ -324,22 +324,22 @@ export default function DownloadManager({
   // Mouse handlers for canvas - use fixed 60 slots
   const handleCanvasMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return;
-    
+
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
-    
+
     const scaleX = canvas.width / rect.width;
     const x = mouseX * scaleX;
-    
+
     // Fixed bar width based on 60 slots
     const barWidth = canvas.width / GRAPH_SLOTS;
     const paddedIndex = Math.floor(x / barWidth);
-    
+
     // Convert padded index to actual speedHistory index
     const emptySlots = GRAPH_SLOTS - speedHistory.length;
     const actualIndex = paddedIndex - emptySlots;
-    
+
     if (actualIndex >= 0 && actualIndex < speedHistory.length) {
       setHoveredIndex(actualIndex);
       setMousePos({ x: e.clientX, y: e.clientY });
@@ -377,28 +377,39 @@ export default function DownloadManager({
 
   const handleResume = async () => {
     if (!pausedJob) return;
-    
+
     const { job } = pausedJob;
     const installId = job.installId;
-    
+
     try {
       // Clear paused and pausing state before emitting resume event
       setPausedJob(null);
       setIsPausing(false);
-      
+
+      // Unpause the queue first
+      await invoke('queue_set_paused', { paused: false });
+
       // Emit the appropriate resume event based on job kind
+      // We use info from progress if available to avoid empty strings
+      const payload = {
+        install: installId,
+        biz: '', // To be looked up by backend if empty
+        lang: '',
+        region: ''
+      };
+
       switch (job.kind) {
         case 'game_download':
-          await emit('start_game_download', { install: installId, biz: '', lang: '', region: '' });
+          await emit('start_game_download', payload);
           break;
         case 'game_update':
-          await emit('start_game_update', { install: installId, biz: '', lang: '', region: '' });
+          await emit('start_game_update', payload);
           break;
         case 'game_preload':
-          await emit('start_game_preload', { install: installId, biz: '', lang: '', region: '' });
+          await emit('start_game_preload', payload);
           break;
         case 'game_repair':
-          await emit('start_game_repair', { install: installId, biz: '', lang: '', region: '' });
+          await emit('start_game_repair', payload);
           break;
       }
     } catch (error) {
@@ -501,14 +512,14 @@ export default function DownloadManager({
   const bannerImage = currentInstall?.game_background;
 
   // Speed limit display
-  const limitText = downloadSpeedLimitKiB > 0 
-    ? (downloadSpeedLimitKiB >= 1024 
-        ? `${(downloadSpeedLimitKiB / 1024).toFixed(1)} MiB/s` 
-        : `${Math.round(downloadSpeedLimitKiB)} KiB/s`)
+  const limitText = downloadSpeedLimitKiB > 0
+    ? (downloadSpeedLimitKiB >= 1024
+      ? `${(downloadSpeedLimitKiB / 1024).toFixed(1)} MiB/s`
+      : `${Math.round(downloadSpeedLimitKiB)} KiB/s`)
     : '';
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
       onClick={onClose}
     >
@@ -520,7 +531,7 @@ export default function DownloadManager({
           const padding = 12;
           let left = mousePos.x + 15;
           let top = mousePos.y - 80;
-          
+
           if (left + tooltipWidth + padding > window.innerWidth) {
             left = Math.max(padding, mousePos.x - tooltipWidth - 15);
           }
@@ -558,7 +569,7 @@ export default function DownloadManager({
         })()
       )}
 
-      <div 
+      <div
         className="relative w-[95vw] h-[90vh] max-w-7xl bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 rounded-2xl shadow-2xl border border-gray-700/50 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
@@ -579,7 +590,7 @@ export default function DownloadManager({
               )}
             </div>
           </div>
-          
+
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors group"
@@ -594,12 +605,11 @@ export default function DownloadManager({
         <div className="h-[calc(100%-5rem)] overflow-y-auto">
           {/* Current Download Section */}
           {currentJob ? (
-            <div 
-              className={`flex flex-col transition-all ${
-                draggedJobId && dragOverTarget === 'active' 
-                  ? 'ring-2 ring-blue-500 ring-inset bg-blue-900/10' 
-                  : ''
-              }`}
+            <div
+              className={`flex flex-col transition-all ${draggedJobId && dragOverTarget === 'active'
+                ? 'ring-2 ring-blue-500 ring-inset bg-blue-900/10'
+                : ''
+                }`}
               onDragOver={(e) => { e.preventDefault(); setDragOverTarget('active'); }}
               onDragLeave={() => setDragOverTarget(null)}
               onDrop={handleDropOnActive}
@@ -619,7 +629,7 @@ export default function DownloadManager({
                       <div className="w-full h-full bg-gray-800/50" />
                     )}
                     <div className="absolute right-0 top-0 bottom-0 w-1/2 bg-gradient-to-l from-gray-900/90 to-transparent pointer-events-none" />
-                    
+
                     {/* Title overlay */}
                     <div className="absolute left-6 top-6 z-10 text-left pointer-events-none">
                       <h3 className="text-2xl font-semibold text-white mb-1 truncate max-w-xs">
@@ -632,7 +642,7 @@ export default function DownloadManager({
                   {/* Graph */}
                   <div className="flex-1 relative z-10">
                     <div className="overflow-hidden">
-                      <canvas 
+                      <canvas
                         ref={canvasRef}
                         width={600}
                         height={120}
@@ -715,11 +725,10 @@ export default function DownloadManager({
                         </div>
 
                         <div className="w-full bg-gray-700/50 rounded-full h-2 mb-2 overflow-hidden">
-                          <div 
-                            className={`h-2 rounded-full transition-all duration-500 ${
-                              isPaused ? 'bg-gray-500' : 'bg-blue-500'
-                            }`}
-                            style={{ 
+                          <div
+                            className={`h-2 rounded-full transition-all duration-500 ${isPaused ? 'bg-gray-500' : 'bg-blue-500'
+                              }`}
+                            style={{
                               width: `${downloadProgress}%`,
                               boxShadow: isPaused ? 'none' : '0 0 10px rgba(59, 130, 246, 0.5)'
                             }}
@@ -749,11 +758,10 @@ export default function DownloadManager({
                           <button
                             onClick={isPaused ? handleResume : handlePause}
                             disabled={isPausing && !isPaused}
-                            className={`w-9 h-9 rounded-md flex items-center justify-center transition-colors shadow-sm ${
-                              isPausing && !isPaused
-                                ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                                : 'bg-blue-600 hover:bg-blue-700 text-white'
-                            }`}
+                            className={`w-9 h-9 rounded-md flex items-center justify-center transition-colors shadow-sm ${isPausing && !isPaused
+                              ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                              : 'bg-blue-600 hover:bg-blue-700 text-white'
+                              }`}
                           >
                             {isPaused ? (
                               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
@@ -800,9 +808,9 @@ export default function DownloadManager({
                     const name = jobProgress?.name ?? job.name ?? install?.name ?? job.installId;
                     const isDragging = draggedJobId === job.id;
                     const isDragOver = dragOverTarget === job.id;
-                    
+
                     return (
-                      <div 
+                      <div
                         key={job.id}
                         draggable
                         onDragStart={(e) => handleDragStart(e, job.id)}

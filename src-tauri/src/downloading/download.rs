@@ -101,6 +101,14 @@ pub fn run_game_download(
             tokens.insert(payload.install.clone(), cancel_token.clone());
         }
 
+        let verified_files = {
+            let state = h4.state::<DownloadState>();
+            let mut vf = state.verified_files.lock().unwrap();
+            vf.entry(payload.install.clone())
+                .or_insert_with(|| Arc::new(Mutex::new(std::collections::HashSet::new())))
+                .clone()
+        };
+
         let mut success = false;
         match picked.metadata.download_mode.as_str() {
             // Generic zipped mode
@@ -120,7 +128,7 @@ pub fn run_game_download(
                     .iter()
                     .map(|v| v.file_url.clone())
                     .collect::<Vec<String>>();
-                let totalsize = picked
+                let _ = picked
                     .game
                     .full
                     .iter()
@@ -150,6 +158,7 @@ pub fn run_game_download(
                             }
                         },
                         Some(cancel_token),
+                        None,
                     )
                     .await
                 });
@@ -250,13 +259,24 @@ pub fn run_game_download(
             }
             // HoYoverse sophon chunk mode
             "DOWNLOAD_MODE_CHUNK" => {
-                let urls = if payload.biz == "bh3_global" {
+                let biz = if payload.biz.is_empty() {
+                    gm.biz.clone()
+                } else {
+                    payload.biz.clone()
+                };
+                let region = if payload.region.is_empty() {
+                    install.region_code.clone()
+                } else {
+                    payload.region.clone()
+                };
+
+                let urls = if biz == "bh3_global" {
                     picked
                         .game
                         .full
                         .clone()
                         .iter()
-                        .filter(|e| e.region_code.clone().unwrap() == payload.region)
+                        .filter(|e| e.region_code.clone().unwrap() == region)
                         .cloned()
                         .collect::<Vec<FullGameFile>>()
                 } else {
@@ -289,6 +309,7 @@ pub fn run_game_download(
                                 }
                             },
                             Some(cancel_token),
+                            Some(verified_files.clone()),
                         )
                         .await
                     });
@@ -341,6 +362,7 @@ pub fn run_game_download(
                             }
                         },
                         Some(cancel_token),
+                        Some(verified_files.clone()),
                     )
                     .await
                 });

@@ -31,6 +31,7 @@ mod downloading;
 pub struct DownloadState {
     pub tokens: Mutex<HashMap<String, Arc<AtomicBool>>>,
     pub queue: Mutex<Option<crate::downloading::queue::DownloadQueueHandle>>,
+    pub verified_files: Mutex<HashMap<String, Arc<Mutex<std::collections::HashSet<String>>>>>,
 }
 
 #[derive(Clone, serde::Serialize)]
@@ -50,7 +51,7 @@ pub fn run() {
             tauri::Builder::default()
                 .manage(Mutex::new(ActionBlocks { action_exit: false, prevent_exit_count: 0 }))
                 .manage(ManifestLoaders {game: ManifestLoader::default(), runner: RunnerLoader::default()})
-                .manage(DownloadState { tokens: Mutex::new(HashMap::new()), queue: Mutex::new(None) })
+                .manage(DownloadState { tokens: Mutex::new(HashMap::new()), queue: Mutex::new(None), verified_files: Mutex::new(HashMap::new()) })
                 .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| { app.emit("single-instance", Payload { args: argv, cwd }).unwrap(); }))
                 .plugin(tauri_plugin_notification::init())
                 .plugin(tauri_plugin_dialog::init())
@@ -60,7 +61,7 @@ pub fn run() {
         {
             tauri::Builder::default()
                 .manage(Mutex::new(ActionBlocks { action_exit: false, prevent_exit_count: 0 }))
-                .manage(DownloadState { tokens: Mutex::new(HashMap::new()), queue: Mutex::new(None) })
+                .manage(DownloadState { tokens: Mutex::new(HashMap::new()), queue: Mutex::new(None), verified_files: Mutex::new(HashMap::new()) })
                 .manage(ManifestLoaders {game: ManifestLoader::default()})
                 .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| { app.emit("single-instance", Payload { args: argv, cwd }).unwrap(); }))
                 .plugin(tauri_plugin_notification::init())
