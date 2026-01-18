@@ -12,6 +12,15 @@ export function isImagePreloaded(url: string): boolean {
   return imageElementCache.has(url);
 }
 
+/**
+ * Get the preloaded image/video element from cache.
+ * Returns the cached element if available, otherwise undefined.
+ * When using this, you can use the element's .src directly since it's already loaded.
+ */
+export function getPreloadedImage(url: string): HTMLImageElement | HTMLVideoElement | undefined {
+  return imageElementCache.get(url);
+}
+
 export function preloadImages(
   urls: string[],
   onProgress?: (loaded: number, total: number) => void,
@@ -31,7 +40,7 @@ export function preloadImages(
         try {
           video.preload = "auto"; // equivalent to high priority hint
           // No standardized fetchPriority yet for video elements like images
-        } catch {}
+        } catch { }
 
         video.muted = true; // often needed for autoPlay to work
         video.playsInline = true; // important on mobile for autoplay
@@ -59,7 +68,7 @@ export function preloadImages(
         try {
           // @ts-ignore fetchPriority isn't typed on HTMLImageElement in all TS versions
           img.fetchPriority = "high";
-        } catch {}
+        } catch { }
         img.decoding = "async";
         img.loading = "eager";
         img.onload = () => {

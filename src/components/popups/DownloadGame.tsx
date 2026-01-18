@@ -1,14 +1,14 @@
-import {DownloadCloudIcon, HardDriveDownloadIcon, X} from "lucide-react";
-import {POPUPS} from "./POPUPS.ts";
+import { DownloadCloudIcon, HardDriveDownloadIcon, X, HardDrive, ChevronDown, Check, Folder } from "lucide-react";
+import { POPUPS } from "./POPUPS.ts";
 import FolderInput from "../common/FolderInput.tsx";
 import CheckBox from "../common/CheckBox.tsx";
-import TextDisplay from "../common/TextDisplay.tsx";
 import SelectMenu from "../common/SelectMenu.tsx";
-import {invoke} from "@tauri-apps/api/core";
-import {emit} from "@tauri-apps/api/event";
-import {useState, useEffect} from "react";
-
-
+import { CachedImage } from "../common/CachedImage";
+import { invoke } from "@tauri-apps/api/core";
+import { emit } from "@tauri-apps/api/event";
+import { useState, useEffect, useRef } from "react";
+import { formatBytes } from "../../utils/progress";
+import { open } from "@tauri-apps/plugin-dialog";
 
 interface IProps {
     disk: any;
@@ -16,7 +16,7 @@ interface IProps {
     displayName: string;
     settings: any;
     biz: string;
-    versions: any[];
+    versions: { value: string; name: string; background?: string }[];
     background: string;
     icon: string;
     pushInstalls: () => void;
@@ -27,9 +27,12 @@ interface IProps {
     fetchDownloadSizes: (biz: any, version: any, lang: any, path: any, callback: (data: any) => void) => void;
     openAsExisting?: boolean;
 }
-export default function DownloadGame({disk, setOpenPopup, displayName, settings, biz, versions, background, icon, pushInstalls, runnerVersions, dxvkVersions, setCurrentInstall, setBackground, fetchDownloadSizes, openAsExisting}: IProps) {
+
+export default function DownloadGame({ disk, setOpenPopup, displayName, settings, biz, versions, background, icon, pushInstalls, runnerVersions, dxvkVersions, setCurrentInstall, setBackground, fetchDownloadSizes, openAsExisting }: IProps) {
     const [skipGameDownload] = useState<boolean>(!!openAsExisting);
     const [selectedGameVersion, setSelectedGameVersion] = useState(versions?.[0]?.value || "");
+    const [isVersionOpen, setIsVersionOpen] = useState(false);
+
     // @ts-ignore
     const [selectedAudioLang, setSelectedAudioLang] = useState("en-us");
     // @ts-ignore
@@ -39,128 +42,339 @@ export default function DownloadGame({disk, setOpenPopup, displayName, settings,
     // @ts-ignore
     const [selectedDxvkVersion, setSelectedDxvkVersion] = useState(dxvkVersions?.[0]?.value || "");
 
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Close dropdown on outside click
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsVersionOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [dropdownRef]);
+
+    // Controlled State for Install Path
+    const [installPath, setInstallPath] = useState(`${settings.default_game_path}/${biz}`);
+
+    // Update path effect to fetch sizes
+    useEffect(() => {
+        if (installPath && selectedGameVersion && fetchDownloadSizes) {
+            fetchDownloadSizes(biz, selectedGameVersion, selectedAudioLang, installPath, () => { });
+        }
+    }, [installPath, selectedGameVersion]);
+
     // Animation state
     const [isClosing, setIsClosing] = useState(false);
+
+    // Disk space logic
+    const freeSpace = parseFloat(disk.free_disk_space_raw || 0);
+    const requiredSpace = parseFloat(disk.game_decompressed_size_raw || 0);
+    const hasEnoughSpace = skipGameDownload || (freeSpace > requiredSpace);
+    const usagePercent = freeSpace > 0 ? Math.min(100, (requiredSpace / freeSpace) * 100) : 0;
+
 
     // Update button state when skipGameDownload changes
     useEffect(() => {
         const btn = document.getElementById("game_dl_btn");
-        const freedisk = document.getElementById("game_disk_free");
-
-        if (btn && freedisk) {
+        if (btn) {
             if (skipGameDownload) {
                 btn.removeAttribute("disabled");
-                freedisk.classList.remove("text-red-600");
-                freedisk.classList.add("text-white");
-                freedisk.classList.remove("font-bold");
             } else {
-                if (disk && disk.game_decompressed_size_raw > disk.free_disk_space_raw) {
+                if (!hasEnoughSpace) {
                     btn.setAttribute("disabled", "");
-                    freedisk.classList.add("text-red-600");
-                    freedisk.classList.remove("text-white");
-                    freedisk.classList.add("font-bold");
+                } else {
+                    btn.removeAttribute("disabled");
                 }
             }
         }
-    }, [skipGameDownload, disk]);
+    }, [skipGameDownload, hasEnoughSpace]);
 
 
-    function formatDir() {
-        // @ts-ignore
-        return document.getElementById("install_game_path").value;
-    }
+
+
+    const handleBrowse = async () => {
+        const selected = await open({
+            directory: true,
+            multiple: false,
+            defaultPath: installPath,
+        });
+        if (selected && typeof selected === "string") {
+            setInstallPath(selected);
+        }
+    };
+
+    const handleInstall = () => {
+        setIsClosing(true);
+        setTimeout(() => {
+            // @ts-ignore
+            let hash_skip = document.getElementById("skip_hash_validation")?.checked;
+            // @ts-ignore
+            let skip_version = document.getElementById("skip_version_updates")?.checked;
+
+            let install_path = installPath;
+            let gvv = selectedGameVersion;
+            let vpp = selectedAudioLang;
+            let rvv = selectedRunnerVersion || "none";
+            let dvv = selectedDxvkVersion || "none";
+            let rp = document.getElementById("install_prefix_path");
+            let rpp = "none";
+            if (rp !== null) {
+                // @ts-ignore
+                rpp = rp.value;
+            }
+            let skipdl = skipGameDownload;
+            invoke("add_install", {
+                manifestId: biz,
+                version: gvv,
+                audioLang: vpp,
+                name: displayName,
+                directory: install_path,
+                runnerPath: "none",
+                dxvkPath: "none",
+                runnerVersion: rvv,
+                dxvkVersion: dvv,
+                gameIcon: icon,
+                gameBackground: background,
+                ignoreUpdates: skip_version,
+                skipHashCheck: hash_skip,
+                useJadeite: false,
+                useXxmi: false,
+                useFpsUnlock: false,
+                envVars: "",
+                preLaunchCommand: "",
+                launchCommand: "",
+                fpsValue: "60",
+                runnerPrefix: rpp,
+                launchArgs: "",
+                skipGameDl: skipdl,
+                regionCode: selectedRegionCode
+            }).then((r: any) => {
+                if (r.success) {
+                    pushInstalls();
+                    setCurrentInstall(r.install_id as string);
+                    setBackground(r.background as string);
+                    setTimeout(() => {
+                        let installui = document.getElementById(r.install_id);
+                        if (installui) installui.focus();
+                        if (!skipdl) {
+                            emit("start_game_download", { install: r.install_id, biz: biz, lang: vpp, region: selectedRegionCode }).then(() => { });
+                        }
+                    }, 20);
+                } else {
+                    console.error("Download error!");
+                }
+            });
+            setOpenPopup(POPUPS.NONE);
+        }, 300);
+    };
 
     return (
-        <div
-            className={`rounded-xl w-[92vw] max-w-5xl max-h-[85vh] bg-zinc-900 border border-white/20 flex flex-col p-6 overflow-hidden ${isClosing ? 'animate-bg-fade-out' : 'animate-bg-fade-in'} duration-100 ease-out`}
-        >
-            <div className="flex flex-row items-center justify-between mb-2">
-                <h1 className="text-white font-bold text-3xl bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent">{skipGameDownload ? "Add" : "Install"} {displayName}</h1>
-                <X className="text-white/70 hover:text-white hover:bg-white/10 rounded-lg p-3 w-12 h-12 transition-all duration-200 cursor-pointer" onClick={() => setOpenPopup(POPUPS.NONE)}/>
-            </div>
-            <div className="w-full overflow-y-auto overflow-x-hidden hover-scrollbar pr-4 -mr-4 flex-1">
-                <div className="p-6 flex flex-col gap-2 w-full max-w-5xl mx-auto">
-                    {/* @ts-ignore */}
-                    <div className="w-full"><FolderInput name={"Install location"} clearable={true} value={`${settings.default_game_path}/${biz}`} folder={true} id={"install_game_path"} biz={biz} fetchDownloadSizes={fetchDownloadSizes} version={() => selectedGameVersion} lang={() => selectedAudioLang} helpText={"Location where to download game files."} skipGameDownload={skipGameDownload}/></div>
-                    {/* Existing install toggle is now internal; removed from UI */}
-                    <div className="w-full"><CheckBox enabled={false} name={"Skip version update check"} id={"skip_version_updates"} helpText={"Skip checking for game updates."}/></div>
-                    <div className="w-full"><CheckBox enabled={false} name={"Skip hash validation"} id={"skip_hash_validation"} helpText={"Skip validating files during game repair process, this will speed up the repair process significantly."}/></div>
-                    <div className="w-full"><TextDisplay id={"game_disk_free"} name={"Available disk space"} value={`${disk.free_disk_space}`} style={"text-white px-3 w-full"}/></div>
-                    <div className="w-full"><TextDisplay id={"game_disk_need"} name={"Required disk space (unpacked)"} value={`${disk.game_decompressed_size}`} style={"text-white px-3 w-full"}/></div>
-                    <div className="w-full"><SelectMenu id={"game_version"} name={"Game version"} options={versions} multiple={false} selected={selectedGameVersion} biz={biz} dir={formatDir} fetchDownloadSizes={fetchDownloadSizes} lang={() => selectedAudioLang} helpText={"Version of the game to install."} setOpenPopup={setOpenPopup} skipGameDownload={skipGameDownload} onSelect={setSelectedGameVersion}/></div>
-                    {/*<div className="w-full"><SelectMenu id={"game_audio_langs"} name={"Voice pack"} options={[{name: "English (US)", value: "en-us"}, {name: "Japanese", value: "ja-jp"}, {name: "Korean", value: "ko-kr"}, {name: "Chinese", value: "zh-cn"}]} multiple={false} selected={selectedAudioLang} biz={biz} fetchDownloadSizes={fetchDownloadSizes} dir={formatDir} version={() => selectedGameVersion} helpText={"What audio package to install for the game."} setOpenPopup={setOpenPopup} skipGameDownload={skipGameDownload} onSelect={setSelectedAudioLang}/></div>*/}
-                    {(biz === "bh3_global") ? <div className="w-full"><SelectMenu id={"game_region_code"} name={"Game region"} multiple={false} options={[{name: "Europe & America", value: "glb_official"}, {name: "Japan", value: "jp_official"}, {name: "Korea", value: "kr_official"}, {name: "SEA", value: "overseas_official"}, {name: "Traditional Chinese", value: "asia_official"}]} selected={selectedRegionCode} helpText={"Region you want downloaded."} setOpenPopup={setOpenPopup} onSelect={setSelectedRegionCode}/></div> : null}
-                    {(window.navigator.platform.includes("Linux")) ? <div className="w-full"><SelectMenu id={"runner_version"} name={"Runner version"} multiple={false} options={runnerVersions} selected={selectedRunnerVersion} helpText={"Wine/Proton version to use for this installation."} setOpenPopup={setOpenPopup} onSelect={setSelectedRunnerVersion}/></div> : null}
-                    {(window.navigator.platform.includes("Linux")) ? null/*<div className="w-full"><SelectMenu id={"dxvk_version"} name={"DXVK version"} multiple={false} options={dxvkVersions} selected={selectedDxvkVersion} helpText={"What DXVK version to use for this installation."} setOpenPopup={setOpenPopup} onSelect={setSelectedDxvkVersion}/></div>*/ : null}
-                    {(window.navigator.platform.includes("Linux")) ? <div className="w-full"><FolderInput name={"Runner prefix location"} clearable={true} value={`${settings.default_runner_prefix_path}/${biz}`} folder={true} id={"install_prefix_path"} helpText={"Location where to store Wine/Proton prefix."}/></div>: null}
+        <div className={`relative w-[95vw] max-w-4xl h-auto max-h-[90vh] flex flex-col overflow-hidden rounded-2xl shadow-2xl border border-white/10 bg-[#0c0c0c] group/download ${isClosing ? 'animate-zoom-out' : 'animate-zoom-in'}`}>
+
+            {/* Hero Header */}
+            <div className="relative h-48 w-full flex-shrink-0">
+                {background && (
+                    <div className="absolute inset-0">
+                        <CachedImage src={background} className="w-full h-full object-cover opacity-80" alt="Game Background" />
+                        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-[#0c0c0c]" />
+                    </div>
+                )}
+
+                <div className="absolute top-4 right-4 z-20">
+                    <button
+                        onClick={() => { setIsClosing(true); setTimeout(() => setOpenPopup(POPUPS.NONE), 200); }}
+                        className="p-2 rounded-full bg-black/60 hover:bg-white/10 border border-white/5 transition-all duration-200 hover:scale-105 opacity-0 group-hover/download:opacity-100"
+                    >
+                        <X className="w-6 h-6 text-white/70 group-hover:text-white" />
+                    </button>
+                </div>
+
+                <div className="absolute bottom-6 left-8 z-10 flex items-end gap-6">
+                    {icon && (
+                        <div className="w-24 h-24 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/10 bg-black/80 hidden sm:block">
+                            <CachedImage src={icon} className="w-full h-full object-cover" alt="Icon" />
+                        </div>
+                    )}
+                    <div className="mb-1">
+                        <h1 className="text-4xl font-bold text-white tracking-tight drop-shadow-md">{skipGameDownload ? "Add Installation" : "Install Game"}</h1>
+                        <div className="flex items-center gap-3 mt-1 relative">
+                            <span className="text-white/80 font-medium text-lg">{displayName}</span>
+
+                            {/* Version Pill */}
+                            <div className="relative" ref={dropdownRef}>
+                                <button
+                                    onClick={() => setIsVersionOpen(!isVersionOpen)}
+                                    className="flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 hover:border-purple-500/50 transition-all cursor-pointer group"
+                                >
+                                    <span className="text-purple-300 font-bold text-sm">{selectedGameVersion}</span>
+                                    <ChevronDown size={14} className={`text-purple-400 transition-transform duration-200 ${isVersionOpen ? 'rotate-180' : ''}`} />
+                                </button>
+
+                                {/* Dropdown */}
+                                {isVersionOpen && (
+                                    <div className="absolute top-full left-0 mt-2 w-48 max-h-60 overflow-y-auto bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl z-50 py-1 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/20 hover:scrollbar-thumb-white/30">
+                                        {versions.map((v) => (
+                                            <button
+                                                key={v.value}
+                                                onClick={() => {
+                                                    setSelectedGameVersion(v.value);
+                                                    setIsVersionOpen(false);
+                                                    if (v.background) {
+                                                        setBackground(v.background);
+                                                    }
+                                                }}
+                                                className="w-full px-4 py-2 text-left hover:bg-white/10 flex items-center justify-between group"
+                                            >
+                                                <span className={`text-sm ${selectedGameVersion === v.value ? 'text-white font-bold' : 'text-zinc-400 group-hover:text-white'}`}>
+                                                    {v.name}
+                                                </span>
+                                                {selectedGameVersion === v.value && <Check size={14} className="text-purple-400" />}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div className="flex justify-center pt-5 mt-4 border-t border-white/10">
-                <button className={`flex flex-row gap-3 items-center py-3 px-8 rounded-xl disabled:cursor-not-allowed disabled:brightness-90 disabled:saturate-100 transition-all duration-200 transform hover:scale-105 font-semibold text-white bg-gradient-to-r focus:outline-none focus-visible:ring-2 ${skipGameDownload ? 'from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 focus-visible:ring-green-400' : 'from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 focus-visible:ring-purple-300'}`} id={"game_dl_btn"} onClick={() => {
-                    setIsClosing(true);
-                    setTimeout(() => {
-                        // @ts-ignore
-                        let hash_skip = document.getElementById("skip_hash_validation").checked;
-                        // @ts-ignore
-                        let skip_version = document.getElementById("skip_version_updates").checked;
-                        // @ts-ignore
-                        let install_path = document.getElementById("install_game_path").value;
-                        let gvv = selectedGameVersion;
-                        let vpp = selectedAudioLang;
-                        let rvv = selectedRunnerVersion || "none";
-                        let dvv = selectedDxvkVersion || "none";
-                        let rp = document.getElementById("install_prefix_path");
-                        let rpp = "none";
-                        if (rp !== null) {
-                            // @ts-ignore
-                            rpp = rp.value;
-                        }
-                        let skipdl = skipGameDownload;
-                        invoke("add_install", {
-                            manifestId: biz,
-                            version: gvv,
-                            audioLang: vpp,
-                            name: displayName,
-                            directory: install_path,
-                            runnerPath: "none",
-                            dxvkPath: "none",
-                            runnerVersion: rvv,
-                            dxvkVersion: dvv,
-                            gameIcon: icon,
-                            gameBackground: background,
-                            ignoreUpdates: skip_version,
-                            skipHashCheck: hash_skip,
-                            useJadeite: false,
-                            useXxmi: false,
-                            useFpsUnlock: false,
-                            envVars: "",
-                            preLaunchCommand: "",
-                            launchCommand: "",
-                            fpsValue: "60",
-                            runnerPrefix: rpp,
-                            launchArgs: "",
-                            skipGameDl: skipdl,
-                            regionCode: selectedRegionCode
-                        }).then((r: any) => {
-                            if (r.success) {
-                                pushInstalls();
-                                setCurrentInstall(r.install_id as string);
-                                setBackground(r.background as string);
-                                setTimeout(() => {
-                                    let installui = document.getElementById(r.install_id);
-                                    if (installui) installui.focus();
-                                    if (!skipdl) {
-                                        emit("start_game_download", {install: r.install_id, biz: biz, lang: vpp, region: selectedRegionCode}).then(() => {});
-                                    }
-                                }, 20);
-                            } else {
-                                console.error("Download error!");
-                            }
-                        });
-                        setOpenPopup(POPUPS.NONE);
-                    }, 420);
-                }}> {skipGameDownload ? <HardDriveDownloadIcon/> : <DownloadCloudIcon/>} <span>{skipGameDownload ? "Add existing installation" : "Start installation"}</span></button>
+
+            {/* Content Body */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden p-8 space-y-8 bg-[#0c0c0c]/80 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/20 hover:scrollbar-thumb-white/30">
+
+                {/* Location Section - Custom Card Design */}
+                <div className="space-y-4">
+                    <h3 className="text-white/90 font-semibold text-lg flex items-center gap-2">
+                        <HardDrive className="text-purple-400" size={20} /> Installation Destination
+                    </h3>
+
+                    <div className="bg-gradient-to-br from-white/5 to-white/0 rounded-xl border border-white/10 overflow-hidden">
+                        <div className="p-4 flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-lg bg-black/40 flex items-center justify-center shrink-0 border border-white/5">
+                                <Folder className="text-white/50" size={24} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="text-xs text-white/40 uppercase font-bold tracking-wider mb-1">Install Path</div>
+                                <div className="text-white/90 font-medium truncate font-mono text-sm" title={installPath}>
+                                    {installPath}
+                                </div>
+                            </div>
+                            <button
+                                onClick={handleBrowse}
+                                className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white border border-white/5 hover:border-white/20 transition-all text-sm font-medium"
+                            >
+                                Change
+                            </button>
+                        </div>
+
+                        {/* Disk Space Visual - Integrated */}
+                        {!skipGameDownload && (
+                            <div className="bg-black/20 px-4 py-3 border-t border-white/5">
+                                <div className="flex justify-between items-center mb-2 text-xs">
+                                    <span className="text-zinc-400 font-medium">Storage Usage</span>
+                                    <div className="text-right flex items-center gap-2">
+                                        <span className={`font-bold ${hasEnoughSpace ? 'text-emerald-400' : 'text-red-400'}`}>
+                                            {formatBytes ? formatBytes(parseFloat(disk.game_decompressed_size_raw || 0)) : disk.game_decompressed_size}
+                                        </span>
+                                        <span className="text-zinc-600">/</span>
+                                        <span className="text-zinc-500">{formatBytes ? formatBytes(parseFloat(disk.free_disk_space_raw || 0)) : disk.free_disk_space} free</span>
+                                    </div>
+                                </div>
+                                <div className="w-full bg-zinc-800/50 rounded-full h-1.5 overflow-hidden">
+                                    <div
+                                        className={`h-full rounded-full transition-all duration-500 ${hasEnoughSpace ? 'bg-gradient-to-r from-purple-500 to-blue-500' : 'bg-red-500'}`}
+                                        style={{ width: `${Math.min(100, Math.max(2, usagePercent))}%` }}
+                                    />
+                                </div>
+                                {!hasEnoughSpace && (
+                                    <p className="text-red-400 text-xs mt-2 font-medium flex items-center gap-1">
+                                        <X size={12} /> Insufficient disk space
+                                    </p>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Settings Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Version Selector removed from here, moved to header */}
+
+                    {biz === "bh3_global" && (
+                        <div className="space-y-2">
+                            <label className="text-white/70 text-sm font-medium ml-1">Region</label>
+                            <SelectMenu
+                                id={"game_region_code"}
+                                name=""
+                                multiple={false}
+                                options={[{ name: "Europe & America", value: "glb_official" }, { name: "Japan", value: "jp_official" }, { name: "Korea", value: "kr_official" }, { name: "SEA", value: "overseas_official" }, { name: "Traditional Chinese", value: "asia_official" }]}
+                                selected={selectedRegionCode}
+                                helpText={"Region you want downloaded."}
+                                setOpenPopup={setOpenPopup}
+                                onSelect={setSelectedRegionCode}
+                            />
+                        </div>
+                    )}
+                </div>
+
+                {window.navigator.platform.includes("Linux") && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-white/5">
+                        <div className="space-y-2">
+                            <label className="text-white/70 text-sm font-medium ml-1">Runner</label>
+                            <SelectMenu id={"runner_version"} name="" multiple={false} options={runnerVersions} selected={selectedRunnerVersion} helpText={"Wine/Proton version."} setOpenPopup={setOpenPopup} onSelect={setSelectedRunnerVersion} />
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                            <label className="text-white/70 text-sm font-medium ml-1">Prefix Path</label>
+                            <div className="bg-white/5 rounded-xl p-1 border border-white/5">
+                                <FolderInput name="" clearable={true} value={`${settings.default_runner_prefix_path}/${biz}`} folder={true} id={"install_prefix_path"} helpText={"Location where to store Wine/Proton prefix."} />
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Advanced Options */}
+                <div className="pt-4 border-t border-white/5">
+                    <p className="text-white/40 text-xs font-bold uppercase tracking-wider mb-3">Advanced Options</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <CheckBox enabled={false} name={"Skip version update check"} id={"skip_version_updates"} helpText={"Skip checking for game updates."} />
+                        <CheckBox enabled={false} name={"Skip hash validation"} id={"skip_hash_validation"} helpText={"Skip validating files during game repair process."} />
+                    </div>
+                </div>
+
             </div>
+
+            {/* Footer Actions */}
+            <div className="p-6 bg-[#0c0c0c]/90 border-t border-white/5 flex flex-col-reverse sm:flex-row justify-end gap-3 z-20">
+                <button
+                    onClick={() => { setIsClosing(true); setTimeout(() => setOpenPopup(POPUPS.NONE), 200); }}
+                    className="px-6 py-3 rounded-xl text-white/50 hover:text-white hover:bg-white/5 transition-all font-medium text-sm"
+                >
+                    Cancel
+                </button>
+                <button
+                    id="game_dl_btn"
+                    onClick={handleInstall}
+                    disabled={!hasEnoughSpace && !skipGameDownload}
+                    className={`
+                        relative overflow-hidden px-8 py-3 rounded-xl font-bold text-white shadow-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]
+                        disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none
+                        ${skipGameDownload
+                            ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/20'
+                            : 'bg-purple-600 hover:bg-purple-500 shadow-purple-900/30'
+                        }
+                    `}
+                >
+                    <div className="flex items-center gap-3 relative z-10">
+                        {skipGameDownload ? <HardDriveDownloadIcon size={20} /> : <DownloadCloudIcon size={20} />}
+                        <span>{skipGameDownload ? "Locate Game" : "Install Game"}</span>
+                    </div>
+                </button>
+            </div>
+
         </div>
     );
 }

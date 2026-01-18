@@ -2,16 +2,14 @@ import { POPUPS } from "../popups/POPUPS";
 import { useEffect } from "react";
 import RepoManager from "../popups/repomanager/RepoManager";
 import AddRepo from "../popups/repomanager/AddRepo";
-import SettingsGlobal from "../popups/settings/SettingsGlobal";
+import LauncherSettings from "../settings/LauncherSettings";
 import DownloadGame from "../popups/DownloadGame";
-import SettingsInstall from "../popups/settings/SettingsInstall";
+import GameSettings from "../settings/GameSettings";
 import InstallDeleteConfirm from "../popups/settings/InstallDeleteConfirm";
 import FpsUnlockSettings from "../popups/settings/FpsUnlockSettings.tsx";
 import MangoHudSettings from "../popups/settings/MangoHudSettings.tsx";
 import RunnerManager from "../popups/runnermanager/RunnerManager.tsx";
 import XXMISettings from "../popups/settings/XXMISettings.tsx";
-import DownloadsModal from "../popups/downloads/DownloadsModal";
-import type { DownloadJobProgress, DownloadQueueStatePayload } from "../../types/downloadQueue";
 
 export type PopupOverlayProps = {
   openPopup: POPUPS;
@@ -59,10 +57,6 @@ export type PopupOverlayProps = {
 
   // Delete confirmation
   installs: any[];
-
-  // Downloads
-  downloadQueueState: DownloadQueueStatePayload | null;
-  downloadProgressByJobId: Record<string, DownloadJobProgress>;
 };
 
 export default function PopupOverlay(props: PopupOverlayProps) {
@@ -96,8 +90,6 @@ export default function PopupOverlay(props: PopupOverlayProps) {
     installGameSwitches,
     installGameFps,
     installs,
-    downloadQueueState,
-    downloadProgressByJobId,
   } = props;
 
   // ESC to close and scroll lock while a popup is open
@@ -120,7 +112,7 @@ export default function PopupOverlay(props: PopupOverlayProps) {
     <div
       role="dialog"
       aria-modal={openPopup !== POPUPS.NONE}
-      className={`absolute items-center justify-center top-0 bottom-0 left-0 right-0 p-8 z-50 ${openPopup == POPUPS.NONE ? "hidden" : "flex bg-black/60"
+      className={`absolute items-center justify-center top-0 bottom-0 left-16 right-0 p-8 z-50 ${openPopup == POPUPS.NONE ? "hidden" : "flex"
         }`}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
@@ -145,7 +137,7 @@ export default function PopupOverlay(props: PopupOverlayProps) {
       )}
       {openPopup == POPUPS.ADDREPO && <AddRepo setOpenPopup={setOpenPopup} />}
       {openPopup == POPUPS.SETTINGS && (
-        <SettingsGlobal
+        <LauncherSettings
           fetchSettings={fetchSettings}
           settings={globalSettings}
           setOpenPopup={setOpenPopup}
@@ -171,29 +163,15 @@ export default function PopupOverlay(props: PopupOverlayProps) {
         />
       )}
 
-      {openPopup == POPUPS.DOWNLOADS && (
-        <DownloadsModal
-          setOpenPopup={setOpenPopup}
-          queue={downloadQueueState}
-          progressByJobId={downloadProgressByJobId}
-          installs={installs}
-          downloadSpeedLimitKiB={Number(globalSettings?.download_speed_limit ?? 0)}
-        />
-      )}
-
       {openPopup == POPUPS.INSTALLSETTINGS && (
-        <SettingsInstall
-          games={gamesinfo}
+        <GameSettings
           installedRunners={installedRunners}
           installSettings={installSettings}
           setOpenPopup={setOpenPopup}
-          pushInstalls={pushInstalls}
-          setCurrentInstall={setCurrentInstall}
-          setCurrentGame={setCurrentGame}
-          setBackground={setBackground}
           fetchInstallSettings={fetchInstallSettings}
           prefetchedSwitches={installGameSwitches}
           prefetchedFps={installGameFps}
+          installs={installs}
         />
       )}
       {openPopup == POPUPS.INSTALLDELETECONFIRMATION && (

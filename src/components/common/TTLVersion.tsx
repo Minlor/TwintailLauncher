@@ -8,8 +8,8 @@ export default function TTLVersion() {
         getVersion().then(setVersion);
     }, []);
     return (
-        <>
-            Version: <span className={"text-purple-600 font-bold"}>{version}</span> | Branch: <span className={"text-orange-600 font-bold"}>{branch}</span>
-        </>
+        <span className="text-zinc-300">
+            Version: <span className={"text-purple-400 font-bold"}>{version}</span> | Branch: <span className={"text-orange-400 font-bold"}>{branch}</span> | Commit: <span className={"text-cyan-400 font-bold"}>{__COMMIT_HASH__}</span>
+        </span>
     );
 }

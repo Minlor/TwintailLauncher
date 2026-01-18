@@ -87,13 +87,13 @@ export function startInitialLoad(opts: LoaderOptions): LoaderController {
       try {
         await Promise.race([
           opts.preloadImages(
-              images,
-              (loaded, total) => {
-                if (cancelled) return;
-                const progress = 75 + Math.round((loaded / total) * 25);
-                opts.setProgress(progress, `Preloading images... (${loaded}/${total})`);
-              },
-              opts.preloadedBackgrounds
+            images,
+            (loaded, total) => {
+              if (cancelled) return;
+              const progress = 75 + Math.round((loaded / total) * 25);
+              opts.setProgress(progress, `Preloading images... (${loaded}/${total})`);
+            },
+            opts.preloadedBackgrounds
           ),
           // timeout
           new Promise<void>((resolve) => {
@@ -103,7 +103,7 @@ export function startInitialLoad(opts: LoaderOptions): LoaderController {
             }, IMAGE_PRELOAD_TIMEOUT_MS);
           }),
         ]);
-      } catch (e) { console.error("Error during image preloading:", e);}
+      } catch (e) { console.error("Error during image preloading:", e); }
       if (cancelled) return;
       opts.setProgress(100, "Almost ready...");
 
@@ -135,7 +135,7 @@ export function startInitialLoad(opts: LoaderOptions): LoaderController {
       cancelled = true;
       // Unregister all listeners
       unlistenFns.forEach((fn) => {
-        try { fn(); } catch {}
+        try { fn(); } catch { }
       });
     },
   };

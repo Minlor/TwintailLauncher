@@ -1,25 +1,38 @@
 import React from "react";
 import { POPUPS } from "../popups/POPUPS.ts";
+import { PAGES } from "../pages/PAGES.ts";
 import { PlusCircle, X } from "lucide-react";
 
 export default function SidebarManifests({
   isOpen,
   onToggle,
   popup: _popup,
-  hasInstalls
+  hasInstalls,
+  currentPage,
+  setCurrentPage,
 }: {
   isOpen: boolean,
   onToggle: () => void,
   popup: POPUPS,
-  hasInstalls: boolean
+  hasInstalls: boolean,
+  currentPage?: PAGES,
+  setCurrentPage?: (page: PAGES) => void,
 }) {
+
+  const handleClick = () => {
+    // Close any open page when toggling manifests
+    if (setCurrentPage && currentPage !== PAGES.NONE) {
+      setCurrentPage(PAGES.NONE);
+    }
+    onToggle();
+  };
 
   return (
     <React.Fragment>
       <div
         id="sidebar_manifests_toggle"
         className="group text-white hover:text-white/55 w-8 h-16 mb-0 cursor-pointer flex-initial relative flex items-center justify-center"
-        onClick={onToggle}>
+        onClick={handleClick}>
         {/* Animated icon swap: Add when closed -> X when open */}
         <span className="absolute inset-0 flex items-center justify-center">
           <PlusCircle
@@ -44,7 +57,8 @@ export default function SidebarManifests({
           </>
         )}
       </div>
-      
+
     </React.Fragment>
   );
 }
+

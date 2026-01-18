@@ -24,6 +24,10 @@ export default {
 				'shimmer': 'shimmer 2s infinite',
 				'bg-fade-in': 'bgFadeIn 300ms ease-out',
 				'bg-fade-out': 'bgFadeOut 300ms ease-out forwards',
+				'zoom-in': 'zoomIn 200ms ease-out',
+				'zoom-out': 'zoomOut 200ms ease-in forwards',
+				'scaleIn': 'scaleIn 200ms ease-out',
+				'bounce-slow': 'bounceSlow 3s ease-in-out infinite',
 			},
 			keyframes: {
 				fadeInOpacity: {
@@ -65,6 +69,22 @@ export default {
 				bgFadeOut: {
 					'0%': { opacity: '1' },
 					'100%': { opacity: '0' }
+				},
+				zoomIn: {
+					'0%': { opacity: '0', transform: 'scale(0.95)' },
+					'100%': { opacity: '1', transform: 'scale(1)' }
+				},
+				zoomOut: {
+					'0%': { opacity: '1', transform: 'scale(1)' },
+					'100%': { opacity: '0', transform: 'scale(0.95)' }
+				},
+				scaleIn: {
+					'0%': { opacity: '0', transform: 'scale(0.95)' },
+					'100%': { opacity: '1', transform: 'scale(1)' }
+				},
+				bounceSlow: {
+					'0%, 100%': { transform: 'translateY(0)' },
+					'50%': { transform: 'translateY(-10px)' }
 				}
 			}
 		}
@@ -73,4 +93,3 @@ export default {
 		require('tailwind-scrollbar'),
 	],
 }
-

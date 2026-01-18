@@ -5,8 +5,10 @@ import type {
   QueueJobView,
 } from "../../../types/downloadQueue";
 import ProgressBar from "../../common/ProgressBar";
+import { CachedImage } from "../../common/CachedImage";
 import { formatBytes, toPercent } from "../../../utils/progress";
 import { POPUPS } from "../POPUPS";
+import { SettingsLayout } from "../../settings/ui/SettingsLayout";
 
 type TelemetrySample = {
   t: number; // epoch ms
@@ -270,16 +272,19 @@ export default function DownloadsModal(props: DownloadsModalProps) {
                         {/* Background image (left side, fades to right) */}
                         <div className="absolute inset-0 pointer-events-none">
                           {install?.game_background ? (
-                            <img
-                              src={install.game_background}
-                              alt={""}
-                              className="absolute inset-0 w-full h-full object-cover object-left"
+                            <div
+                              className="absolute inset-0"
                               style={{
                                 maskImage: 'linear-gradient(to right, black 0%, black 25%, transparent 55%)',
                                 WebkitMaskImage: 'linear-gradient(to right, black 0%, black 25%, transparent 55%)',
                               }}
-                              draggable={false}
-                            />
+                            >
+                              <CachedImage
+                                src={install.game_background}
+                                alt=""
+                                className="w-full h-full object-cover object-left"
+                              />
+                            </div>
                           ) : (
                             <div
                               className="absolute inset-0 bg-white/5"
@@ -528,8 +533,8 @@ export default function DownloadsModal(props: DownloadsModalProps) {
                                 <button
                                   key={job.id}
                                   className={`w-full text-left rounded-lg px-4 py-3 border transition-colors ${selectedRow
-                                      ? "bg-black/50 border-white/25"
-                                      : "bg-black/25 hover:bg-black/35 border-white/10"
+                                    ? "bg-black/50 border-white/25"
+                                    : "bg-black/25 hover:bg-black/35 border-white/10"
                                     }`}
                                   onClick={() => setSelectedJobId(job.id)}
                                 >
@@ -578,8 +583,8 @@ export default function DownloadsModal(props: DownloadsModalProps) {
                                 <button
                                   key={job.id}
                                   className={`w-full text-left rounded-lg px-4 py-3 border transition-colors ${selectedRow
-                                      ? "bg-black/50 border-white/25"
-                                      : "bg-black/25 hover:bg-black/35 border-white/10"
+                                    ? "bg-black/50 border-white/25"
+                                    : "bg-black/25 hover:bg-black/35 border-white/10"
                                     }`}
                                   onClick={() => setSelectedJobId(job.id)}
                                 >

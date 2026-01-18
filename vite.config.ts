@@ -1,8 +1,18 @@
-import {defineConfig} from "vite";
+import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { execSync } from "child_process";
 
 // @ts-expect-error process is a Node.js global
 const host = process.env.TAURI_DEV_HOST;
+
+// Get git commit hash at build time
+const getCommitHash = () => {
+    try {
+        return execSync("git rev-parse --short HEAD").toString().trim();
+    } catch {
+        return "unknown";
+    }
+};
 
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({
@@ -28,5 +38,8 @@ export default defineConfig(async () => ({
             // 3. tell vite to ignore watching `src-tauri`
             ignored: ["**/src-tauri/**"],
         },
+    },
+    define: {
+        "__COMMIT_HASH__": JSON.stringify(getCommitHash()),
     },
 }));

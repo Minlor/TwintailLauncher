@@ -51,13 +51,13 @@ export default class TextInputPart extends React.Component<IProps, IState> {
                     placeholder={this.props.placeholder || ''}
                     className={`text-ellipsis w-full focus:outline-none h-10 rounded-xl bg-zinc-800/60 border border-white/30 text-white px-3 placeholder-white/50 focus:border-white/40 transition-colors ${this.props.isPicker ? "cursor-pointer" : ""}`}
                     value={this.state.value}
-                       pattern={this.props.pattern || ""}
+                    pattern={this.props.pattern || ""}
                     onChange={(e) => {
                         this.setState({ value: e.target.value })
                         if (this.props.onChange) this.props.onChange(e.target.value)
                     }} onClick={() => {
                         if (this.props.onClick) this.props.onClick();
-                }}/>
+                    }} />
                 {this.props.clearable ? (
                     <div className="hidden"
                         onClick={() => {

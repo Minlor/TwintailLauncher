@@ -1,9 +1,9 @@
 import React, { createRef } from 'react'
 import ReactDOM from 'react-dom'
-import {open} from "@tauri-apps/plugin-dialog"
+import { open } from "@tauri-apps/plugin-dialog"
 import TextInputPart from "./TextInputPart.tsx";
-import {invoke} from "@tauri-apps/api/core";
-import {POPUPS} from "../popups/POPUPS.ts";
+import { invoke } from "@tauri-apps/api/core";
+import { POPUPS } from "../popups/POPUPS.ts";
 import HelpTooltip from "./HelpTooltip.tsx";
 
 // Thanks Cultivation FUCK NO im not making this myself
@@ -61,7 +61,7 @@ export default class FolderInput extends React.Component<IProps, IState> {
     }
 
     static getDerivedStateFromProps(props: IProps, state: IState) {
-        const newState = {...state}
+        const newState = { ...state }
 
         if (props.value && state.value === '') {
             newState.value = props.value || ''
@@ -76,7 +76,7 @@ export default class FolderInput extends React.Component<IProps, IState> {
 
     async componentDidMount() {
         if (!this.props.placeholder) {
-            this.setState({placeholder: this.props.folder ? "Select folder..." : 'Select file(s)...'})
+            this.setState({ placeholder: this.props.folder ? "Select folder..." : 'Select file(s)...' })
         }
     }
 
@@ -84,15 +84,15 @@ export default class FolderInput extends React.Component<IProps, IState> {
         let path;
 
         if (this.state.folder) {
-            path = await open({directory: true})
+            path = await open({ directory: true })
         } else {
-            path = await open({filters: [{ name: 'Files', extensions: this.props.extensions || ['*'] }], defaultPath: this.props.openFolder})
+            path = await open({ filters: [{ name: 'Files', extensions: this.props.extensions || ['*'] }], defaultPath: this.props.openFolder })
         }
 
         if (Array.isArray(path)) path = path[0]
         if (!path) return
 
-        this.setState({value: path})
+        this.setState({ value: path })
         this.updateSetting(path);
 
         if (this.props.onChange) this.props.onChange(path)
@@ -102,60 +102,60 @@ export default class FolderInput extends React.Component<IProps, IState> {
         switch (this.props.id) {
             case 'default_game_path': {
                 if (this.props.fetchSettings !== undefined) {
-                    invoke("update_settings_default_game_path", {path: path}).then(() => {});
+                    invoke("update_settings_default_game_path", { path: path }).then(() => { });
                     this.props.fetchSettings();
                 }
             }
-            break;
+                break;
             case 'default_xxmi_path': {
                 if (this.props.fetchSettings !== undefined) {
-                    invoke("update_settings_default_xxmi_path", {path: path}).then(() => {});
+                    invoke("update_settings_default_xxmi_path", { path: path }).then(() => { });
                     this.props.fetchSettings();
                 }
             }
-            break;
+                break;
             case 'default_fps_unlock_path': {
                 if (this.props.fetchSettings !== undefined) {
-                    invoke("update_settings_default_fps_unlock_path", {path: path}).then(() => {});
+                    invoke("update_settings_default_fps_unlock_path", { path: path }).then(() => { });
                     this.props.fetchSettings();
                 }
             }
-            break;
+                break;
             case 'default_jadeite_path': {
                 if (this.props.fetchSettings !== undefined) {
-                    invoke("update_settings_default_jadeite_path", {path: path}).then(() => {});
+                    invoke("update_settings_default_jadeite_path", { path: path }).then(() => { });
                     this.props.fetchSettings();
                 }
             }
-            break;
+                break;
             case 'default_prefix_path': {
                 if (this.props.fetchSettings !== undefined) {
-                    invoke("update_settings_default_prefix_path", {path: path}).then(() => {});
+                    invoke("update_settings_default_prefix_path", { path: path }).then(() => { });
                     this.props.fetchSettings();
                 }
             }
-            break;
+                break;
             case 'default_runner_path': {
                 if (this.props.fetchSettings !== undefined) {
-                    invoke("update_settings_default_runner_path", {path: path}).then(() => {});
+                    invoke("update_settings_default_runner_path", { path: path }).then(() => { });
                     this.props.fetchSettings();
                 }
             }
-            break;
+                break;
             case 'default_dxvk_path': {
                 if (this.props.fetchSettings !== undefined) {
-                    invoke("update_settings_default_dxvk_path", {path: path}).then(() => {});
+                    invoke("update_settings_default_dxvk_path", { path: path }).then(() => { });
                     this.props.fetchSettings();
                 }
             }
-            break;
+                break;
             case 'default_mangohud_config_path': {
                 if (this.props.fetchSettings !== undefined) {
-                    invoke("update_settings_default_mangohud_config_path", {path: path}).then(() => {});
+                    invoke("update_settings_default_mangohud_config_path", { path: path }).then(() => { });
                     this.props.fetchSettings();
                 }
             }
-            break;
+                break;
             case "install_game_path": {
                 if (this.props.fetchDownloadSizes !== undefined && this.props.version !== undefined && this.props.lang !== undefined) {
                     this.props.fetchDownloadSizes(this.props.biz, this.props.version(), this.props.lang(), path, (disk) => {
@@ -187,10 +187,10 @@ export default class FolderInput extends React.Component<IProps, IState> {
                     });
                 }
             }
-            break;
+                break;
             case "install_game_path2": {
                 if (this.props.fetchInstallSettings !== undefined) {
-                    invoke("update_install_game_path", {path: path, id: this.props.install}).then(() => {});
+                    invoke("update_install_game_path", { path: path, id: this.props.install }).then(() => { });
                     this.props.fetchInstallSettings(this.props.install as string);
 
                     if (this.props.setOpenPopup !== undefined) {
@@ -198,10 +198,10 @@ export default class FolderInput extends React.Component<IProps, IState> {
                     }
                 }
             }
-            break;
+                break;
             case "install_runner_path": {
                 if (this.props.fetchInstallSettings !== undefined) {
-                    invoke("update_install_runner_path", {path: path, id: this.props.install}).then(() => {});
+                    invoke("update_install_runner_path", { path: path, id: this.props.install }).then(() => { });
                     this.props.fetchInstallSettings(this.props.install as string);
 
                     if (this.props.setOpenPopup !== undefined) {
@@ -209,10 +209,10 @@ export default class FolderInput extends React.Component<IProps, IState> {
                     }
                 }
             }
-            break;
+                break;
             case "install_dxvk_path": {
                 if (this.props.fetchInstallSettings !== undefined) {
-                    invoke("update_install_dxvk_path", {path: path, id: this.props.install}).then(() => {});
+                    invoke("update_install_dxvk_path", { path: path, id: this.props.install }).then(() => { });
                     this.props.fetchInstallSettings(this.props.install as string);
 
                     if (this.props.setOpenPopup !== undefined) {
@@ -220,13 +220,13 @@ export default class FolderInput extends React.Component<IProps, IState> {
                     }
                 }
             }
-            break;
+                break;
             case "install_prefix_path": {
             }
-            break;
+                break;
             case "install_prefix_path2": {
                 if (this.props.fetchInstallSettings !== undefined) {
-                    invoke("update_install_prefix_path", {path: path, id: this.props.install}).then(() => {});
+                    invoke("update_install_prefix_path", { path: path, id: this.props.install }).then(() => { });
                     this.props.fetchInstallSettings(this.props.install as string);
 
                     if (this.props.setOpenPopup !== undefined) {
@@ -234,14 +234,14 @@ export default class FolderInput extends React.Component<IProps, IState> {
                     }
                 }
             }
-            break;
+                break;
             case 'mangohud_config_path': {
                 if (this.props.fetchInstallSettings !== undefined) {
-                    invoke("update_install_mangohud_config_path", {id: this.props.install, path: path}).then(() => {});
+                    invoke("update_install_mangohud_config_path", { id: this.props.install, path: path }).then(() => { });
                     this.props.fetchInstallSettings(this.props.install as string);
                 }
             }
-            break;
+                break;
         }
     }
 
@@ -258,7 +258,7 @@ export default class FolderInput extends React.Component<IProps, IState> {
             const calculatedWidth = Math.max(minTooltipWidth, Math.min(320, contentLength * estimatedCharWidth));
             const isRightSideOverflow = rect.right + calculatedWidth + 8 > windowWidth;
 
-            this.setState({ showTooltip: true, tooltipPosition: {top: rect.top, left: isRightSideOverflow ? Math.max(8, rect.left - calculatedWidth - 8) : rect.right + 8} });
+            this.setState({ showTooltip: true, tooltipPosition: { top: rect.top, left: isRightSideOverflow ? Math.max(8, rect.left - calculatedWidth - 8) : rect.right + 8 } });
         }
     }
 
@@ -270,24 +270,24 @@ export default class FolderInput extends React.Component<IProps, IState> {
         return (
             <div className="flex w-full items-center gap-4 max-sm:flex-col max-sm:items-stretch">
                 <span className="text-white text-sm flex items-center gap-1 w-56 shrink-0 max-sm:w-full">{this.props.name}
-                    <HelpTooltip text={this.props.helpText}/>
+                    <HelpTooltip text={this.props.helpText} />
                 </span>
                 <div className="overflow-ellipsis inline-flex flex-row items-center justify-end relative ml-auto w-[320px]" ref={this.containerRef} onMouseEnter={this.handleMouseEnter} onMouseLeave={this.handleMouseLeave}>
-                        <TextInputPart value={this.state.value}
-                                   id={this.props.id}
-                                   isPicker={true}
-                                   onClick={this.handleIconClick}
-                                   placeholder={this.state.placeholder}
-                                   clearable={this.props.clearable !== undefined ? this.props.clearable : true}
-                                   readOnly={this.props.readonly !== undefined ? this.props.readonly : true}
-                                   onChange={(text: string) => {
-                                       this.setState({ value: text })
-                                       if (this.props.onChange) this.props.onChange(text)
-                                       this.forceUpdate();
-                                       this.updateSetting(text);
-                                   }} customClearBehaviour={this.props.customClearBehaviour}/>
+                    <TextInputPart value={this.state.value}
+                        id={this.props.id}
+                        isPicker={true}
+                        onClick={this.handleIconClick}
+                        placeholder={this.state.placeholder}
+                        clearable={this.props.clearable !== undefined ? this.props.clearable : true}
+                        readOnly={this.props.readonly !== undefined ? this.props.readonly : true}
+                        onChange={(text: string) => {
+                            this.setState({ value: text })
+                            if (this.props.onChange) this.props.onChange(text)
+                            this.forceUpdate();
+                            this.updateSetting(text);
+                        }} customClearBehaviour={this.props.customClearBehaviour} />
                     {this.state.showTooltip ? ReactDOM.createPortal(
-                        <div className="whitespace-pre-wrap break-words bg-zinc-900/80 text-white text-xs rounded-lg p-2 max-w-md overflow-auto fixed z-30" style={{top: `${this.state.tooltipPosition.top}px`, left: `${this.state.tooltipPosition.left}px`, maxWidth: '320px'}}>
+                        <div className="whitespace-pre-wrap break-words bg-zinc-900/80 text-white text-xs rounded-lg p-2 max-w-md overflow-auto fixed z-30" style={{ top: `${this.state.tooltipPosition.top}px`, left: `${this.state.tooltipPosition.left}px`, maxWidth: '320px' }}>
                             {this.state.value}
                         </div>, document.body) : null}
                 </div>

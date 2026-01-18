@@ -11,6 +11,7 @@ import {
   useInteractions,
 } from "@floating-ui/react";
 import { POPUPS } from "../popups/POPUPS";
+import { PAGES } from "../pages/PAGES";
 import { DownloadIcon } from "lucide-react";
 
 export default function SidebarDownloads({
@@ -18,13 +19,15 @@ export default function SidebarDownloads({
   popup,
   hasDownloads,
   progressPercent,
-  onOpenDownloadManager,
+  currentPage,
+  setCurrentPage,
 }: {
   setOpenPopup: (a: POPUPS) => void;
   popup: POPUPS;
   hasDownloads: boolean;
   progressPercent?: number;
-  onOpenDownloadManager?: () => void;
+  currentPage?: PAGES;
+  setCurrentPage?: (page: PAGES) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -53,15 +56,17 @@ export default function SidebarDownloads({
       ? "w-4 h-5"
       : "w-8 h-10";
 
+  const isActive = currentPage === PAGES.DOWNLOADS;
+
   return (
     <React.Fragment>
       <div
         ref={refs.setReference}
         {...getReferenceProps()}
-        className="relative flex items-center justify-center w-8 h-10 text-white hover:text-white/55 cursor-pointer"
+        className={`relative flex items-center justify-center w-8 h-10 text-white hover:text-white/80 active:scale-95 transition-all duration-100 cursor-pointer ${isActive ? 'text-purple-400' : ''}`}
         onClick={() => {
-          if (onOpenDownloadManager) {
-            onOpenDownloadManager();
+          if (setCurrentPage) {
+            setCurrentPage(currentPage === PAGES.DOWNLOADS ? PAGES.NONE : PAGES.DOWNLOADS);
           } else {
             setOpenPopup(popup === POPUPS.DOWNLOADS ? POPUPS.NONE : POPUPS.DOWNLOADS);
           }
@@ -69,7 +74,7 @@ export default function SidebarDownloads({
       >
         {ringPercent !== undefined && (
           <svg
-            className="absolute inset-0 w-full h-full pointer-events-none"
+            className="absolute inset-0 w-full h-full pointer-events-none drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]"
             viewBox="0 0 32 40"
             aria-hidden="true"
           >
@@ -80,7 +85,7 @@ export default function SidebarDownloads({
               fill="none"
               stroke="currentColor"
               strokeWidth={3}
-              className="text-white/25"
+              className="text-white/10"
             />
             <circle
               cx={cx}
@@ -110,7 +115,7 @@ export default function SidebarDownloads({
         )}
       </div>
 
-      {isOpen && popup === POPUPS.NONE && (
+      {isOpen && popup === POPUPS.NONE && currentPage === PAGES.NONE && (
         <div
           ref={refs.setFloating}
           style={floatingStyles}
@@ -124,3 +129,4 @@ export default function SidebarDownloads({
     </React.Fragment>
   );
 }
+

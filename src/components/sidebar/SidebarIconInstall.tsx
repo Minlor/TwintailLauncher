@@ -1,4 +1,4 @@
-import React, {useRef, useState} from "react";
+import React, { useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import {
     arrow,
@@ -11,7 +11,8 @@ import {
     useHover,
     useInteractions
 } from "@floating-ui/react";
-import {POPUPS} from "../popups/POPUPS.ts";
+import { POPUPS } from "../popups/POPUPS.ts";
+import { PAGES } from "../pages/PAGES.ts";
 import InstallContextMenu from "../InstallContextMenu.tsx";
 
 type SidebarIconProps = {
@@ -24,6 +25,8 @@ type SidebarIconProps = {
     setCurrentInstall: (a: string) => void,
     setOpenPopup: (a: POPUPS) => void,
     popup: POPUPS,
+    currentPage?: PAGES,
+    setCurrentPage?: (page: PAGES) => void,
     setDisplayName: (name: string) => void,
     setBackground: (file: string) => void,
     setGameIcon: (a: string) => void,
@@ -32,12 +35,12 @@ type SidebarIconProps = {
     onRefreshSettings?: () => void,
 }
 
-export default function SidebarIconInstall({icon, name, id, setCurrentInstall, setGameIcon, setOpenPopup, popup, setDisplayName, setBackground, background, enabled, hasUpdate, installSettings, onOpenInstallSettings, onRefreshSettings}: SidebarIconProps) {
+export default function SidebarIconInstall({ icon, name, id, setCurrentInstall, setGameIcon, setOpenPopup, popup, currentPage, setCurrentPage, setDisplayName, setBackground, background, enabled, hasUpdate, installSettings, onOpenInstallSettings, onRefreshSettings }: SidebarIconProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
     const arrowRef = useRef(null);
-    const {refs, floatingStyles, context} = useFloating({
+    const { refs, floatingStyles, context } = useFloating({
         open: isOpen,
         onOpenChange: setIsOpen,
         middleware: [offset(25), flip(), shift(), arrow({
@@ -47,8 +50,8 @@ export default function SidebarIconInstall({icon, name, id, setCurrentInstall, s
         placement: "right",
     });
 
-    const hover = useHover(context, {move: false});
-    const {getReferenceProps, getFloatingProps} = useInteractions([hover]);
+    const hover = useHover(context, { move: false });
+    const { getReferenceProps, getFloatingProps } = useInteractions([hover]);
 
     const handleContextMenu = (e: React.MouseEvent) => {
         e.preventDefault();
@@ -74,9 +77,10 @@ export default function SidebarIconInstall({icon, name, id, setCurrentInstall, s
                         onClick={() => {
                             let elem = document.getElementById(id);
                             // @ts-ignore
-                            if (elem.hasAttribute("disabled")) {}
+                            if (elem.hasAttribute("disabled")) { }
                             else {
                                 setOpenPopup(POPUPS.NONE)
+                                if (setCurrentPage) setCurrentPage(PAGES.NONE)
                                 setCurrentInstall(id)
                                 setDisplayName(name)
                                 setBackground(background)
@@ -95,7 +99,7 @@ export default function SidebarIconInstall({icon, name, id, setCurrentInstall, s
                     ) : null}
                 </div>
             ) : null}
-            {(enabled && isOpen && popup == POPUPS.NONE) ?
+            {(enabled && isOpen && popup == POPUPS.NONE && currentPage === PAGES.NONE) ?
                 (typeof window !== "undefined" && window.document &&
                     ReactDOM.createPortal(
                         <div ref={refs.setFloating} style={floatingStyles} {...getFloatingProps()} className="bg-black/75 rounded-md p-2 min-w-max z-50">
