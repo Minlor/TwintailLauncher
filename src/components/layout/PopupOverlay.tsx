@@ -120,9 +120,8 @@ export default function PopupOverlay(props: PopupOverlayProps) {
     <div
       role="dialog"
       aria-modal={openPopup !== POPUPS.NONE}
-      className={`absolute items-center justify-center top-0 bottom-0 left-16 right-0 p-8 z-20 ${
-        openPopup == POPUPS.NONE ? "hidden" : "flex bg-white/10"
-      }`}
+      className={`absolute items-center justify-center top-0 bottom-0 left-0 right-0 p-8 z-50 ${openPopup == POPUPS.NONE ? "hidden" : "flex bg-black/60"
+        }`}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           setOpenPopup(POPUPS.NONE);
@@ -137,12 +136,12 @@ export default function PopupOverlay(props: PopupOverlayProps) {
         />
       )}
       {openPopup == POPUPS.RUNNERMANAGER && (
-          <RunnerManager
-              runners={runners}
-              fetchInstalledRunners={fetchInstalledRunners}
-              installedRunners={installedRunners}
-              setOpenPopup={setOpenPopup}
-          />
+        <RunnerManager
+          runners={runners}
+          fetchInstalledRunners={fetchInstalledRunners}
+          installedRunners={installedRunners}
+          setOpenPopup={setOpenPopup}
+        />
       )}
       {openPopup == POPUPS.ADDREPO && <AddRepo setOpenPopup={setOpenPopup} />}
       {openPopup == POPUPS.SETTINGS && (
@@ -210,13 +209,13 @@ export default function PopupOverlay(props: PopupOverlayProps) {
         />
       )}
       {openPopup == POPUPS.FPSUNLOCKERSETTINGS && (
-          <FpsUnlockSettings install={installSettings} setOpenPopup={setOpenPopup} gameSwitches={installGameSwitches} gameFps={installGameFps} fetchInstallSettings={fetchInstallSettings}/>
+        <FpsUnlockSettings install={installSettings} setOpenPopup={setOpenPopup} gameSwitches={installGameSwitches} gameFps={installGameFps} fetchInstallSettings={fetchInstallSettings} />
       )}
       {openPopup == POPUPS.XXMISETTINGS && (
-          <XXMISettings install={installSettings} setOpenPopup={setOpenPopup} gameSwitches={installGameSwitches} fetchInstallSettings={fetchInstallSettings}/>
+        <XXMISettings install={installSettings} setOpenPopup={setOpenPopup} gameSwitches={installGameSwitches} fetchInstallSettings={fetchInstallSettings} />
       )}
       {openPopup == POPUPS.MANGOHUDSETTINGS && (
-          <MangoHudSettings install={installSettings} setOpenPopup={setOpenPopup} fetchInstallSettings={fetchInstallSettings} gameSwitches={installGameSwitches}/>
+        <MangoHudSettings install={installSettings} setOpenPopup={setOpenPopup} fetchInstallSettings={fetchInstallSettings} gameSwitches={installGameSwitches} />
       )}
     </div>
   );
