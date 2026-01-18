@@ -10,6 +10,7 @@ use crate::downloading::download::register_download_handler;
 use crate::downloading::preload::register_preload_handler;
 use crate::downloading::repair::register_repair_handler;
 use crate::downloading::update::register_update_handler;
+use crate::downloading::misc::check_extras_update;
 use crate::utils::db_manager::{init_db, DbInstances};
 use crate::utils::repo_manager::{load_manifests, ManifestLoader, ManifestLoaders};
 use crate::utils::{args, notify_update, register_listeners, run_async_command, setup_or_fix_default_paths, sync_install_backgrounds, ActionBlocks, PathResolve};
@@ -19,7 +20,7 @@ use crate::commands::runners::{add_installed_runner, get_installed_runner_by_id,
 #[cfg(target_os = "linux")]
 use crate::utils::{deprecate_jadeite, sync_installed_runners, is_flatpak, block_telemetry};
 #[cfg(target_os = "linux")]
-use crate::downloading::misc::{download_or_update_steamrt, check_extras_update};
+use crate::downloading::misc::{download_or_update_steamrt};
 
 mod utils;
 mod commands;
@@ -89,6 +90,10 @@ pub fn run() {
                 setup_or_fix_default_paths(handle, data_dir.clone(), true);
                 sync_install_backgrounds(handle);
                 check_extras_update(handle);
+
+                // https://github.com/tauri-apps/tauri/issues/14596
+                #[cfg(target_os = "windows")]
+                if let Ok(icon) = tauri::image::Image::from_bytes(include_bytes!("../icons/128x128@2x.png")) { let _ = app.get_window("main").unwrap().set_icon(icon); }
 
                 #[cfg(target_os = "linux")]
                 {

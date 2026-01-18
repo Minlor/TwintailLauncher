@@ -1,5 +1,6 @@
 use std::{fs, io};
 use std::collections::HashMap;
+use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -13,8 +14,6 @@ use sqlx::types::Json;
 use crate::utils::models::{GameVersion, XXMISettings};
 use crate::utils::repo_manager::{get_manifest};
 
-#[cfg(target_os = "linux")]
-use std::io::BufRead;
 #[cfg(target_os = "linux")]
 use crate::utils::{repo_manager::{get_manifests}, db_manager::{get_installed_runners, update_installed_runner_is_installed_by_version, create_installed_runner, get_installed_runner_info_by_version, update_install_use_jadeite_by_id, update_settings_default_jadeite_location, update_settings_default_prefix_location, update_settings_default_runner_location, update_settings_default_dxvk_location}};
 

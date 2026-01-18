@@ -1,17 +1,15 @@
 use std::collections::HashMap;
 use std::fs;
-use std::path::{PathBuf};
+use std::path::{PathBuf, Path};
 use fischl::download::Extras;
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
-use crate::utils::{compare_version, empty_dir, find_package_version, prevent_exit, run_async_command};
+use crate::utils::{PathResolve, compare_version, empty_dir, find_package_version, prevent_exit, run_async_command, db_manager::{get_settings}};
 
 #[cfg(target_os = "linux")]
 use fischl::compat::{check_steamrt_update, download_steamrt};
 #[cfg(target_os = "linux")]
-use std::path::Path;
-#[cfg(target_os = "linux")]
-use crate::utils::{PathResolve, send_notification, db_manager::{get_settings}};
+use crate::utils::{send_notification};
 
 #[cfg(target_os = "linux")]
 pub fn download_or_update_steamrt(app: &AppHandle) {
