@@ -63,7 +63,7 @@ export default function SidebarDownloads({
       <div
         ref={refs.setReference}
         {...getReferenceProps()}
-        className={`relative flex items-center justify-center w-8 h-10 text-white hover:text-white/80 active:scale-95 transition-all duration-100 cursor-pointer ${isActive ? 'text-purple-400' : ''}`}
+        className={`relative flex items-center justify-center w-10 h-10 rounded-xl cursor-pointer transition-all duration-200 ${isActive ? 'text-purple-400 bg-purple-500/15 shadow-[0_0_12px_rgba(147,51,234,0.3)]' : 'text-white/70 hover:text-white hover:bg-white/5 hover:shadow-[0_0_12px_rgba(147,51,234,0.15)]'} active:scale-95`}
         onClick={() => {
           if (setCurrentPage) {
             setCurrentPage(currentPage === PAGES.DOWNLOADS ? PAGES.NONE : PAGES.DOWNLOADS);

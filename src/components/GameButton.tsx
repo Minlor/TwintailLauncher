@@ -1,6 +1,6 @@
-import {DownloadIcon, HardDriveDownloadIcon, RefreshCcwIcon, Rocket, PauseIcon, Clock} from "lucide-react";
-import {emit} from "@tauri-apps/api/event";
-import {invoke} from "@tauri-apps/api/core";
+import { DownloadIcon, HardDriveDownloadIcon, RefreshCcwIcon, Rocket, PauseIcon, Clock } from "lucide-react";
+import { emit } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 
 interface IProps {
     currentInstall: any,
@@ -14,7 +14,7 @@ interface IProps {
     resumeStates: any,
     installSettings: any
 }
-export default function GameButton({currentInstall, globalSettings, buttonType, refreshDownloadButtonInfo, disableUpdate, disableRun, disableDownload, disableResume, resumeStates, installSettings}: IProps) {
+export default function GameButton({ currentInstall, globalSettings, buttonType, refreshDownloadButtonInfo, disableUpdate, disableRun, disableDownload, disableResume, resumeStates, installSettings }: IProps) {
     // Compute theme classes and behavior by buttonType
     const theme = (() => {
         switch (buttonType) {
@@ -36,38 +36,38 @@ export default function GameButton({currentInstall, globalSettings, buttonType, 
 
     const disabled = buttonType === "launch" ? disableRun
         : buttonType === "download" ? disableDownload
-        : buttonType === "update" ? disableUpdate
-        : buttonType === "pause" ? false
-        : buttonType === "queued" ? true
-        : disableResume;
+            : buttonType === "update" ? disableUpdate
+                : buttonType === "pause" ? false
+                    : buttonType === "queued" ? true
+                        : disableResume;
 
     const label = buttonType === "launch" ? "Play!"
         : buttonType === "download" ? "Download"
-        : buttonType === "update" ? "Update"
-        : buttonType === "pause" ? "Pause"
-        : buttonType === "queued" ? "Queued"
-        : "Resume";
+            : buttonType === "update" ? "Update"
+                : buttonType === "pause" ? "Pause"
+                    : buttonType === "queued" ? "Queued"
+                        : "Resume";
 
     const Icon = buttonType === "launch" ? Rocket
         : buttonType === "download" ? HardDriveDownloadIcon
-        : buttonType === "update" ? DownloadIcon
-        : buttonType === "pause" ? PauseIcon
-        : buttonType === "queued" ? Clock
-        : RefreshCcwIcon;
+            : buttonType === "update" ? DownloadIcon
+                : buttonType === "pause" ? PauseIcon
+                    : buttonType === "queued" ? Clock
+                        : RefreshCcwIcon;
 
     const handleClick = () => {
         if (buttonType === "launch") {
             setTimeout(() => {
-                invoke("game_launch", {id: currentInstall}).then((r: any) => {
+                invoke("game_launch", { id: currentInstall }).then((r: any) => {
                     if (r) {
                         // @ts-ignore
                         document.getElementById(`${currentInstall}`).focus();
                         switch (globalSettings.launcher_action) {
                             case "exit": {
-                                setTimeout(() => { emit("launcher_action_exit", null).then(() => {}); }, 10000);
+                                setTimeout(() => { emit("launcher_action_exit", null).then(() => { }); }, 10000);
                             } break;
                             case "minimize": {
-                                setTimeout(() => { emit("launcher_action_minimize", null).then(() => {}); }, 500);
+                                setTimeout(() => { emit("launcher_action_minimize", null).then(() => { }); }, 500);
                             } break;
                             case 'keep': {
                                 let lb = document.getElementById("launch_game_btn");
@@ -92,21 +92,21 @@ export default function GameButton({currentInstall, globalSettings, buttonType, 
         } else if (buttonType === "download") {
             refreshDownloadButtonInfo();
         } else if (buttonType === "update") {
-            emit("start_game_update", {install: currentInstall, biz: "", lang: "", region: ""}).then(() => {});
+            emit("start_game_update", { install: currentInstall, biz: "", lang: "", region: "" }).then(() => { });
         } else if (buttonType === "pause") {
-            invoke("pause_game_download", {installId: currentInstall}).then(() => {});
+            invoke("pause_game_download", { installId: currentInstall }).then(() => { });
         } else if (buttonType === "resume") {
             if (resumeStates.downloading) {
-                emit("start_game_download", {install: currentInstall, biz: "", lang: "", region: installSettings.region_code}).then(() => {});
+                emit("start_game_download", { install: currentInstall, biz: "", lang: "", region: installSettings.region_code }).then(() => { });
             }
             if (resumeStates.updating) {
-                emit("start_game_update", {install: currentInstall, biz: "", lang: "", region: ""}).then(() => {});
+                emit("start_game_update", { install: currentInstall, biz: "", lang: "", region: "" }).then(() => { });
             }
             if (resumeStates.preloading) {
-                emit("start_game_preload", {install: currentInstall, biz: "", lang: "", region: ""}).then(() => {});
+                emit("start_game_preload", { install: currentInstall, biz: "", lang: "", region: "" }).then(() => { });
             }
             if (resumeStates.repairing) {
-                emit("start_game_repair", {install: currentInstall, biz: "", lang: "", region: installSettings.region_code}).then(() => {});
+                emit("start_game_repair", { install: currentInstall, biz: "", lang: "", region: installSettings.region_code }).then(() => { });
             }
         }
     };
@@ -119,7 +119,7 @@ export default function GameButton({currentInstall, globalSettings, buttonType, 
                 onClick={handleClick}
                 className={`flex flex-row gap-3 items-center justify-center w-56 md:w-64 py-3 px-7 md:px-8 rounded-full text-white border ${theme.border} disabled:cursor-not-allowed disabled:brightness-75 disabled:saturate-100 focus:outline-none focus:ring-2 ${theme.bg} ${theme.ring} shadow-lg ${theme.shadow} transition-[background-color,box-shadow,transform] duration-300 ease-out`}
             >
-                <Icon className="w-5 h-5 md:w-6 md:h-6 text-white/90"/>
+                <Icon className="w-5 h-5 md:w-6 md:h-6 text-white/90" />
                 <span id={buttonType === "launch" ? "launch_game_txt" : undefined} className="font-semibold translate-y-px text-base md:text-lg text-white">{label}</span>
             </button>
             {buttonType === "download" && (

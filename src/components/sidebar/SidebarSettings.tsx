@@ -38,13 +38,20 @@ export default function SidebarSettings({ setOpenPopup, popup, currentPage, setC
 
     return (
         <React.Fragment>
-            <Settings ref={refs.setReference} {...getReferenceProps()} className={`text-white hover:text-white/55 w-8 h-10 cursor-pointer flex-initial ${isActive ? 'text-blue-400' : ''}`} onClick={() => {
-                if (setCurrentPage) {
-                    setCurrentPage(currentPage === PAGES.SETTINGS ? PAGES.NONE : PAGES.SETTINGS);
-                } else {
-                    setOpenPopup(popup == POPUPS.NONE ? POPUPS.SETTINGS : POPUPS.NONE);
-                }
-            }} />
+            <div
+                ref={refs.setReference}
+                {...getReferenceProps()}
+                className={`flex items-center justify-center w-10 h-10 rounded-xl cursor-pointer transition-all duration-200 ${isActive ? 'text-purple-400 bg-purple-500/15 shadow-[0_0_12px_rgba(147,51,234,0.3)]' : 'text-white/70 hover:text-white hover:bg-white/5 hover:shadow-[0_0_12px_rgba(147,51,234,0.15)]'} active:scale-95`}
+                onClick={() => {
+                    if (setCurrentPage) {
+                        setCurrentPage(currentPage === PAGES.SETTINGS ? PAGES.NONE : PAGES.SETTINGS);
+                    } else {
+                        setOpenPopup(popup == POPUPS.NONE ? POPUPS.SETTINGS : POPUPS.NONE);
+                    }
+                }}
+            >
+                <Settings className="w-6 h-6" />
+            </div>
 
             {(isOpen && popup == POPUPS.NONE && currentPage === PAGES.NONE) && (
                 <div ref={refs.setFloating} style={floatingStyles} {...getFloatingProps()} className="bg-black/75 rounded-md p-2 min-w-max z-50">

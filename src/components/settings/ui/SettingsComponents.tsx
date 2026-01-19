@@ -30,7 +30,7 @@ export const ModernToggle = ({ label, description, checked, onChange }: Settings
     return (
         <SettingsCard className="flex flex-row items-center justify-between group cursor-pointer" onClick={() => onChange(!checked)}>
             <div className="flex flex-col gap-1 pr-4">
-                <label className="text-base font-medium text-white group-hover:text-orange-100 transition-colors pointer-events-none">{label}</label>
+                <label className="text-base font-medium text-white group-hover:text-purple-100 transition-colors pointer-events-none">{label}</label>
                 {description && <span className="text-sm text-zinc-400 pointer-events-none">{description}</span>}
             </div>
 
@@ -38,7 +38,7 @@ export const ModernToggle = ({ label, description, checked, onChange }: Settings
                 onClick={(e) => { e.stopPropagation(); onChange(!checked); }}
                 className={`
                     w-12 h-7 rounded-full transition-all duration-300 relative flex items-center shadow-inner cursor-pointer
-                    ${checked ? "bg-orange-600 shadow-[0_0_15px_rgba(234,88,12,0.4)]" : "bg-zinc-800"}
+                    ${checked ? "bg-purple-600 shadow-[0_0_15px_rgba(147,51,234,0.4)]" : "bg-zinc-800"}
                 `}
             >
                 <div className={`
@@ -89,7 +89,7 @@ export const ModernInput = ({ label, description, value, onChange, onBlur, ...pr
                             (e.target as HTMLInputElement).blur();
                         }
                     }}
-                    className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/50 transition-all font-mono text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-zinc-600 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/30 transition-all font-mono text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
             </div>
         </SettingsCard>
@@ -148,7 +148,7 @@ export const ModernPathInput = ({ label, description, value, onChange, folder = 
                                 (e.target as HTMLInputElement).blur();
                             }
                         }}
-                        className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/50 transition-all font-mono text-sm truncate"
+                        className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-zinc-600 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/30 transition-all font-mono text-sm truncate"
                     />
                     <button
                         onClick={handleBrowse}
@@ -165,7 +165,8 @@ export const ModernPathInput = ({ label, description, value, onChange, folder = 
 export const ModernSelect = ({ label, description, options, value, onChange }: SettingsControlProps & {
     value: string,
     onChange: (val: string) => void,
-    options: { value: string, label: string }[]
+    // Support both { value, label } and { value, name } formats for compatibility
+    options: { value: string, label?: string, name?: string }[]
 }) => {
     return (
         <SettingsCard>
@@ -178,11 +179,11 @@ export const ModernSelect = ({ label, description, options, value, onChange }: S
                     <select
                         value={value}
                         onChange={(e) => onChange(e.target.value)}
-                        className="w-full appearance-none bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/50 transition-all cursor-pointer"
+                        className="w-full appearance-none bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/30 transition-all cursor-pointer"
                     >
                         {options.map(opt => (
                             <option key={opt.value} value={opt.value} className="bg-zinc-900 text-white">
-                                {opt.label}
+                                {opt.label ?? opt.name ?? opt.value}
                             </option>
                         ))}
                     </select>

@@ -14,7 +14,7 @@ export default function SettingsGlobal({ setOpenPopup, settings, fetchSettings }
     return (
         <div className={`rounded-2xl w-[90vw] max-w-4xl max-h-[85vh] bg-[#0c0c0c] border border-white/10 flex flex-col p-6 overflow-hidden shadow-2xl ${isClosing ? 'animate-zoom-out' : 'animate-zoom-in'}`}>
             <div className="flex flex-row items-center justify-between mb-2">
-                <h1 className="text-white font-bold text-3xl bg-gradient-to-r from-white to-orange-200 bg-clip-text text-transparent">Settings</h1>
+                <h1 className="text-white font-bold text-3xl bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent">Settings</h1>
                 <X className="text-white/70 hover:text-white hover:bg-white/10 rounded-lg p-3 w-12 h-12 transition-all duration-200 cursor-pointer" onClick={() => setOpenPopup(POPUPS.NONE)} />
             </div>
             <div className="w-full overflow-y-auto overflow-x-hidden hover-scrollbar pr-4 -mr-4 flex-1">
@@ -33,7 +33,7 @@ export default function SettingsGlobal({ setOpenPopup, settings, fetchSettings }
                 </div>
             </div>
             <div className="flex justify-center gap-3 pt-5 mt-4 border-t border-white/10">
-                <button className="flex flex-row gap-3 items-center py-3 px-6 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-500 hover:to-orange-600 rounded-xl transition-all duration-200 transform hover:scale-105 font-semibold text-white" onClick={() => {
+                <button className="flex flex-row gap-3 items-center py-3 px-6 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 rounded-xl transition-all duration-200 transform hover:scale-105 font-semibold text-white" onClick={() => {
                     setOpenPopup(POPUPS.NONE);
                     invoke("update_extras", { showNotify: true }).then(() => { });
                 }}><WrenchIcon /><span>Repair extras</span>

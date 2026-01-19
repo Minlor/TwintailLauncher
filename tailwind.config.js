@@ -6,6 +6,56 @@ export default {
 	],
 	theme: {
 		extend: {
+			// Design token colors
+			colors: {
+				surface: {
+					base: '#09090b',
+					elevated: '#0c0c0c',
+					overlay: '#0f0f11',
+				},
+			},
+			// Standardized border radius
+			borderRadius: {
+				'card': '1rem',      // 16px - for cards and modals
+				'input': '0.75rem',  // 12px - for inputs and buttons
+				'button': '0.75rem', // 12px - for buttons
+				'pill': '9999px',    // Full rounded for pills/tags
+			},
+			// Box shadows including glow effects
+			boxShadow: {
+				'card': '0 8px 32px rgba(0, 0, 0, 0.4)',
+				'glow-purple': '0 0 15px rgba(147, 51, 234, 0.5)',
+				'glow-green': '0 0 15px rgba(34, 197, 94, 0.5)',
+				'glow-blue': '0 0 15px rgba(59, 130, 246, 0.5)',
+				'glow-amber': '0 0 15px rgba(245, 158, 11, 0.5)',
+			},
+			// Standardized transition durations
+			transitionDuration: {
+				'fast': '150ms',
+				'normal': '200ms',
+				'moderate': '300ms',
+				'slow': '400ms',
+				'slower': '600ms',
+			},
+			// Typography scale for consistent text sizing
+			fontSize: {
+				// Labels, captions
+				'label': ['0.75rem', { lineHeight: '1rem', fontWeight: '500' }],
+				// Small body text, descriptions
+				'body-sm': ['0.875rem', { lineHeight: '1.25rem' }],
+				// Default body text
+				'body': ['1rem', { lineHeight: '1.5rem' }],
+				// Section headers, card titles
+				'heading-sm': ['1.125rem', { lineHeight: '1.75rem', fontWeight: '600' }],
+				// Page section headers
+				'heading': ['1.25rem', { lineHeight: '1.75rem', fontWeight: '600' }],
+				// Modal titles
+				'heading-lg': ['1.5rem', { lineHeight: '2rem', fontWeight: '700' }],
+				// Page titles, hero text
+				'title': ['1.875rem', { lineHeight: '2.25rem', fontWeight: '700' }],
+				// Large hero titles
+				'title-lg': ['2.25rem', { lineHeight: '2.5rem', fontWeight: '700' }],
+			},
 			transitionProperty: {
 				'height': 'height',
 				'padding': 'padding',

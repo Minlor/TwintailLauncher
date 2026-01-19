@@ -96,6 +96,8 @@ export default function DownloadsPage({
 }: DownloadsPageProps) {
     // Canvas ref for graph
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
 
     // Ref to track last sampled speed to avoid duplicate samples
     const lastSampleRef = useRef<{ net: number; disk: number; time: number } | null>(null);
@@ -215,15 +217,45 @@ export default function DownloadsPage({
     // Draw canvas graph
     const GRAPH_SLOTS = 60;
 
+    // Handle Resize
     useEffect(() => {
-        if (!canvasRef.current) return;
+        if (!containerRef.current) return;
+
+        const observer = new ResizeObserver((entries) => {
+            const entry = entries[0];
+            if (entry) {
+                // Use contentBoxSize if available for better precision, fallback to contentRect
+                const width = entry.contentRect.width;
+                const height = entry.contentRect.height;
+                setCanvasSize({ width, height });
+            }
+        });
+
+        observer.observe(containerRef.current);
+        return () => observer.disconnect();
+    }, []);
+
+    useEffect(() => {
+        if (!canvasRef.current || canvasSize.width === 0 || canvasSize.height === 0) return;
 
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        const width = canvas.width;
-        const height = canvas.height;
+        // Handle high-DPI displays
+        const dpr = window.devicePixelRatio || 1;
+
+        // Set actual canvas size (resolution)
+        canvas.width = canvasSize.width * dpr;
+        canvas.height = canvasSize.height * dpr;
+
+        // Scale context to match
+        ctx.resetTransform();
+        ctx.scale(dpr, dpr);
+
+        // Logical dimensions for drawing
+        const width = canvasSize.width;
+        const height = canvasSize.height;
 
         const paddedHistory: { net: number; disk: number }[] = [];
         const emptySlots = GRAPH_SLOTS - speedHistory.length;
@@ -256,6 +288,7 @@ export default function DownloadsPage({
             const alpha = isHighlighted ? 0.98 : (fadeLeftAlpha + tAdjusted * (fadeRightAlpha - fadeLeftAlpha));
 
             ctx.fillStyle = `rgba(59, 130, 246, ${alpha})`;
+            // Used Math.floor/ceil to avoid subpixel gaps
             ctx.fillRect(x, y, barWidth - 1, barHeight);
         });
 
@@ -299,20 +332,21 @@ export default function DownloadsPage({
             ctx.lineWidth = 2;
             ctx.stroke();
         }
-    }, [speedHistory, hoveredIndex]);
+    }, [speedHistory, hoveredIndex, canvasSize]);
 
     // Mouse handlers for canvas
     const handleCanvasMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
         if (!canvasRef.current) return;
 
-        const canvas = canvasRef.current;
-        const rect = canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
+        const rect = canvasRef.current.getBoundingClientRect();
+        // Mouse X relative to the canvas
+        const x = e.clientX - rect.left;
 
-        const scaleX = canvas.width / rect.width;
-        const x = mouseX * scaleX;
+        // Canvas is now responsive, so logical width matches layout width.
+        // We just need to map x to the correct slot.
+        const logicalWidth = rect.width;
 
-        const barWidth = canvas.width / GRAPH_SLOTS;
+        const barWidth = logicalWidth / GRAPH_SLOTS;
         const paddedIndex = Math.floor(x / barWidth);
 
         const emptySlots = GRAPH_SLOTS - speedHistory.length;
@@ -593,12 +627,11 @@ export default function DownloadsPage({
 
                                 {/* Graph */}
                                 <div className="flex-1 relative z-10">
-                                    <div className="overflow-hidden">
+                                    <div ref={containerRef} className="w-full h-[120px] overflow-hidden">
                                         <canvas
                                             ref={canvasRef}
-                                            width={600}
-                                            height={120}
-                                            className="w-full cursor-pointer"
+                                            className="w-full h-full cursor-pointer touch-none block"
+                                            style={{ width: '100%', height: '100%' }}
                                             onMouseMove={handleCanvasMouseMove}
                                             onMouseLeave={handleCanvasMouseLeave}
                                         />

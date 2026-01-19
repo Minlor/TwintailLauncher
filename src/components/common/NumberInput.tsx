@@ -46,7 +46,7 @@ export default function NumberInput({ id, name, value, placeholder, min, max, su
                         type="number"
                         min={min}
                         max={max}
-                        className="text-ellipsis w-full focus:outline-none h-10 rounded-xl bg-zinc-800/60 border border-white/30 text-white px-3 placeholder-white/50 focus:border-white/40 transition-colors pr-16 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        className="text-ellipsis w-full focus:outline-none h-10 rounded-xl bg-zinc-800/60 border border-white/10 text-white px-3 placeholder-white/50 focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/30 transition-colors pr-16 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         value={localValue}
                         placeholder={placeholder}
                         onChange={(e) => setLocalValue(e.target.value)}

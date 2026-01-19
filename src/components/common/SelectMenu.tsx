@@ -199,7 +199,7 @@ export default function SelectMenu({ id, name, options, selected, install, biz, 
                 <div style={{position: 'relative', width: '100%'}}>
                     <div
                         ref={triggerRef}
-                        className={`w-full h-10 bg-zinc-800/60 border border-white/30 text-white px-3 pr-10 flex items-center cursor-pointer transition-all duration-200 outline-none rounded-xl ${open ? '' : ''}`}
+                        className={`w-full h-10 bg-zinc-800/60 border border-white/10 text-white px-3 pr-10 flex items-center cursor-pointer transition-all duration-200 outline-none rounded-xl focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/30 ${open ? 'border-purple-500/50 ring-1 ring-purple-500/30' : ''}`}
                         tabIndex={0}
                         style={{userSelect: "none", fontSize: "1rem", position: 'relative'}}
                         onClick={e => {
@@ -246,7 +246,7 @@ export default function SelectMenu({ id, name, options, selected, install, biz, 
                             const show = animateIn && !animateOut;
                             return (
                                 <div
-                                    className={`bg-zinc-800 border border-white/30 rounded-xl shadow-lg z-[9999] overflow-hidden transition-all duration-200 ${show ? 'opacity-100 scale-y-100' : ''}${animateOut ? ' opacity-0 scale-y-95 pointer-events-none' : ''}`}
+                                    className={`bg-zinc-800 border border-white/10 rounded-xl shadow-lg z-[9999] overflow-hidden transition-all duration-200 ${show ? 'opacity-100 scale-y-100' : ''}${animateOut ? ' opacity-0 scale-y-95 pointer-events-none' : ''}`}
                                     style={{
                                         position: 'fixed',
                                         left: rect.left,
@@ -270,7 +270,7 @@ export default function SelectMenu({ id, name, options, selected, install, biz, 
                                                 return (
                                                     <div
                                                         key={option.value}
-                                                        className={`px-3 py-2 cursor-pointer ${highlighted === idx ? "bg-blue-600 text-white" : "hover:bg-white/15 text-white"}${rounded}`}
+                                                        className={`px-3 py-2 cursor-pointer ${highlighted === idx ? "bg-purple-600 text-white" : "hover:bg-white/10 text-white"}${rounded}`}
                                                         onMouseEnter={() => setHighlighted(idx)}
                                                         onMouseDown={e => { e.preventDefault(); handleSelect(option); }}
                                                     >

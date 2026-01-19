@@ -80,62 +80,44 @@ export default function GameSettings({
         { id: "manage", label: "Manage", icon: Box, color: "red" },
     ];
 
-    const updateSetting = async (key: string, value: any) => {
+    // Generic update wrapper that matches backend command conventions
+    // Backend commands use: update_install_{key}(app, id: String, {param}: {type})
+    // Parameter names vary by command type - see install.rs for exact signatures
+    const handleUpdate = async (key: string, value: any) => {
         try {
-            const id = installSettings.id;
+            const installId = installSettings.id;
+            const command = `update_install_${key}`;
+
+            // Build payload based on command type - backend uses 'id' not 'installId'
+            let payload: Record<string, any> = { id: installId };
+
             if (typeof value === "boolean") {
-                await invoke(`update_install_${key}`, { enabled: value, installId: id });
-            } else if (typeof value === "string") {
-                // Folder/Text update format varies. 
-                // Old `FolderInput` used `update_install_settings_{id}` with { path: value, installId: id }
-                // Old `TextInput` used `update_install_settings_{id}` with { value: value, installId: id }
-
-                // Mapping keys to backend endpoints/params based on convention:
-                if (key === "install_game_path2") {
-                    await invoke(`update_install_path`, { path: value, installId: id }); // Special case naming?
-                } else if (key.includes("path")) {
-                    await invoke(`update_install_${key}`, { path: value, installId: id });
-                } else {
-                    // Generic or specific text updates
-                    await invoke(`update_install_${key}`, { value: value, installId: id });
-                }
+                // Boolean commands use { id, enabled }
+                payload.enabled = value;
+            } else if (key.includes("path")) {
+                // Path commands use { id, path }
+                payload.path = value;
+            } else if (key === "launch_args") {
+                // update_install_launch_args uses { id, args }
+                payload.args = value;
+            } else if (key === "env_vars") {
+                // update_install_env_vars uses { id, env_vars }
+                payload.envVars = value;
+            } else if (key === "pre_launch_cmd" || key === "launch_cmd") {
+                // update_install_pre_launch_cmd and update_install_launch_cmd use { id, cmd }
+                payload.cmd = value;
+            } else if (key === "runner_version" || key === "dxvk_version") {
+                // update_install_runner_version and update_install_dxvk_version use { id, version }
+                payload.version = value;
+            } else if (key === "fps_value") {
+                // update_install_fps_value uses { id, fps }
+                payload.fps = value;
             }
-            fetchInstallSettings(id);
-        } catch (e) {
-            console.error(`Failed to update game setting ${key}:`, e);
-        }
-    };
-
-    // Generic update wrapper that matches the old check/input ID conventions
-    const handleUpdate = async (id: string, value: any) => {
-        try {
-            // Many endpoints in the backend matched the ID passed to the input
-            // e.g. "skip_version_updates2" might map to a specific invoke in the old CheckBox component?
-            // Actually, the old CheckBox component took `id` and likely called `invoke("update_install_" + id, ...)`?
-            // Wait, `CheckBox.tsx` (which I didn't read but can infer) likely had logic or the parent passed the `fetchInstallSettings`.
-
-            // Let's use the explicit logic from the old `SettingsInstall.tsx` if it had inline handlers, 
-            // BUT `SettingsInstall` passed `id` strings like "tweak_gamemode" to CheckBox.
-            // So I should assume `update_install_{id}` exists in the backend.
-
-            // Mapping from old IDs to what likely are the backend commands:
-            // "tweak_jadeite" -> update_install_tweak_jadeite
-            // "skip_version_updates2" -> update_install_skip_version_updates ? Or is the "2" artifact? 
-            // Let's assume the ID passed to CheckBox IS the command suffix.
-
-            // NOTE: `install_location` had id `install_game_path2`.
-
-            const command = `update_install_${id}`;
-            const payload: any = { installId: installSettings.id };
-
-            if (typeof value === "boolean") payload.enabled = value;
-            else if (id.includes("path")) payload.path = value;
-            else payload.value = value;
 
             await invoke(command, payload);
-            fetchInstallSettings(installSettings.id);
+            fetchInstallSettings(installId);
         } catch (e) {
-            console.error("Update failed", e);
+            console.error(`Failed to update game setting ${key}:`, e);
         }
     }
 
@@ -161,7 +143,7 @@ export default function GameSettings({
                                 label="Install Location"
                                 description="Directory where the game is installed."
                                 value={`${installSettings.directory}`}
-                                onChange={(val) => handleUpdate("install_game_path", val)}
+                                onChange={(val) => handleUpdate("game_path", val)}
                             />
                             <div className="grid grid-cols-1 gap-4 mt-4">
                                 <ModernToggle
@@ -174,7 +156,7 @@ export default function GameSettings({
                                     label="Skip Hash Validation"
                                     description="Skip file verification during repairs (faster but less safe)."
                                     checked={installSettings.skip_hash_check}
-                                    onChange={(val) => handleUpdate("skip_hash_validation", val)}
+                                    onChange={(val) => handleUpdate("skip_hash_valid", val)}
                                 />
                                 {prefetchedSwitches.xxmi && (
                                     <SettingsCard className="flex items-center justify-between">
@@ -268,14 +250,14 @@ export default function GameSettings({
                                         label="Use Jadeite"
                                         description="Enable Jadeite patch improvements."
                                         checked={installSettings.use_jadeite}
-                                        onChange={(val) => handleUpdate("tweak_jadeite", val)}
+                                        onChange={(val) => handleUpdate("use_jadeite", val)}
                                     />
                                 )}
                                 <ModernToggle
                                     label="Feral Gamemode"
                                     description="Enable Feral Interactive's GameMode."
                                     checked={installSettings.use_gamemode}
-                                    onChange={(val) => handleUpdate("tweak_gamemode", val)}
+                                    onChange={(val) => handleUpdate("use_gamemode", val)}
                                 />
                                 <SettingsCard className="flex items-center justify-between">
                                     <div className="flex flex-col">

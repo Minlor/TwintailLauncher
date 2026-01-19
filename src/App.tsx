@@ -15,6 +15,7 @@ import ManifestsPanel from "./components/layout/ManifestsPanel";
 import ActionBar from "./components/layout/ActionBar";
 import PopupOverlay from "./components/layout/PopupOverlay";
 import PageViewContainer from "./components/pages/PageViewContainer";
+import GameInfoOverlay from "./components/layout/GameInfoOverlay";
 import { startInitialLoad } from "./services/loader";
 import SidebarRunners from "./components/sidebar/SidebarRunners.tsx";
 import SidebarDownloads from "./components/sidebar/SidebarDownloads";
@@ -223,8 +224,7 @@ export default class App extends React.Component<any, any> {
                             }}>
                                 {/* Manifests moved to the top bar */}
                             </div>
-                            <hr className={`text-white/20 bg-white/20 p-0 transition-all duration-500 ${this.state.manifestsClosing ? 'animate-slideUpToPosition' : ''}`} style={{
-                                borderColor: "rgb(255 255 255 / 0.2)",
+                            <div className={`w-8 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent transition-all duration-500 ${this.state.manifestsClosing ? 'animate-slideUpToPosition' : ''}`} style={{
                                 animationDelay: this.state.manifestsClosing ? "100ms" : "0ms",
                                 '--target-y': this.state.manifestsClosing ? `-${(this.state.gamesinfo.length * 56) + 12}px` : '0px'
                             } as React.CSSProperties} />
@@ -274,8 +274,8 @@ export default class App extends React.Component<any, any> {
                                 })}
                             </div>
                         </div>
-                        <div className="flex flex-col gap-4 flex-shrink overflow-visible scrollbar-none animate-slideInLeft mt-auto" style={{ animationDelay: '900ms' }}>
-                            <hr className="text-white/20 bg-white/20 p-0 animate-slideInLeft" style={{ borderColor: "rgb(255 255 255 / 0.2)", animationDelay: '950ms' }} />
+                        <div className="flex flex-col gap-4 flex-shrink overflow-visible scrollbar-none animate-slideInLeft mt-auto items-center" style={{ animationDelay: '900ms' }}>
+                            <div className="w-8 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent animate-slideInLeft" style={{ animationDelay: '950ms' }} />
                             <div className="animate-slideInLeft" style={{ animationDelay: '975ms' }}>
                                 <SidebarDownloads
                                     popup={this.state.openPopup}
@@ -302,6 +302,18 @@ export default class App extends React.Component<any, any> {
                             </div>
                         </div>
                     </div>
+                    <GameInfoOverlay
+                        displayName={this.state.displayName}
+                        gameIcon={this.state.gameIcon}
+                        version={this.state.installSettings?.version}
+                        hasUpdate={(() => {
+                            const install = this.state.installs.find((i: any) => i.id === this.state.currentInstall);
+                            const game = this.state.gamesinfo.find((g: any) => g.manifest_id === install?.manifest_id);
+                            const latest = game?.latest_version ?? null;
+                            return !!(latest && install?.version && latest !== install.version && !install?.ignore_updates);
+                        })()}
+                        isVisible={this.state.currentInstall !== "" && this.state.openPopup === POPUPS.NONE && this.state.currentPage === PAGES.NONE}
+                    />
                     <ActionBar
                         currentInstall={this.state.currentInstall}
                         preloadAvailable={this.state.preloadAvailable}
@@ -316,6 +328,7 @@ export default class App extends React.Component<any, any> {
                         installSettings={this.state.installSettings}
                         buttonType={buttonType}
                         refreshDownloadButtonInfo={this.refreshDownloadButtonInfo}
+                        isVisible={this.state.openPopup === POPUPS.NONE && this.state.currentPage === PAGES.NONE}
                         onOpenInstallSettings={() => {
                             this.setState({ disableInstallEdit: true }, async () => {
                                 // Get current install for image preloading

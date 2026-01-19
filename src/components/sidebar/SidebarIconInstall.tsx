@@ -22,6 +22,7 @@ type SidebarIconProps = {
     background: string,
     enabled: boolean,
     hasUpdate?: boolean,
+    isActive?: boolean,
     setCurrentInstall: (a: string) => void,
     setOpenPopup: (a: POPUPS) => void,
     popup: POPUPS,
