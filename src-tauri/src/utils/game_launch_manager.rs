@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::process::{Child, Command, Stdio};
 use tauri::{AppHandle, Error};
-use crate::utils::{apply_xxmi_tweaks, edit_wuwa_configs_xxmi, get_mi_path_from_game, send_notification, PathResolve};
+use crate::utils::{apply_xxmi_tweaks, edit_wuwa_configs_xxmi, get_mi_path_from_game, send_notification};
 use crate::utils::models::{GlobalSettings, LauncherInstall, GameManifest};
 
 #[cfg(target_os = "linux")]
@@ -25,19 +25,19 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
     let mut compat_config = update_steam_compat_config(vec![]);
     let cpo = gm.extra.compat_overrides;
 
-    let dirp = Path::new(install.directory.as_str()).follow_symlink()?;
+    let dirp = Path::new(install.directory.as_str());
     let dir = dirp.to_str().unwrap().to_string();
-    let prefix = Path::new(install.runner_prefix.as_str()).follow_symlink()?.to_str().unwrap().to_string();
-    let runnerp = Path::new(gs.default_runner_path.as_str()).follow_symlink()?;
-    let runner = Path::new(install.runner_path.as_str()).follow_symlink()?.to_str().unwrap().to_string();
+    let prefix = Path::new(install.runner_prefix.as_str()).to_str().unwrap().to_string();
+    let runnerp = Path::new(gs.default_runner_path.as_str()).to_path_buf();
+    let runner = Path::new(install.runner_path.as_str()).to_str().unwrap().to_string();
     let game = gm.paths.exe_filename.clone();
     let exe = gm.paths.exe_filename.clone().split('/').last().unwrap().to_string();
-    let steamrt_path = runnerp.join("steamrt/").follow_symlink()?.to_str().unwrap().to_string();
-    let steamrt = runnerp.join("steamrt/_v2-entry-point").follow_symlink()?.to_str().unwrap().to_string();
+    let steamrt_path = runnerp.join("steamrt/").to_str().unwrap().to_string();
+    let steamrt = runnerp.join("steamrt/_v2-entry-point").to_str().unwrap().to_string();
     #[cfg(not(debug_assertions))]
-    let reaper = if crate::utils::is_flatpak() { app.path().resource_dir()?.follow_symlink()?.join("resources/reaper").follow_symlink()?.to_str().unwrap().to_string().replace("/app/lib/", "/run/parent/app/lib/") } else { app.path().resource_dir()?.follow_symlink()?.join("resources/reaper").follow_symlink()?.to_str().unwrap().to_string().replace("/usr/lib/", "/run/host/usr/lib/") };
+    let reaper = if crate::utils::is_flatpak() { app.path().resource_dir()?.join("resources/reaper").to_str().unwrap().to_string().replace("/app/lib/", "/run/parent/app/lib/") } else { app.path().resource_dir()?.join("resources/reaper").to_str().unwrap().to_string().replace("/usr/lib/", "/run/host/usr/lib/") };
     #[cfg(debug_assertions)]
-    let reaper = app.path().resource_dir()?.follow_symlink()?.join("resources/reaper").follow_symlink()?.to_str().unwrap().to_string();
+    let reaper = app.path().resource_dir()?.join("resources/reaper").to_str().unwrap().to_string();
     let appid = get_steam_appid();
 
     if is_runner_lower(cpo.min_runner_versions.clone(), install.clone().runner_version) && !cpo.min_runner_versions.is_empty() {
@@ -88,7 +88,7 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
             Ok(mut child) => {
                 match child.try_wait() {
                     Ok(Some(status)) => { if !status.success() { send_notification(&app, "Failed to run prelaunch command! Please try again or check install settings.", None); } }
-                    Ok(None) => { write_log(app, Path::new(&dir).follow_symlink()?.to_path_buf(), child, "pre_launch.log".parse().unwrap()); }
+                    Ok(None) => { write_log(app, Path::new(&dir).to_path_buf(), child, "pre_launch.log".parse().unwrap()); }
                     Err(_) => { send_notification(&app, "Failed to run prelaunch command! Please try again or check the command correctness.", None); }
                 }
             }
@@ -184,7 +184,7 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
             Ok(mut child) => {
                 match child.try_wait() {
                     Ok(Some(status)) => { if !status.success() { send_notification(&app, "Failed to run launch command! Please try again or check install settings.", None); } }
-                    Ok(None) => { write_log(app, Path::new(&dir).follow_symlink()?.to_path_buf(), child, "game.log".parse().unwrap()); }
+                    Ok(None) => { write_log(app, Path::new(&dir).to_path_buf(), child, "game.log".parse().unwrap()); }
                     Err(_) => { send_notification(&app, "Failed to run launch command! Please try again or check the command correctness.", None); }
                 }
             }
@@ -267,7 +267,7 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
             Ok(mut child) => {
                 match child.try_wait() {
                     Ok(Some(status)) => { if !status.success() { send_notification(&app, "Failed to run launch command! Please try again or check install settings.", None); } }
-                    Ok(None) => { write_log(app, Path::new(&dir).follow_symlink()?.to_path_buf(), child, "game.log".parse().unwrap()); }
+                    Ok(None) => { write_log(app, Path::new(&dir).to_path_buf(), child, "game.log".parse().unwrap()); }
                     Err(_) => { send_notification(&app, "Failed to run launch command! Please try again or check the command correctness.", None); }
                 }
             }
@@ -287,7 +287,7 @@ fn load_xxmi(app: &AppHandle, install: LauncherInstall, prefix: String, xxmi_pat
             let app = appc.clone();
             let xxmi_path = xxmi_path.clone();
             let mipath = get_mi_path_from_game(game.clone()).unwrap();
-            let mi_pathbuf = Path::new(&xxmi_path).join(&mipath).follow_symlink().unwrap();
+            let mi_pathbuf = Path::new(&xxmi_path).join(&mipath);
             let command = if is_proton { format!("'{runner}/{wine64}' run 'z:\\{xxmi_path}/3dmloader.exe' {mipath}") } else { format!("'{runner}/{wine64}' 'z:\\{xxmi_path}/3dmloader.exe' {mipath}") };
 
             // Apply the installation tweaks
@@ -317,7 +317,7 @@ fn load_xxmi(app: &AppHandle, install: LauncherInstall, prefix: String, xxmi_pat
                 Ok(mut child) => {
                     match child.try_wait() {
                         Ok(Some(status)) => { if !status.success() { send_notification(&app, "Failed to run XXMI! Please try again and make sure \"Inject XXMI\" is enabled!", None); } }
-                        Ok(None) => { write_log(&app, Path::new(&xxmi_path).follow_symlink().unwrap().to_path_buf(), child, "xxmi.log".parse().unwrap()); }
+                        Ok(None) => { write_log(&app, Path::new(&xxmi_path).to_path_buf(), child, "xxmi.log".parse().unwrap()); }
                         Err(_) => { send_notification(&app, "Failed to run XXMI! Please try again later!", None); }
                     }
                 }
@@ -361,7 +361,7 @@ fn load_fps_unlock(app: &AppHandle, install: LauncherInstall, biz: String, prefi
                 Ok(mut child) => {
                     match child.try_wait() {
                         Ok(Some(status)) => { if !status.success() { send_notification(&app, "Failed to run FPS Unlocker! Please try again and make sure FPS Unlocker is enabled!", None); } }
-                        Ok(None) => { write_log(&app, Path::new(&fpsunlock_path.clone()).follow_symlink().unwrap().to_path_buf(), child, "fps_unlocker.log".parse().unwrap()); }
+                        Ok(None) => { write_log(&app, Path::new(&fpsunlock_path.clone()).to_path_buf(), child, "fps_unlocker.log".parse().unwrap()); }
                         Err(_) => { send_notification(&app, "Failed to run FPS Unlocker! Please try again later!", None); }
                     }
                 }
@@ -373,7 +373,7 @@ fn load_fps_unlock(app: &AppHandle, install: LauncherInstall, biz: String, prefi
 
 #[cfg(target_os = "windows")]
 pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: GlobalSettings) -> Result<bool, Error> {
-    let dirp = Path::new(&install.directory.clone()).follow_symlink()?;
+    let dirp = Path::new(&install.directory.clone()).to_path_buf();
     let dir = dirp.to_str().unwrap().to_string();
     let game = gm.paths.exe_filename.clone();
     let exe = gm.paths.exe_filename.clone().split('/').last().unwrap().to_string();
@@ -395,7 +395,7 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
             Ok(mut child) => {
                 match child.try_wait() {
                     Ok(Some(status)) => { if !status.success() { send_notification(&app, "Failed to run prelaunch command! Please try again or check install settings.", None); } }
-                    Ok(None) => { write_log(app, Path::new(&dir).follow_symlink()?.to_path_buf(), child, "pre_launch.log".parse().unwrap()); }
+                    Ok(None) => { write_log(app, Path::new(&dir).to_path_buf(), child, "pre_launch.log".parse().unwrap()); }
                     Err(_) => { send_notification(&app, "Failed to run prelaunch command! Please try again or check the command correctness.", None); }
                 }
             }
@@ -459,7 +459,7 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
                 match child.try_wait() {
                     Ok(Some(status)) => { if !status.success() { send_notification(&app, "Failed to run launch command! Please try again or check install settings.", None); } }
                     Ok(None) => {
-                        write_log(app, Path::new(&dir).follow_symlink()?.to_path_buf(), child, "game.log".parse().unwrap());
+                        write_log(app, Path::new(&dir).to_path_buf(), child, "game.log".parse().unwrap());
                     }
                     Err(_) => { send_notification(&app, "Failed to run launch command! Please try again or check the command correctness.", None); }
                 }
@@ -508,7 +508,7 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
                 match child.try_wait() {
                     Ok(Some(status)) => { if !status.success() { send_notification(&app, "Failed to run launch command! Please try again or check install settings.", None); } }
                     Ok(None) => {
-                        write_log(app, Path::new(&dir).follow_symlink()?.to_path_buf(), child, "game.log".parse().unwrap());
+                        write_log(app, Path::new(&dir).to_path_buf(), child, "game.log".parse().unwrap());
                     }
                     Err(_) => { send_notification(&app, "Failed to run launch command! Please try again or check the command correctness.", None); }
                 }
@@ -525,8 +525,8 @@ fn load_xxmi(app: &AppHandle, install: LauncherInstall, xxmi_path: String, game:
     if install.use_xxmi {
         let xxmi_path = xxmi_path.trim_matches('\\');
         let mipath = get_mi_path_from_game(game.clone()).unwrap();
-        let mi_pathbuf = Path::new(&xxmi_path).join(&mipath).follow_symlink().unwrap();
-        let loader_path = Path::new(xxmi_path).join("3dmloader.exe").follow_symlink().unwrap();
+        let mi_pathbuf = Path::new(&xxmi_path).join(&mipath);
+        let loader_path = Path::new(xxmi_path).join("3dmloader.exe");
         let loader_path_str = loader_path.to_str().unwrap().replace("/", "\\");
         let command = format!("Start-Process -FilePath '{}' -ArgumentList '{}' -WorkingDirectory '{}' -Verb RunAs", loader_path_str, mipath, xxmi_path);
 
@@ -554,7 +554,7 @@ fn load_xxmi(app: &AppHandle, install: LauncherInstall, xxmi_path: String, game:
 fn load_fps_unlock(app: &AppHandle, install: LauncherInstall, biz: String, game_path: String, fpsunlock_path: String) {
     if install.use_fps_unlock {
         let fpsunlock_path = fpsunlock_path.trim_matches('\\');
-        let loader_path = Path::new(fpsunlock_path).join("keqing_unlock.exe").follow_symlink().unwrap();
+        let loader_path = Path::new(fpsunlock_path).join("keqing_unlock.exe");
         let loader_path_str = loader_path.to_str().unwrap().replace("/", "\\");
         let fpsv = install.fps_value.clone();
         let args = format!("run {} {} 3000 0 \"{}\"", biz, fpsv, game_path);

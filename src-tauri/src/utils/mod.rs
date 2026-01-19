@@ -247,23 +247,10 @@ fn dir_size(path: &Path) -> io::Result<u64> {
     Ok(size)
 }
 
-#[allow(unused_mut)]
-pub fn setup_or_fix_default_paths(app: &AppHandle, mut path: PathBuf, fix_mode: bool) {
-    #[cfg(target_os = "linux")]
-    {
-        let os = get_os_release();
-        if os.is_some() {
-            let v = os.unwrap();
-            if v.to_ascii_lowercase() == "bazzite".to_string() || v.to_ascii_lowercase() == "kinoite".to_string() {
-                let tmp = path.to_str().unwrap().replace("/home", "/var/home");
-                path = PathBuf::from(tmp).follow_symlink().unwrap();
-            }
-        }
-    }
-
-    let defgpath = path.join("games").follow_symlink().unwrap();
-    let xxmipath = path.join("extras").join("xxmi").follow_symlink().unwrap();
-    let fpsunlockpath = path.join("extras").join("fps_unlock").follow_symlink().unwrap();
+pub fn setup_or_fix_default_paths(app: &AppHandle, path: PathBuf, fix_mode: bool) {
+    let defgpath = path.join("games");
+    let xxmipath = path.join("extras").join("xxmi");
+    let fpsunlockpath = path.join("extras").join("fps_unlock");
 
     if fix_mode {
         // Fix empty db entries and remake dirs
@@ -276,15 +263,15 @@ pub fn setup_or_fix_default_paths(app: &AppHandle, mut path: PathBuf, fix_mode: 
 
             #[cfg(target_os = "linux")]
             {
-                let comppath = path.join("compatibility").follow_symlink().unwrap();
-                let wine = comppath.join("runners").follow_symlink().unwrap();
-                let dxvk = comppath.join("dxvk").follow_symlink().unwrap();
-                let prefixes = comppath.join("prefixes").follow_symlink().unwrap();
-                let jadeitepath = path.join("extras").join("jadeite").follow_symlink().unwrap();
-                let mangohudcfg = app.path().home_dir().unwrap().follow_symlink().unwrap().join(".config/MangoHud/MangoHud.conf");
+                let comppath = path.join("compatibility");
+                let wine = comppath.join("runners");
+                let dxvk = comppath.join("dxvk");
+                let prefixes = comppath.join("prefixes");
+                let jadeitepath = path.join("extras").join("jadeite");
+                let mangohudcfg = app.path().home_dir().unwrap().join(".config/MangoHud/MangoHud.conf");
 
                 // steamrt setup
-                let steamrtpath = wine.join("steamrt").follow_symlink().unwrap();
+                let steamrtpath = wine.join("steamrt");
                 if !steamrtpath.exists() { fs::create_dir_all(&steamrtpath).unwrap(); }
 
                 if g.jadeite_path == "" { fs::create_dir_all(&jadeitepath).unwrap(); update_settings_default_jadeite_location(app, jadeitepath.to_str().unwrap().to_string()); }
@@ -300,15 +287,15 @@ pub fn setup_or_fix_default_paths(app: &AppHandle, mut path: PathBuf, fix_mode: 
         if !fpsunlockpath.exists() { fs::create_dir_all(&fpsunlockpath).unwrap(); update_settings_default_fps_unlock_location(app, fpsunlockpath.to_str().unwrap().to_string()); }
         #[cfg(target_os = "linux")]
         {
-            let comppath = path.join("compatibility").follow_symlink().unwrap();
-            let wine = comppath.join("runners").follow_symlink().unwrap();
-            let dxvk = comppath.join("dxvk").follow_symlink().unwrap();
-            let prefixes = comppath.join("prefixes").follow_symlink().unwrap();
-            let jadeitepath = path.join("extras").join("jadeite").follow_symlink().unwrap();
-            let mangohudcfg = app.path().home_dir().unwrap().follow_symlink().unwrap().join(".config/MangoHud/MangoHud.conf");
+            let comppath = path.join("compatibility");
+            let wine = comppath.join("runners");
+            let dxvk = comppath.join("dxvk");
+            let prefixes = comppath.join("prefixes");
+            let jadeitepath = path.join("extras").join("jadeite");
+            let mangohudcfg = app.path().home_dir().unwrap().join(".config/MangoHud/MangoHud.conf");
 
             // steamrt setup
-            let steamrtpath = wine.join("steamrt").follow_symlink().unwrap();
+            let steamrtpath = wine.join("steamrt");
             if !steamrtpath.exists() { fs::create_dir_all(&steamrtpath).unwrap(); }
 
             if !mangohudcfg.exists() { db_manager::update_settings_default_mangohud_config_location(app, mangohudcfg.to_str().unwrap().to_string()); } else { db_manager::update_settings_default_mangohud_config_location(app, mangohudcfg.to_str().unwrap().to_string()); }
@@ -331,7 +318,7 @@ pub fn sync_installed_runners(app: &AppHandle) {
     let gs = get_settings(app);
     if gs.is_some() {
         let s = gs.unwrap();
-        let runners = Path::new(&s.default_runner_path).follow_symlink().unwrap();
+        let runners = Path::new(&s.default_runner_path).to_path_buf();
         if !runners.exists() { return; }
 
         // Mark non-existing ones as uninstalled
@@ -339,7 +326,7 @@ pub fn sync_installed_runners(app: &AppHandle) {
         if all_runners.is_some() {
             let ar = all_runners.unwrap();
             for r in ar {
-                let dir_path = runners.join(&r.version).follow_symlink().unwrap();
+                let dir_path = runners.join(&r.version).to_path_buf();
                 if !dir_path.exists() && dir_path.to_str().unwrap().to_string() != "steamrt" { update_installed_runner_is_installed_by_version(app, r.version.clone(), false); }
             }
         }
@@ -430,7 +417,7 @@ pub fn notify_update(app: &AppHandle) {
     if ttl.is_some() {
         let r = ttl.unwrap();
         let v = r.tag_name.unwrap().replace("ttl-v", "");
-        let suppressed = app.path().app_data_dir().unwrap().join(".updatenaghide").follow_symlink().unwrap();
+        let suppressed = app.path().app_data_dir().unwrap().join(".updatenaghide");
         if !suppressed.exists() {
             let cfg = app.config();
             match compare_version(cfg.version.clone().unwrap().as_str(), v.as_str()) {
@@ -450,29 +437,6 @@ pub fn notify_update(app: &AppHandle) {
 
 #[cfg(target_os = "linux")]
 pub fn is_flatpak() -> bool { std::env::var("FLATPAK_ID").is_ok() }
-
-#[cfg(target_os = "linux")]
-#[allow(dead_code)]
-pub fn is_gamescope() -> bool { std::env::var("XDG_SESSION_DESKTOP").unwrap().to_ascii_lowercase() == "gamescope" }
-
-#[cfg(target_os = "linux")]
-pub fn get_os_release() -> Option<String> {
-    let p = if is_flatpak() { "/run/host/os-release" } else { "/usr/lib/os-release" };
-    let pp = PathBuf::from(p);
-
-    if pp.exists() {
-        let file = fs::File::open(pp).unwrap();
-        let reader = io::BufReader::new(file);
-        let mut map = HashMap::new();
-
-        for line in reader.lines() {
-            let line = line.unwrap();
-            if let Some((key, value)) = line.split_once('=') { let value = value.trim_matches('"');map.insert(key.to_owned(), value.to_owned()); }
-        }
-        let vendor = map.get("VARIANT_ID").or_else(|| map.get("ID"));
-        if vendor.is_some() { Some(vendor.unwrap().to_lowercase().to_owned()) } else { None }
-    } else { None }
-}
 
 #[cfg(target_os = "linux")]
 pub fn update_steam_compat_config(append_items: Vec<&str>) -> String {
@@ -524,7 +488,7 @@ pub fn apply_patch(app: &AppHandle, dir: String, patch_type: String, mode: Strin
             "aki" => {
                 match mode.as_str() {
                     "add" => {
-                        let f = dir.join("Client/Binaries/Win64/ThirdParty/KrPcSdk_Global/KRSDKRes/KRSDK.bin").follow_symlink().unwrap();
+                        let f = dir.join("Client/Binaries/Win64/ThirdParty/KrPcSdk_Global/KRSDKRes/KRSDK.bin");
                         if f.exists() {
                             let fp = fs::read_to_string(f.clone()).unwrap();
                             let patched = fp.lines().map(|line| {
@@ -596,7 +560,7 @@ pub fn edit_wuwa_configs_xxmi(engine_ini: String) {
 #[allow(unused_mut)]
 pub fn apply_xxmi_tweaks(package: PathBuf, mut data: Json<XXMISettings>) -> Json<XXMISettings> {
     if package.exists() {
-        let cfg = package.join("d3dx.ini").follow_symlink().unwrap();
+        let cfg = package.join("d3dx.ini");
         if cfg.exists() {
             let mut ini = configparser::ini::Ini::new_cs();
             let f = ini.load(&cfg);
@@ -793,17 +757,4 @@ pub struct ResumeStatesRsp {
     pub updating: bool,
     pub preloading: bool,
     pub repairing: bool
-}
-
-pub trait PathResolve {
-    fn follow_symlink(&self) -> io::Result<PathBuf>;
-}
-
-impl PathResolve for Path {
-    fn follow_symlink(&self) -> io::Result<PathBuf> {
-        #[cfg(target_os = "linux")]
-        return if self.is_symlink() { self.read_link() } else { Ok(self.to_path_buf()) };
-        #[cfg(target_os = "windows")]
-        return Ok(self.to_path_buf())
-    }
 }

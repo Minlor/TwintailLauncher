@@ -6,7 +6,7 @@ use fischl::utils::{assemble_multipart_archive, extract_archive};
 use tauri::{AppHandle, Emitter, Listener};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use crate::utils::db_manager::{get_install_info_by_id, get_manifest_info_by_id};
-use crate::utils::{prevent_exit, run_async_command, send_notification, PathResolve, models::{FullGameFile, GameVersion}};
+use crate::utils::{prevent_exit, run_async_command, send_notification, models::{FullGameFile, GameVersion}};
 use crate::utils::repo_manager::{get_manifest};
 use crate::downloading::DownloadGamePayload;
 
@@ -61,7 +61,7 @@ pub fn register_download_handler(app: &AppHandle) {
                             let first = urls.get(0).unwrap();
                             let tmpf = first.split('/').collect::<Vec<&str>>();
                             let fnn = tmpf.last().unwrap().to_string();
-                            let ap = Path::new(&install.directory).follow_symlink().unwrap();
+                            let ap = Path::new(&install.directory);
                             let aps = ap.to_str().unwrap().to_string();
                             let parts = urls.into_iter().map(|e| e.split('/').collect::<Vec<&str>>().last().unwrap().to_string()).collect::<Vec<String>>();
 

@@ -4,7 +4,7 @@ use std::path::{PathBuf, Path};
 use fischl::download::Extras;
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
-use crate::utils::{PathResolve, compare_version, empty_dir, find_package_version, prevent_exit, run_async_command, db_manager::{get_settings}};
+use crate::utils::{compare_version, empty_dir, find_package_version, prevent_exit, run_async_command, db_manager::{get_settings}};
 
 #[cfg(target_os = "linux")]
 use fischl::compat::{check_steamrt_update, download_steamrt};
@@ -17,7 +17,7 @@ pub fn download_or_update_steamrt(app: &AppHandle) {
 
     if gs.is_some() {
         let s = gs.unwrap();
-        let rp = Path::new(&s.default_runner_path).follow_symlink().unwrap();
+        let rp = Path::new(&s.default_runner_path);
         let steamrt = rp.join("steamrt");
         if !steamrt.exists() {
             let r = fs::create_dir_all(&steamrt);
@@ -122,23 +122,23 @@ pub fn check_extras_update(app: &AppHandle) {
     let gs = get_settings(app);
     if gs.is_some() {
         let s = gs.unwrap();
-        let jadeite = Path::new(&s.jadeite_path).follow_symlink().unwrap();
-        let fpsunlock = Path::new(&s.fps_unlock_path).follow_symlink().unwrap();
-        let xxmi = Path::new(&s.xxmi_path).follow_symlink().unwrap();
-        let gimi = xxmi.join("gimi").follow_symlink().unwrap();
-        let srmi = xxmi.join("srmi").follow_symlink().unwrap();
-        let zzmi = xxmi.join("zzmi").follow_symlink().unwrap();
-        let himi = xxmi.join("himi").follow_symlink().unwrap();
-        let wwmi = xxmi.join("wwmi").follow_symlink().unwrap();
+        let jadeite = Path::new(&s.jadeite_path).to_path_buf();
+        let fpsunlock = Path::new(&s.fps_unlock_path).to_path_buf();
+        let xxmi = Path::new(&s.xxmi_path).to_path_buf();
+        let gimi = xxmi.join("gimi");
+        let srmi = xxmi.join("srmi");
+        let zzmi = xxmi.join("zzmi");
+        let himi = xxmi.join("himi");
+        let wwmi = xxmi.join("wwmi");
 
-        let ver_jadeite = jadeite.join("VERSION.txt").follow_symlink().unwrap();
-        let ver_fpsunlock = fpsunlock.join("VERSION.txt").follow_symlink().unwrap();
-        let ver_xxmi = xxmi.join("VERSION.txt").follow_symlink().unwrap();
-        let ver_gimi = gimi.join("VERSION.txt").follow_symlink().unwrap();
-        let ver_srmi = srmi.join("VERSION.txt").follow_symlink().unwrap();
-        let ver_zzmi = zzmi.join("VERSION.txt").follow_symlink().unwrap();
-        let ver_himi = himi.join("VERSION.txt").follow_symlink().unwrap();
-        let ver_wwmi = wwmi.join("VERSION.txt").follow_symlink().unwrap();
+        let ver_jadeite = jadeite.join("VERSION.txt");
+        let ver_fpsunlock = fpsunlock.join("VERSION.txt");
+        let ver_xxmi = xxmi.join("VERSION.txt");
+        let ver_gimi = gimi.join("VERSION.txt");
+        let ver_srmi = srmi.join("VERSION.txt");
+        let ver_zzmi = zzmi.join("VERSION.txt");
+        let ver_himi = himi.join("VERSION.txt");
+        let ver_wwmi = wwmi.join("VERSION.txt");
 
         if ver_jadeite.exists() {
             download_or_update_extra(app, jadeite, "jadeite".to_string(), "v5.0.1-hotfix".to_string(), true);
@@ -215,7 +215,7 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                             });
                         return;
                     } else {
-                        let ver_path = if package_id == "keqingunlock" || package_id == "jadeite" || package_type == "xxmi" { path.join("VERSION.txt").follow_symlink().unwrap() } else { path.join(package_type.clone()).join("VERSION.txt").follow_symlink().unwrap() };
+                        let ver_path = if package_id == "keqingunlock" || package_id == "jadeite" || package_type == "xxmi" { path.join("VERSION.txt") } else { path.join(package_type.clone()).join("VERSION.txt") };
                         if !ver_path.exists() { return; }
                         let pkg_type = if package_id == "keqingunlock" || package_id == "jadeite" { package_id.as_str() } else { package_type.as_str() };
                         let local_ver = find_package_version(ver_path.clone(), &pkg_type);
@@ -230,7 +230,7 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                                             let f_path = path.join(file);
                                             if f_path.exists() { let _ = fs::remove_file(f_path); }
                                         }
-                                    } else { let ap = path.join(package_type.clone()).follow_symlink().unwrap(); empty_dir(&ap).unwrap(); }
+                                    } else { let ap = path.join(package_type.clone()); empty_dir(&ap).unwrap(); }
                                     prevent_exit(&app, true);
                                     let dl = run_async_command(async {
                                         let needs_extract = if package_type.as_str() == "keqing_unlock" { false } else { true };

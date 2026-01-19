@@ -9,7 +9,7 @@ use crate::utils::repo_manager::{get_manifest};
 use crate::downloading::DownloadGamePayload;
 
 #[cfg(target_os = "linux")]
-use crate::utils::{PathResolve, empty_dir};
+use crate::utils::{empty_dir};
 
 pub fn register_repair_handler(app: &AppHandle) {
     let a = app.clone();
@@ -42,7 +42,7 @@ pub fn register_repair_handler(app: &AppHandle) {
                 #[cfg(target_os = "linux")]
                 {
                     // Set prefix in repair state by emptying the directory
-                    let prefix_path = std::path::Path::new(&i.runner_prefix).follow_symlink().unwrap();
+                    let prefix_path = std::path::Path::new(&i.runner_prefix);
                     if prefix_path.exists() && !gm.extra.compat_overrides.install_to_prefix { empty_dir(prefix_path).unwrap(); }
                 }
 

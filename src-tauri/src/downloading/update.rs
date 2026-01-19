@@ -6,7 +6,7 @@ use fischl::download::game::{Game, Kuro, Sophon};
 use fischl::utils::free_space::available;
 use tauri::{AppHandle, Emitter, Listener, Manager};
 use crate::utils::db_manager::{get_install_info_by_id, get_manifest_info_by_id, update_install_after_update_by_id};
-use crate::utils::{empty_dir, prevent_exit, run_async_command, send_notification, PathResolve, models::{DiffGameFile, GameVersion}};
+use crate::utils::{empty_dir, prevent_exit, run_async_command, send_notification, models::{DiffGameFile, GameVersion}};
 use crate::utils::repo_manager::{get_manifest};
 use crate::downloading::DownloadGamePayload;
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
@@ -54,7 +54,7 @@ pub fn register_update_handler(app: &AppHandle) {
                                 .buttons(MessageDialogButtons::OkCancelCustom("Redownload".to_string(), "Cancel".to_string()))
                                 .show(move |action| {
                                     if action {
-                                        let ip = Path::new(&install.directory).follow_symlink().unwrap();
+                                        let ip = Path::new(&install.directory);
                                         empty_dir(&ip).unwrap();
                                         let mut data = HashMap::new();
                                         data.insert("install", install.id.clone());
@@ -83,7 +83,7 @@ pub fn register_update_handler(app: &AppHandle) {
                                 .buttons(MessageDialogButtons::OkCancelCustom("Redownload".to_string(), "Cancel".to_string()))
                                 .show(move |action| {
                                     if action {
-                                        let ip = Path::new(&install.directory).follow_symlink().unwrap();
+                                        let ip = Path::new(&install.directory);
                                         empty_dir(&ip).unwrap();
                                         let mut data = HashMap::new();
                                         data.insert("install", install.id.clone());
@@ -103,7 +103,7 @@ pub fn register_update_handler(app: &AppHandle) {
                             let available = available(install.directory.clone());
                             let has_space = if let Some(av) = available { av >= total_size } else { false };
                             if has_space {
-                                let is_preload = Path::new(&install.directory).join("patching").join(".preload").follow_symlink().unwrap().exists();
+                                let is_preload = Path::new(&install.directory).join("patching").join(".preload").exists();
                                 #[cfg(target_os = "linux")]
                                 let hpatchz = h5.path().app_data_dir().unwrap().join("hpatchz");
                                 #[cfg(target_os = "windows")]
@@ -126,7 +126,7 @@ pub fn register_update_handler(app: &AppHandle) {
                                     });
                                 });
                                 // We finished the loop emit complete
-                                if is_preload { let p = Path::new(&install.directory).join("patching").follow_symlink().unwrap(); fs::remove_dir_all(p).unwrap(); }
+                                if is_preload { let p = Path::new(&install.directory).join("patching"); fs::remove_dir_all(p).unwrap(); }
                                 h5.emit("update_complete", ()).unwrap();
                                 prevent_exit(&h5, false);
                                 send_notification(&h5, format!("Updating {inn} complete.", inn = install.name.clone()).as_str(), None);
@@ -147,7 +147,7 @@ pub fn register_update_handler(app: &AppHandle) {
                                 .buttons(MessageDialogButtons::OkCancelCustom("Redownload".to_string(), "Cancel".to_string()))
                                 .show(move |action| {
                                     if action {
-                                        let ip = Path::new(&install.directory).follow_symlink().unwrap();
+                                        let ip = Path::new(&install.directory);
                                         empty_dir(&ip).unwrap();
                                         let mut data = HashMap::new();
                                         data.insert("install", install.id.clone());
@@ -168,7 +168,7 @@ pub fn register_update_handler(app: &AppHandle) {
                             let has_space = if let Some(av) = available { av >= total_size } else { false };
                             if has_space {
                                 let manifest = urls.get(0).unwrap();
-                                let is_preload = Path::new(&install.directory).join("patching").join(".preload").follow_symlink().unwrap().exists();
+                                let is_preload = Path::new(&install.directory).join("patching").join(".preload").exists();
                                 let rslt = run_async_command(async {
                                     <Game as Kuro>::patch(manifest.file_url.to_owned(), manifest.file_hash.clone(), picked.metadata.res_list_url.clone(), install.directory.clone(), is_preload, {
                                         let dlpayload = dlpayload.clone();

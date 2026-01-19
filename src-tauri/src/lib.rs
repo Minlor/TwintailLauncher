@@ -13,7 +13,7 @@ use crate::downloading::update::register_update_handler;
 use crate::downloading::misc::check_extras_update;
 use crate::utils::db_manager::{init_db, DbInstances};
 use crate::utils::repo_manager::{load_manifests, ManifestLoader, ManifestLoaders};
-use crate::utils::{args, notify_update, register_listeners, run_async_command, setup_or_fix_default_paths, sync_install_backgrounds, ActionBlocks, PathResolve};
+use crate::utils::{args, notify_update, register_listeners, run_async_command, setup_or_fix_default_paths, sync_install_backgrounds, ActionBlocks};
 use crate::utils::system_tray::init_tray;
 use crate::commands::runners::{add_installed_runner, get_installed_runner_by_id, get_installed_runner_by_version, list_installed_runners, remove_installed_runner, update_installed_runner_install_status};
 
@@ -85,8 +85,8 @@ pub fn run() {
                     std::process::exit(0);
                 }
 
-                let res_dir = app.path().resource_dir().unwrap().follow_symlink().unwrap();
-                let data_dir = app.path().app_data_dir().unwrap().follow_symlink().unwrap();
+                let res_dir = if cfg!(target_os = "linux") { app.path().resource_dir().unwrap().canonicalize().unwrap() } else { app.path().resource_dir().unwrap() };
+                let data_dir = if cfg!(target_os = "linux") { app.path().app_data_dir().unwrap().canonicalize().unwrap() } else { app.path().app_data_dir().unwrap() };
                 setup_or_fix_default_paths(handle, data_dir.clone(), true);
                 sync_install_backgrounds(handle);
                 check_extras_update(handle);
@@ -114,7 +114,7 @@ pub fn run() {
                         Err(_e) => {},
                     }
                     // cleanup steam.exe jank
-                    let tmphome = data_dir.join("tmp_home/").follow_symlink().unwrap();
+                    let tmphome = data_dir.join("tmp_home/");
                     if tmphome.exists() { std::fs::remove_dir_all(&tmphome).unwrap(); }
 
                     deprecate_jadeite(handle);

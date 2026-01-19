@@ -13,7 +13,7 @@ use crate::utils::git_helpers::{do_fetch, do_merge};
 #[cfg(target_os = "linux")]
 use fischl::compat::Compat;
 #[cfg(target_os = "linux")]
-use crate::utils::{run_async_command, runner_from_runner_version, PathResolve};
+use crate::utils::{run_async_command, runner_from_runner_version};
 #[cfg(target_os = "linux")]
 use std::path::Path;
 #[cfg(target_os = "linux")]
@@ -266,7 +266,7 @@ pub fn load_manifests(app: &AppHandle) {
                                                                     ManifestData::Runner(ri) => {
                                                                         let first = ri.versions.first().unwrap();
                                                                         let np = i.runner_path.replace(i.runner_version.as_str(), first.version.as_str());
-                                                                        let pp = Path::new(&np).follow_symlink().unwrap();
+                                                                        let pp = Path::new(&np).to_path_buf();
                                                                         let installedr = get_installed_runner_info_by_version(&app, first.version.clone());
                                                                         if installedr.is_none() { create_installed_runner(&app, first.version.clone(), true, np.clone()).unwrap(); } else { update_installed_runner_is_installed_by_version(&app, first.version.clone(), true); }
                                                                         if !pp.exists() {
