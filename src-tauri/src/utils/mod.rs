@@ -1435,16 +1435,7 @@ pub fn apply_xxmi_tweaks(package: PathBuf, mut data: Json<XXMISettings>) -> Json
                     );
                     #[cfg(target_os = "linux")]
                     {
-                        if package.to_str().unwrap().contains("gimi") {
-                            data.require_admin = false;
-                            ini.set(
-                                "Loader",
-                                "require_admin",
-                                Some(data.require_admin.to_string()),
-                            );
-                        }
-
-                        if package.to_str().unwrap().contains("zzmi") {
+                        if package.to_str().unwrap().contains("gimi") || package.to_str().unwrap().contains("zzmi") {
                             data.require_admin = false;
                             data.dll_init_delay = 500;
                             data.close_delay = 20;
@@ -1528,6 +1519,21 @@ fn compare_version(a: &str, b: &str) -> std::cmp::Ordering {
     let va = parse(a);
     let vb = parse(b);
     va.cmp(&vb)
+}
+
+#[cfg(target_os = "linux")]
+pub fn is_runner_lower(min_runner_versions: Vec<String>, runner_version: String) -> bool {
+    let idx = match runner_version.find("proton-") { Some(i) => i, None => return false };
+    let (left, right) = runner_version.split_at(idx);
+    let cand_ver = left.strip_suffix('-').unwrap_or(left).replace("-", ".");
+
+    for s in min_runner_versions {
+        let idx = match s.find("proton-") { Some(i) => i, None => continue };
+        let (l, r) = s.split_at(idx);
+        let ver = l.strip_suffix('-').unwrap_or(l).replace("-", ".");
+        if r == right && compare_version(cand_ver.as_str(), ver.as_str()).is_lt() { return true; }
+    }
+    false
 }
 
 #[allow(dead_code)]

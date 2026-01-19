@@ -9,13 +9,15 @@ use crate::utils::{edit_wuwa_configs_xxmi, get_mi_path_from_game, send_notificat
 use crate::utils::models::{GlobalSettings, LauncherInstall, GameManifest};
 
 #[cfg(target_os = "linux")]
-use crate::utils::{runner_from_runner_version, patch_sparkle, get_steam_appid, update_steam_compat_config, is_flatpak};
+use crate::utils::{runner_from_runner_version, patch_sparkle, get_steam_appid, update_steam_compat_config, is_runner_lower};
 #[cfg(target_os = "linux")]
 use crate::utils::repo_manager::{get_compatibility};
 #[cfg(target_os = "linux")]
 use tauri::Manager;
 #[cfg(target_os = "linux")]
 use std::os::unix::process::CommandExt;
+#[cfg(target_os = "linux")]
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
 #[cfg(target_os = "linux")]
 pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: GlobalSettings) -> Result<bool, Error> {
@@ -34,10 +36,18 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
     let steamrt_path = runnerp.join("steamrt/").follow_symlink()?.to_str().unwrap().to_string();
     let steamrt = runnerp.join("steamrt/_v2-entry-point").follow_symlink()?.to_str().unwrap().to_string();
     #[cfg(not(debug_assertions))]
-    let reaper = if is_flatpak() { app.path().resource_dir()?.follow_symlink()?.join("resources/reaper").follow_symlink()?.to_str().unwrap().to_string().replace("/app/lib/", "/run/parent/app/lib/") } else { app.path().resource_dir()?.follow_symlink()?.join("resources/reaper").follow_symlink()?.to_str().unwrap().to_string().replace("/usr/lib/", "/run/host/usr/lib/") };
+    let reaper = if crate::utils::is_flatpak() { app.path().resource_dir()?.follow_symlink()?.join("resources/reaper").follow_symlink()?.to_str().unwrap().to_string().replace("/app/lib/", "/run/parent/app/lib/") } else { app.path().resource_dir()?.follow_symlink()?.join("resources/reaper").follow_symlink()?.to_str().unwrap().to_string().replace("/usr/lib/", "/run/host/usr/lib/") };
     #[cfg(debug_assertions)]
-    let reaper = if is_flatpak() { app.path().resource_dir()?.follow_symlink()?.join("resources/reaper").follow_symlink()?.to_str().unwrap().to_string() } else { app.path().resource_dir()?.follow_symlink()?.join("resources/reaper").follow_symlink()?.to_str().unwrap().to_string() };
+    let reaper = app.path().resource_dir()?.follow_symlink()?.join("resources/reaper").follow_symlink()?.to_str().unwrap().to_string();
     let appid = get_steam_appid();
+
+    if is_runner_lower(cpo.min_runner_versions.clone(), install.clone().runner_version) && !cpo.min_runner_versions.is_empty() {
+        app.dialog().message(format!("Launching {inn} with {sr} could lead to various unexpected behaviors.\nPlease download one of the supported minimum runner versions or higher!\nSupported minimum runner version(s): {minrunn}", inn = install.name.clone(), sr = install.runner_version.clone(), minrunn = cpo.min_runner_versions.clone().join(", ").as_str()).as_str()).title("TwintailLauncher")
+            .kind(MessageDialogKind::Warning)
+            .buttons(MessageDialogButtons::OkCustom("I understand".to_string()))
+            .show(move |_action| {});
+        return Ok(false);
+    }
 
     let pre_launch = install.pre_launch_command.clone();
     let wine64 = if rm.paths.wine64.is_empty() { rm.paths.wine32 } else { rm.paths.wine64 };
@@ -314,7 +324,7 @@ fn load_fps_unlock(app: &AppHandle, install: LauncherInstall, biz: String, prefi
             let app = appc.clone();
             let fpsunlock_path = fpsunlock_path.clone();
             let fpsv = install.fps_value.clone();
-            let command = if is_proton { format!("'{runner}/{wine64}' run 'z:\\{fpsunlock_path}/fpsunlock.exe' run {biz} {fpsv} 3000 '{game_path}'") } else { format!("'{runner}/{wine64}' 'z:\\{fpsunlock_path}/fpsunlock.exe' run {biz} {fpsv} 3000 '{game_path}'") };
+            let command = if is_proton { format!("'{runner}/{wine64}' run 'z:\\{fpsunlock_path}/fpsunlock.exe' run {biz} {fpsv} 3000 600 '{game_path}'") } else { format!("'{runner}/{wine64}' 'z:\\{fpsunlock_path}/fpsunlock.exe' run {biz} {fpsv} 3000 600 '{game_path}'") };
 
             let mut cmd = Command::new("bash");
             cmd.arg("-c");
@@ -390,7 +400,7 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
     }
     // Run xxmi first
     load_xxmi(app, install.clone(), gs.xxmi_path, exe.clone());
-    load_fps_unlock(app, install.clone(), gm.biz.clone(), dir.clone(), gs.fps_unlock_path, game.clone());
+    load_fps_unlock(app, install.clone(), gm.biz.clone(), dir.clone(), gs.fps_unlock_path);
 
     let rslt = if install.launch_command.is_empty() {
         let args;
@@ -524,35 +534,28 @@ fn load_xxmi(app: &AppHandle, install: LauncherInstall, xxmi_path: String, game:
 }
 
 #[cfg(target_os = "windows")]
-fn load_fps_unlock(app: &AppHandle, install: LauncherInstall, biz: String, game_path: String, fpsunlock_path: String, game: String) {
+fn load_fps_unlock(app: &AppHandle, install: LauncherInstall, biz: String, game_path: String, fpsunlock_path: String) {
     if install.use_fps_unlock {
-        fischl::utils::wait_for_process(game.as_str(), 100, 30, |found| {
-            if found {
-                let fpsunlock_path = fpsunlock_path.trim_matches('\\');
-                let loader_path = Path::new(fpsunlock_path).join("fpsunlock.exe");
-                let loader_path_str = loader_path.to_str().unwrap().replace("/", "\\");
-                let fpsv = install.fps_value.clone();
-                let args = format!("run {} {} 3000 \"{}\"", biz, fpsv, game_path);
-                let command = format!("Start-Process -FilePath '{}' -ArgumentList '{}' -WorkingDirectory '{}' -Verb RunAs", loader_path_str, args, fpsunlock_path);
+        let fpsunlock_path = fpsunlock_path.trim_matches('\\');
+        let loader_path = Path::new(fpsunlock_path).join("fpsunlock.exe");
+        let loader_path_str = loader_path.to_str().unwrap().replace("/", "\\");
+        let fpsv = install.fps_value.clone();
+        let args = format!("run {} {} 3000 0 \"{}\"", biz, fpsv, game_path);
+        let command = format!("Start-Process -FilePath '{}' -ArgumentList '{}' -WorkingDirectory '{}' -Verb RunAs", loader_path_str, args, fpsunlock_path);
 
-                let mut cmd = Command::new("powershell");
-                cmd.arg("-Command");
-                cmd.arg(&command);
+        let mut cmd = Command::new("powershell");
+        cmd.arg("-Command");
+        cmd.arg(&command);
 
-                cmd.stdout(Stdio::piped());
-                cmd.stderr(Stdio::piped());
-                cmd.current_dir(fpsunlock_path);
+        cmd.stdout(Stdio::piped());
+        cmd.stderr(Stdio::piped());
+        cmd.current_dir(fpsunlock_path);
 
-                let spawned = cmd.spawn();
-                if spawned.is_ok() {
-                    let process = spawned.unwrap();
-                    write_log(app, Path::new(&fpsunlock_path).to_path_buf(), process, "fps_unlocker.log".parse().unwrap());
-                }
-                true
-            } else {
-                false
-            }
-        });
+        let spawned = cmd.spawn();
+        if spawned.is_ok() {
+            let process = spawned.unwrap();
+            write_log(app, Path::new(&fpsunlock_path).to_path_buf(), process, "fps_unlocker.log".parse().unwrap());
+        }
     }
 }
 

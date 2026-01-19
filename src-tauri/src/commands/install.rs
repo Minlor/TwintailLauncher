@@ -401,8 +401,8 @@ pub fn add_install(
             }
         }
         let gbg = g.assets.game_background.clone(); /*if g.assets.game_live_background.is_some() {
-        let lbg = g.assets.game_live_background.clone().unwrap();
-        if lbg.is_empty() { g.assets.game_background.clone() } else { lbg }
+            let lbg = g.assets.game_live_background.clone().unwrap();
+            if lbg.is_empty() { g.assets.game_background.clone() } else { lbg }
         } else { g.assets.game_background.clone() };*/
         if !install_location.exists() {
             if let Err(e) = fs::create_dir_all(&install_location) {
