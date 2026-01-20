@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::ops::Add;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use fischl::utils::{prettify_bytes};
 use fischl::utils::free_space::available;
@@ -902,8 +902,9 @@ pub fn get_download_sizes(app: AppHandle, biz: String, version: String, lang: St
             fss = gs.add(audio);
         }
 
-        let p = Path::new(&path).to_path_buf();
-        let a = available(p);
+        let p = PathBuf::from(&path);
+        let ap = if cfg!(target_os = "linux") { match p.canonicalize() { Ok(resolved) => resolved, Err(_) => match p.parent() { Some(parent) => parent.canonicalize().unwrap_or(p.clone()), None => p.clone(), } } } else { p };
+        let a = available(ap);
         let stringified;
         
         if a.is_some() {
