@@ -1,4 +1,4 @@
-use tauri::{tray::{TrayIconBuilder}, Manager, AppHandle, Runtime};
+use tauri::{tray::{TrayIconBuilder}, Manager, AppHandle, Runtime, Listener};
 use tauri::menu::{Menu, MenuItemBuilder};
 use tauri::tray::{TrayIconEvent};
 
@@ -6,6 +6,14 @@ pub fn init_tray<R: Runtime>(app: &AppHandle<R>) -> Result<(), tauri::Error> {
     let toggle_i = MenuItemBuilder::with_id("toggle", "Hide").build(app)?;
     let kill_i = MenuItemBuilder::with_id("kill", "Force kill").build(app)?;
     let menu1 = Menu::with_items(app, &[&toggle_i, &kill_i])?;
+
+    let toggle_c = toggle_i.clone();
+    app.listen_any("sync_tray_toggle", move |event| {
+        if event.payload() != "" {
+            let new_text = event.payload().trim_matches('"');
+            let _ = toggle_c.set_text(new_text);
+        }
+    });
 
     // https://github.com/tauri-apps/tauri/issues/14596
     let tray_icon = if cfg!(target_os = "windows") { tauri::image::Image::from_bytes(include_bytes!("../../icons/128x128@2x.png"))? } else { app.default_window_icon().unwrap().clone() };
