@@ -28,7 +28,8 @@ interface IProps {
     biz?: string,
     version?: () => string,
     lang?: () => string,
-    fetchDownloadSizes?: (biz: any, version: any, lang: any, path: any, callback: (data: any) => void) => void,
+    region_filter?: string,
+    fetchDownloadSizes?: (biz: any, version: any, lang: any, path: any, region_filter: any, callback: (data: any) => void) => void,
     helpText: string,
     skipGameDownload?: boolean
 }
@@ -157,8 +158,8 @@ export default class FolderInput extends React.Component<IProps, IState> {
             }
             break;
             case "install_game_path": {
-                if (this.props.fetchDownloadSizes !== undefined && this.props.version !== undefined && this.props.lang !== undefined) {
-                    this.props.fetchDownloadSizes(this.props.biz, this.props.version(), this.props.lang(), path, (disk) => {
+                if (this.props.fetchDownloadSizes !== undefined && this.props.version !== undefined && this.props.lang !== undefined && this.props.region_filter !== undefined) {
+                    this.props.fetchDownloadSizes(this.props.biz, this.props.version(), this.props.lang(), path, this.props.region_filter, (disk) => {
                         // @ts-ignore
                         let btn = document.getElementById("game_dl_btn");
                         // @ts-ignore
