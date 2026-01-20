@@ -76,14 +76,22 @@ export function startInitialLoad(opts: LoaderOptions): LoaderController {
       opts.setProgress(75, "Preloading images...");
 
       // Step 4: Preload images (backgrounds + icons) including installed assets for older/different versions
+      // Also preload live/dynamic backgrounds for smooth transitions
       const games = opts.getGamesInfo() || [];
       const installs = opts.getInstalls ? (opts.getInstalls() || []) : [];
       const gameBackgrounds: string[] = games.map((g: any) => g?.assets?.game_background).filter(Boolean);
-      //const gameLiveBackgrounds: string[] = games.map((g: any) => g?.assets?.game_live_background).filter(Boolean);
+      const gameLiveBackgrounds: string[] = games.map((g: any) => g?.assets?.game_live_background).filter(Boolean);
       const gameIcons: string[] = games.map((g: any) => g?.assets?.game_icon).filter(Boolean);
       const installBackgrounds: string[] = installs.map((i: any) => i?.game_background).filter(Boolean);
       const installIcons: string[] = installs.map((i: any) => i?.game_icon).filter(Boolean);
-      const images = Array.from(new Set([/*...(gameLiveBackgrounds as string[]), */...(gameBackgrounds as string[]), ...(gameIcons as string[]), ...(installBackgrounds as string[]), ...(installIcons as string[])]));
+      // Deduplicate all URLs - live backgrounds are preloaded first for immediate use
+      const images = Array.from(new Set([
+        ...gameLiveBackgrounds,
+        ...gameBackgrounds,
+        ...gameIcons,
+        ...installBackgrounds,
+        ...installIcons
+      ]));
       try {
         await Promise.race([
           opts.preloadImages(
@@ -120,6 +128,19 @@ export function startInitialLoad(opts: LoaderOptions): LoaderController {
             if (ns !== undefined) opts.applyEventState(ns);
           });
           unlistenFns.push(unlisten);
+        }
+
+        // Fetch current download queue state to sync after refresh
+        // This ensures ongoing downloads are visible immediately after frontend reload
+        try {
+          const { invoke } = await import('@tauri-apps/api/core');
+          const currentQueueState = await invoke('get_download_queue_state');
+          if (currentQueueState && !cancelled) {
+            const parsed = JSON.parse(currentQueueState as string);
+            opts.applyEventState({ downloadQueueState: parsed });
+          }
+        } catch (e) {
+          console.warn("Could not fetch initial download queue state:", e);
         }
       }, 20);
     } catch (e) {

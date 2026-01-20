@@ -272,11 +272,11 @@ pub fn load_manifests(app: &AppHandle) {
                                                                         if !pp.exists() {
                                                                             fs::create_dir_all(&pp).unwrap();
                                                                             run_async_command(async {
-                                                                                Compat::download_runner(first.url.clone(), pp.to_str().unwrap().to_string(),true, move |_current, _total| {}).await
+                                                                                Compat::download_runner(first.url.clone(), pp.to_str().unwrap().to_string(),true, move |_current, _total, _net, _disk| {}).await
                                                                             });
                                                                         } else {
                                                                             run_async_command(async {
-                                                                                Compat::download_runner(first.url.clone(), pp.to_str().unwrap().to_string(),true, move |_current, _total| {}).await
+                                                                                Compat::download_runner(first.url.clone(), pp.to_str().unwrap().to_string(),true, move |_current, _total, _net, _disk| {}).await
                                                                             });
                                                                         }
                                                                         update_install_runner_location_by_id(&app, i.id.clone(), np.clone());

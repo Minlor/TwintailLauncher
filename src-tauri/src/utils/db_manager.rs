@@ -134,6 +134,12 @@ pub async fn init_db(app: &AppHandle) {
             sql: r#"ALTER TABLE settings ADD COLUMN download_speed_limit integer DEFAULT 0 NOT NULL;"#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 21,
+            description: "alter_install_table_preferred_background",
+            sql: r#"ALTER TABLE install ADD COLUMN preferred_background TEXT default null;"#,
+            kind: MigrationKind::Up,
+        },
     ];
 
     let mut migrations = add_migrations("db", migrationsl);
@@ -630,7 +636,8 @@ pub fn get_install_info_by_id(app: &AppHandle, id: String) -> Option<LauncherIns
             shortcut_is_steam: rslt.get(0).unwrap().get("shortcut_is_steam"),
             shortcut_path: rslt.get(0).unwrap().get("shortcut_path"),
             region_code: rslt.get(0).unwrap().get("region_code"),
-            xxmi_config: rslt.get(0).unwrap().get("xxmi_config")
+            xxmi_config: rslt.get(0).unwrap().get("xxmi_config"),
+            preferred_background: rslt.get(0).unwrap().get("preferred_background")
         };
 
         Some(rsltt)
@@ -682,7 +689,8 @@ pub fn get_installs_by_manifest_id(app: &AppHandle, manifest_id: String) -> Opti
                 shortcut_is_steam: r.get("shortcut_is_steam"),
                 shortcut_path: r.get("shortcut_path"),
                 region_code: r.get("region_code"),
-                xxmi_config: r.get("xxmi_config")
+                xxmi_config: r.get("xxmi_config"),
+                preferred_background: r.get("preferred_background")
             })
         }
 
@@ -735,7 +743,8 @@ pub fn get_installs(app: &AppHandle) -> Option<Vec<LauncherInstall>> {
                 shortcut_is_steam: r.get("shortcut_is_steam"),
                 shortcut_path: r.get("shortcut_path"),
                 region_code: r.get("region_code"),
-                xxmi_config: r.get("xxmi_config")
+                xxmi_config: r.get("xxmi_config"),
+                preferred_background: r.get("preferred_background")
             })
         }
 
@@ -750,6 +759,15 @@ pub fn update_install_game_location_by_id(app: &AppHandle, id: String, location:
         let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
 
         let query = query("UPDATE install SET 'directory' = $1 WHERE id = $2").bind(location).bind(id);
+        query.execute(&db).await.unwrap();
+    });
+}
+
+pub fn update_install_preferred_background_by_id(app: &AppHandle, id: String, background: String) {
+    run_async_command(async {
+        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+
+        let query = query("UPDATE install SET 'preferred_background' = $1 WHERE id = $2").bind(background).bind(id);
         query.execute(&db).await.unwrap();
     });
 }

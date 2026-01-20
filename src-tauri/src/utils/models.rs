@@ -83,7 +83,8 @@ pub struct LauncherInstall {
     pub shortcut_is_steam: bool,
     pub shortcut_path: String,
     pub region_code: String,
-    pub xxmi_config: Json<XXMISettings>
+    pub xxmi_config: Json<XXMISettings>,
+    pub preferred_background: Option<String>
 }
 
 #[derive(Serialize, Deserialize, Debug)]

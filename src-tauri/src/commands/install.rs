@@ -5,11 +5,11 @@ use crate::utils::db_manager::{
     update_install_game_location_by_id, update_install_ignore_updates_by_id,
     update_install_launch_args_by_id, update_install_launch_cmd_by_id,
     update_install_mangohud_config_location_by_id, update_install_pre_launch_cmd_by_id,
-    update_install_prefix_location_by_id, update_install_shortcut_location_by_id,
-    update_install_skip_hash_check_by_id, update_install_use_fps_unlock_by_id,
-    update_install_use_gamemode_by_id, update_install_use_jadeite_by_id,
-    update_install_use_mangohud_by_id, update_install_use_xxmi_by_id,
-    update_install_xxmi_config_by_id,
+    update_install_preferred_background_by_id, update_install_prefix_location_by_id,
+    update_install_shortcut_location_by_id, update_install_skip_hash_check_by_id,
+    update_install_use_fps_unlock_by_id, update_install_use_gamemode_by_id,
+    update_install_use_jadeite_by_id, update_install_use_mangohud_by_id,
+    update_install_use_xxmi_by_id, update_install_xxmi_config_by_id,
 };
 use crate::utils::game_launch_manager::launch;
 use crate::utils::repo_manager::get_manifest;
@@ -306,7 +306,7 @@ pub fn add_install(
                             let archandle = archandle.clone();
                             let dlpayload = dlpayload.clone();
                             let runv = runv.clone();
-                            move |current, total| {
+                            move |current, total, _net, _disk| {
                                 let mut dlpayload = dlpayload.clone();
                                 dlpayload.insert("name", runv.to_string());
                                 dlpayload.insert("progress", current.to_string());
@@ -401,8 +401,8 @@ pub fn add_install(
             }
         }
         let gbg = g.assets.game_background.clone(); /*if g.assets.game_live_background.is_some() {
-            let lbg = g.assets.game_live_background.clone().unwrap();
-            if lbg.is_empty() { g.assets.game_background.clone() } else { lbg }
+        let lbg = g.assets.game_live_background.clone().unwrap();
+        if lbg.is_empty() { g.assets.game_background.clone() } else { lbg }
         } else { g.assets.game_background.clone() };*/
         if !install_location.exists() {
             if let Err(e) = fs::create_dir_all(&install_location) {
@@ -412,6 +412,15 @@ pub fn add_install(
                     install_id: "".to_string(),
                     background: "".to_string(),
                 });
+            }
+        }
+        // Create downloading marker immediately so queued downloads show "Resume" on restart
+        // This marker is normally created in run_game_download, but if the job is queued
+        // and the launcher restarts before the job runs, the marker wouldn't exist.
+        if !skip_game_dl {
+            let downloading_marker = install_location.join("downloading");
+            if !downloading_marker.exists() {
+                let _ = fs::create_dir(&downloading_marker);
             }
         }
         create_installation(
@@ -458,6 +467,9 @@ pub async fn remove_install(app: AppHandle, id: String, wipe_prefix: bool) -> Op
     if id.is_empty() {
         None
     } else {
+        // Cancel any active or queued downloads for this installation first
+        cancel_download_for_install(&app, &id);
+
         let install = get_install_info_by_id(&app, id.clone());
 
         if install.is_some() {
@@ -954,6 +966,23 @@ pub fn update_install_launch_cmd(app: AppHandle, id: String, cmd: String) -> Opt
 }
 
 #[tauri::command]
+pub fn update_install_preferred_background(
+    app: AppHandle,
+    id: String,
+    background: String,
+) -> Option<bool> {
+    let install = get_install_info_by_id(&app, id);
+
+    if install.is_some() {
+        let m = install.unwrap();
+        update_install_preferred_background_by_id(&app, m.id, background);
+        Some(true)
+    } else {
+        None
+    }
+}
+
+#[tauri::command]
 pub fn update_install_prefix_path(app: AppHandle, id: String, path: String) -> Option<bool> {
     let install = get_install_info_by_id(&app, id);
 
@@ -1095,7 +1124,7 @@ pub fn update_install_runner_version(app: AppHandle, id: String, version: String
                         let archandle = archandle.clone();
                         let dlpayload = dlpayload.clone();
                         let runv = runv.clone();
-                        move |current, total| {
+                        move |current, total, _net, _disk| {
                             let mut dlpayload = dlpayload.clone();
                             dlpayload.insert("name", runv.to_string());
                             dlpayload.insert("progress", current.to_string());
@@ -1283,7 +1312,7 @@ pub fn update_install_dxvk_version(app: AppHandle, id: String, version: String) 
                             let archandle = archandle.clone();
                             let dlpayload = dlpayload.clone();
                             let runv = runv.clone();
-                            move |current, total| {
+                            move |current, total, _net, _disk| {
                                 let mut dlpayload = dlpayload.clone();
                                 dlpayload.insert("name", runv.to_string());
                                 dlpayload.insert("progress", current.to_string());
@@ -1858,6 +1887,34 @@ pub fn remove_shortcut(app: AppHandle, install_id: String, shortcut_type: String
     };
 }
 
+/// Cancels any active or queued downloads for an installation and cleans up state.
+/// This is used internally when uninstalling a game to ensure no orphan downloads continue.
+pub fn cancel_download_for_install(app: &AppHandle, install_id: &str) {
+    let state = app.state::<DownloadState>();
+
+    // 1. Signal any running download to stop
+    {
+        let tokens = state.tokens.lock().unwrap();
+        if let Some(token) = tokens.get(install_id) {
+            token.store(true, Ordering::Relaxed);
+        }
+    }
+
+    // 2. Remove any queued jobs for this install
+    {
+        let queue_guard = state.queue.lock().unwrap();
+        if let Some(ref queue_handle) = *queue_guard {
+            queue_handle.remove_by_install_id(install_id.to_string());
+        }
+    }
+
+    // 3. Clean up verified files tracking
+    {
+        let mut verified = state.verified_files.lock().unwrap();
+        verified.remove(install_id);
+    }
+}
+
 #[tauri::command]
 pub fn pause_game_download(app: AppHandle, install_id: String) -> bool {
     let state = app.state::<DownloadState>();
@@ -1947,4 +2004,16 @@ pub fn queue_reorder(app: AppHandle, job_id: String, new_position: usize) -> boo
         return queue_handle.reorder(job_id, new_position);
     }
     false
+}
+
+#[tauri::command]
+pub fn get_download_queue_state(app: AppHandle) -> Option<String> {
+    let state = app.state::<DownloadState>();
+    let queue_guard = state.queue.lock().unwrap();
+    if let Some(ref queue_handle) = *queue_guard {
+        if let Some(payload) = queue_handle.get_state() {
+            return serde_json::to_string(&payload).ok();
+        }
+    }
+    None
 }

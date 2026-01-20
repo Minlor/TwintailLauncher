@@ -661,7 +661,7 @@ pub fn download_or_update_xxmi(
                         "SpectrumQT/XXMI-Libs-Package".parse().unwrap(),
                         path.as_path().to_str().unwrap().parse().unwrap(),
                         true,
-                        { move |_current, _total, _net_speed, _disk_speed| {} },
+                        move |_current, _total, _net_speed, _disk_speed| {},
                     )
                     .await
                 });

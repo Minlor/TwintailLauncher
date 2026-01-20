@@ -93,6 +93,15 @@ impl DownloadQueueHandle {
         rx.recv().unwrap_or(false)
     }
 
+    /// Remove all jobs for an install_id from the queue (only queued, not running)
+    pub fn remove_by_install_id(&self, install_id: String) -> bool {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let _ = self
+            .tx
+            .send(QueueCommand::RemoveByInstallId(install_id, tx));
+        rx.recv().unwrap_or(false)
+    }
+
     /// Pause/unpause the queue (when paused, completed jobs don't auto-start next)
     pub fn set_paused(&self, paused: bool) {
         let _ = self.tx.send(QueueCommand::SetPaused(paused));
@@ -113,6 +122,13 @@ impl DownloadQueueHandle {
             .send(QueueCommand::Reorder(job_id, new_position, tx));
         rx.recv().unwrap_or(false)
     }
+
+    /// Get the current queue state (for initial sync after frontend refresh)
+    pub fn get_state(&self) -> Option<QueueStatePayload> {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let _ = self.tx.send(QueueCommand::GetState(tx));
+        rx.recv().ok()
+    }
 }
 
 pub enum QueueCommand {
@@ -122,8 +138,10 @@ pub enum QueueCommand {
     MoveUp(String, mpsc::Sender<bool>),
     MoveDown(String, mpsc::Sender<bool>),
     Remove(String, mpsc::Sender<bool>),
+    RemoveByInstallId(String, mpsc::Sender<bool>),
     ActivateJob(String, mpsc::Sender<Option<String>>),
     Reorder(String, usize, mpsc::Sender<bool>),
+    GetState(mpsc::Sender<QueueStatePayload>),
     Shutdown,
 }
 
@@ -366,6 +384,31 @@ pub fn start_download_queue_worker(
                         }
                         let _ = reply.send(success);
                     }
+                    QueueCommand::RemoveByInstallId(install_id, reply) => {
+                        let mut removed_any = false;
+                        // Remove all queued jobs matching this install_id
+                        let mut i = 0;
+                        while i < queued.len() {
+                            if queued[i].payload.install == install_id {
+                                queued.remove(i);
+                                queued_views.remove(i);
+                                removed_any = true;
+                            } else {
+                                i += 1;
+                            }
+                        }
+                        if removed_any {
+                            emit_queue_state(
+                                &app,
+                                max_concurrent,
+                                paused,
+                                &active,
+                                &queued_views,
+                                &completed_views,
+                            );
+                        }
+                        let _ = reply.send(removed_any);
+                    }
                     QueueCommand::Reorder(job_id, new_position, reply) => {
                         let mut success = false;
                         if let Some(idx) = queued.iter().position(|j| j.id == job_id) {
@@ -407,6 +450,17 @@ pub fn start_download_queue_worker(
                             );
                         }
                         let _ = reply.send(install_id);
+                    }
+                    QueueCommand::GetState(reply) => {
+                        // Return current queue state for initial sync
+                        let payload = QueueStatePayload {
+                            max_concurrent,
+                            paused,
+                            running: active.values().cloned().collect(),
+                            queued: queued_views.iter().cloned().collect(),
+                            completed: completed_views.iter().cloned().collect(),
+                        };
+                        let _ = reply.send(payload);
                     }
                     QueueCommand::Shutdown => break,
                 },

@@ -176,6 +176,11 @@ body {
     animation-fill-mode: both;
 }
 
+.animate-slideInUp {
+    animation: slideUp 400ms ease-out;
+    animation-fill-mode: both;
+}
+
 .animate-slideDown {
     animation: slideDown 400ms ease-out;
     animation-fill-mode: both;

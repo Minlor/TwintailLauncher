@@ -16,7 +16,7 @@ interface IProps {
     displayName: string;
     settings: any;
     biz: string;
-    versions: { value: string; name: string; background?: string }[];
+    versions: { value: string; name: string; background?: string; liveBackground?: string }[];
     background: string;
     icon: string;
     pushInstalls: () => void;
@@ -59,6 +59,17 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
 
     // Controlled State for Install Path
     const [installPath, setInstallPath] = useState(`${settings.default_game_path}/${biz}`);
+
+    // Initialize background to the selected version's dynamic background
+    useEffect(() => {
+        const selectedVersion = versions.find(v => v.value === selectedGameVersion);
+        if (selectedVersion) {
+            const newBackground = selectedVersion.liveBackground || selectedVersion.background;
+            if (newBackground && newBackground !== background) {
+                setBackground(newBackground);
+            }
+        }
+    }, []); // Run only once on mount
 
     // Update path effect to fetch sizes
     useEffect(() => {
@@ -156,7 +167,9 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
                 if (r.success) {
                     pushInstalls();
                     setCurrentInstall(r.install_id as string);
-                    setBackground(r.background as string);
+                    // Don't call setBackground here - updateAvailableBackgrounds in App.tsx 
+                    // will be triggered by setCurrentInstall and will select the best background
+                    // (dynamic if available). Calling setBackground here would override it with static.
                     setTimeout(() => {
                         let installui = document.getElementById(r.install_id);
                         if (installui) installui.focus();
@@ -223,8 +236,10 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
                                                 onClick={() => {
                                                     setSelectedGameVersion(v.value);
                                                     setIsVersionOpen(false);
-                                                    if (v.background) {
-                                                        setBackground(v.background);
+                                                    // Use dynamic background (liveBackground) if available, otherwise fall back to static background
+                                                    const newBackground = v.liveBackground || v.background;
+                                                    if (newBackground) {
+                                                        setBackground(newBackground);
                                                     }
                                                 }}
                                                 className="w-full px-4 py-2 text-left hover:bg-white/10 flex items-center justify-between group"

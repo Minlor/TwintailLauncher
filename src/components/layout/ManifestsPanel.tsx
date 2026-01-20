@@ -76,7 +76,9 @@ const ManifestsPanel: React.FC<ManifestsPanelProps> = ({
             onDragStart={(e) => e.preventDefault()}
           >
             {gamesinfo.map((game, index) => {
-              let bg = (game.assets.game_live_background !== "") ? game.assets.game_live_background : game.assets.game_background;
+              // Use dynamic background if available, otherwise fall back to static
+              // Using || handles undefined, null, and empty string cases
+              let bg = game.assets.game_live_background || game.assets.game_background;
               const opening = manifestsOpenVisual;
               const delayMs = manifestsInitialLoading
                 ? (index * 100 + 400)
@@ -113,8 +115,8 @@ const ManifestsPanel: React.FC<ManifestsPanelProps> = ({
             })}
           </div>
           {/* Edge fades to hint horizontal scroll */}
-          <div className="pointer-events-none absolute top-0 left-0 h-full w-10 bg-gradient-to-r from-black/50 to-transparent"/>
-          <div className="pointer-events-none absolute top-0 right-0 h-full w-12 bg-gradient-to-l from-black/50 to-transparent"/>
+          <div className="pointer-events-none absolute top-0 left-0 h-full w-10 bg-gradient-to-r from-black/50 to-transparent" />
+          <div className="pointer-events-none absolute top-0 right-0 h-full w-12 bg-gradient-to-l from-black/50 to-transparent" />
         </div>
       </div>
     </div>

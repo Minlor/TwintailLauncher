@@ -135,7 +135,7 @@ pub fn add_installed_runner(app: AppHandle, runner_url: String, runner_version: 
                             let archandle = app.clone();
                             let dlpayload = dlp.clone();
                             let runv = runv.clone();
-                            move |current, total| {
+                            move |current, total, _net, _disk| {
                                 let mut dlp = dlpayload.clone();
                                 dlp.insert("name", runv.to_string());
                                 dlp.insert("progress", current.to_string());

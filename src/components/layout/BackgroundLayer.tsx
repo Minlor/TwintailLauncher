@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useCallback } from "react";
+import { isImagePreloaded, isVideoUrl, preloadImage, getPreloadedImage } from "../../utils/imagePreloader";
 
 interface BackgroundLayerProps {
   currentSrc: string;
@@ -10,8 +11,7 @@ interface BackgroundLayerProps {
   onMainLoad?: () => void;
 }
 
-const isVideo = (src?: string) =>
-  !!src && (src.endsWith(".mp4") || src.endsWith(".webm"));
+const isVideo = (src?: string) => !!src && isVideoUrl(src) && !navigator.userAgent.includes('Linux');
 
 // helper to detect MP4 specifically (for treating MP4 looping differently)
 const isMp4 = (src?: string) => !!src && src.endsWith(".mp4");
@@ -25,117 +25,228 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
   bgLoading,
   onMainLoad,
 }) => {
-  const currentVideoRef = useRef<HTMLVideoElement | null>(null);
-  // reset the video feed whenever switching to a new manifest icon / background
-  useEffect(() => {
-    if (!isVideo(currentSrc)) return;
+  const currentContainerRef = useRef<HTMLDivElement | null>(null);
+  const previousContainerRef = useRef<HTMLDivElement | null>(null);
+  const currentElementRef = useRef<HTMLImageElement | HTMLVideoElement | null>(null);
+  const currentSrcRef = useRef<string>("");
 
-    const v = currentVideoRef.current;
-    if (!v) return;
-
-    try {
-      v.pause();
-      // Some WebKit builds can throw if currentTime is set too early; wrap it.
+  // MP4 loop restart handler
+  const restartMp4 = useCallback(() => {
+    const el = currentElementRef.current;
+    if (el && el instanceof HTMLVideoElement) {
       try {
-        v.currentTime = 0;
+        el.currentTime = 0;
+        el.play().catch(() => { });
       } catch {
         // ignore
       }
-      v.load(); // forces WebKit/GStreamer to rebuild the pipeline
-      v.play().catch(() => {
-        // autoplay can reject sometimes
-      });
-    } catch {
-      // ignore
+    }
+  }, []);
+
+  // Create and configure video element from preloaded or new
+  const createVideoElement = useCallback((src: string, className: string, onLoad?: () => void): HTMLVideoElement => {
+    const preloaded = getPreloadedImage(src);
+    let video: HTMLVideoElement;
+
+    if (preloaded && preloaded instanceof HTMLVideoElement) {
+      // Clone the preloaded video to reuse buffered data
+      video = preloaded.cloneNode(true) as HTMLVideoElement;
+    } else {
+      video = document.createElement("video");
+      video.src = src;
     }
 
-    return () => {
-      try {
-        v.pause();
-        v.removeAttribute("src");
-        v.load();
-      } catch {
-        // ignore
+    video.className = className;
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+    video.autoplay = false;
+
+    if (isMp4(src)) {
+      video.loop = false;
+      video.onended = restartMp4;
+    } else {
+      video.loop = true;
+    }
+
+    if (onLoad) {
+      video.onloadeddata = onLoad;
+    }
+
+    return video;
+  }, [restartMp4]);
+
+  // Create and configure image element from preloaded or new
+  const createImageElement = useCallback((src: string, className: string, onLoad?: () => void): HTMLImageElement => {
+    const preloaded = getPreloadedImage(src);
+    let img: HTMLImageElement;
+
+    if (preloaded && preloaded instanceof HTMLImageElement) {
+      // Clone the preloaded image to reuse cached data
+      img = preloaded.cloneNode(true) as HTMLImageElement;
+    } else {
+      img = document.createElement("img");
+      img.src = src;
+    }
+
+    img.className = className;
+    img.alt = "background";
+    img.loading = "eager";
+    img.decoding = "async";
+
+    if (onLoad) {
+      // If already loaded (from preload), call immediately
+      if (img.complete && img.naturalHeight !== 0) {
+        setTimeout(onLoad, 0);
+      } else {
+        img.onload = onLoad;
+      }
+    }
+
+    return img;
+  }, []);
+
+  // Effect to handle current background
+  useEffect(() => {
+    const container = currentContainerRef.current;
+    if (!container) return;
+
+    // Skip if same source
+    if (currentSrcRef.current === currentSrc && currentElementRef.current) {
+      // Just update classes for popup state changes
+      const el = currentElementRef.current;
+      const baseClass = `w-full h-screen object-cover object-center transition-all duration-300 ease-out ${transitioning ? "animate-bg-fade-in" : ""} ${popupOpen ? "scale-[1.03] brightness-[0.45] saturate-75" : ""}`;
+      el.className = baseClass;
+      return;
+    }
+
+    currentSrcRef.current = currentSrc;
+
+    // Clear previous element
+    container.innerHTML = "";
+    currentElementRef.current = null;
+
+    if (!currentSrc) return;
+
+    const baseClass = `w-full h-screen object-cover object-center transition-all duration-300 ease-out ${transitioning ? "animate-bg-fade-in" : ""} ${popupOpen ? "scale-[1.03] brightness-[0.45] saturate-75" : ""}`;
+
+    // Ensure preloaded before creating element
+    const createAndAppend = () => {
+      let element: HTMLImageElement | HTMLVideoElement;
+
+      if (isVideo(currentSrc)) {
+        element = createVideoElement(currentSrc, baseClass, () => {
+          onMainLoad?.();
+        });
+
+        // Start playback
+        container.appendChild(element);
+        currentElementRef.current = element;
+        element.id = "app-bg";
+
+        // Reset and play
+        try {
+          element.pause();
+          try { element.currentTime = 0; } catch { /* ignore */ }
+          element.load();
+          element.play().catch(() => { });
+        } catch { /* ignore */ }
+      } else {
+        element = createImageElement(currentSrc, baseClass, () => {
+          onMainLoad?.();
+        });
+
+        container.appendChild(element);
+        currentElementRef.current = element;
+        element.id = "app-bg";
       }
     };
-  }, [currentSrc, bgVersion]);
 
-  // manual MP4 loop restart handler (used ONLY for mp4)
-  const restartMp4 = () => {
-    const v = currentVideoRef.current;
-    if (!v) return;
-    try {
-      v.currentTime = 0;
-      v.play().catch(() => {});
-    } catch {
-      // ignore
+    // If already preloaded, create immediately; otherwise wait for preload
+    if (isImagePreloaded(currentSrc)) {
+      createAndAppend();
+    } else {
+      preloadImage(currentSrc).then(createAndAppend);
     }
-  };
+  }, [currentSrc, bgVersion, transitioning, popupOpen, createVideoElement, createImageElement, onMainLoad]);
+
+  // Effect to handle previous background (for transitions)
+  useEffect(() => {
+    const container = previousContainerRef.current;
+    if (!container) return;
+
+    // Clear previous content
+    container.innerHTML = "";
+
+    if (!transitioning || !previousSrc) return;
+
+    const baseClass = `w-full h-screen object-cover object-center absolute inset-0 transition-none animate-bg-fade-out ${popupOpen ? "scale-[1.03] brightness-[0.45] saturate-75" : ""}`;
+
+    if (isVideo(previousSrc)) {
+      const preloaded = getPreloadedImage(previousSrc);
+      let video: HTMLVideoElement;
+
+      if (preloaded && preloaded instanceof HTMLVideoElement) {
+        video = preloaded.cloneNode(true) as HTMLVideoElement;
+      } else {
+        video = document.createElement("video");
+        video.src = previousSrc;
+      }
+
+      video.className = baseClass;
+      video.muted = true;
+      video.playsInline = true;
+      video.loop = true;
+      video.autoplay = false;
+      video.preload = "auto";
+
+      container.appendChild(video);
+    } else {
+      const preloaded = getPreloadedImage(previousSrc);
+      let img: HTMLImageElement;
+
+      if (preloaded && preloaded instanceof HTMLImageElement) {
+        img = preloaded.cloneNode(true) as HTMLImageElement;
+      } else {
+        img = document.createElement("img");
+        img.src = previousSrc;
+      }
+
+      img.className = baseClass;
+      img.alt = "previous background";
+      img.loading = "eager";
+      img.decoding = "async";
+
+      container.appendChild(img);
+    }
+  }, [transitioning, previousSrc, bgVersion, popupOpen]);
+
+  // Effect to update popup styling without re-creating elements
+  useEffect(() => {
+    const el = currentElementRef.current;
+    if (!el || !currentSrc) return;
+
+    const baseClass = `w-full h-screen object-cover object-center transition-all duration-300 ease-out ${transitioning ? "animate-bg-fade-in" : ""} ${popupOpen ? "scale-[1.03] brightness-[0.45] saturate-75" : ""}`;
+    el.className = baseClass;
+  }, [popupOpen, transitioning, currentSrc]);
 
   return (
     <div className="absolute inset-0 -z-10 pointer-events-none overflow-hidden">
-      {transitioning && previousSrc && (
-          (previousSrc.endsWith('.mp4') || previousSrc.endsWith('.webm')) ? (
-              <video
-                  key={`prev-${bgVersion}-${previousSrc}`}  // include src to force remount
-                  className={`w-full h-screen object-cover object-center absolute inset-0 transition-none animate-bg-fade-out ${popupOpen ? "scale-[1.03] brightness-[0.45] saturate-75" : ""}`}
-                  autoPlay={false}
-                  muted={true}
-                  loop={true}
-                  playsInline={true}
-                  preload="metadata"
-                  src={previousSrc}
-              />
-              ) : (
-              <img
-                  key={`prev-${bgVersion}-${previousSrc}`}  // include src to force remount
-                  className={`w-full h-screen object-cover object-center absolute inset-0 transition-none animate-bg-fade-out ${popupOpen ? "scale-[1.03] brightness-[0.45] saturate-75" : ""}`}
-                  alt={"previous background"}
-                  src={previousSrc}
-                  loading="lazy"
-                  decoding="async"
-              />
-      )
-      )}
-      {currentSrc ? (
-              (currentSrc.endsWith(".mp4") || currentSrc.endsWith(".webm")) ? (
-                  <video
-                      id="app-bg"
-                      ref={currentVideoRef}
-                      key={`curr-${bgVersion}`}
-                      className={`w-full h-screen object-cover object-center transition-all duration-300 ease-out ${transitioning ? "animate-bg-fade-in" : ""} ${popupOpen ? "scale-[1.03] brightness-[0.45] saturate-75" : ""}`}
-                      autoPlay={false}
-                      muted={true}
-                      playsInline={true}
-                      preload="metadata"
-                      src={currentSrc}
-                      onLoadedData={() => onMainLoad && onMainLoad()}
-                      style={bgLoading ? {
-                        backgroundImage: 'radial-gradient(circle at 20% 20%, rgba(90,70,140,0.35), rgba(20,15,30,0.9) 60%), radial-gradient(circle at 80% 80%, rgba(60,100,160,0.25), rgba(10,10,20,0.95) 55%)',
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center'
-                      } : undefined}
-                      loop={!isMp4(currentSrc)}
-                      onEnded={isMp4(currentSrc) ? restartMp4 : undefined}
-                  />
-                  ) : (
-                  <img
-                      id="app-bg"
-                      key={`curr-${bgVersion}-${currentSrc}`} // include src to force remount
-                      className={`w-full h-screen object-cover object-center transition-all duration-300 ease-out ${transitioning ? "animate-bg-fade-in" : ""} ${popupOpen ? "scale-[1.03] brightness-[0.45] saturate-75" : ""}`}
-                      alt={"?"}
-                      src={currentSrc}
-                      loading="eager"
-                      decoding="async"
-                      style={bgLoading ? {
-                        backgroundImage: 'radial-gradient(circle at 20% 20%, rgba(90,70,140,0.35), rgba(20,15,30,0.9) 60%), radial-gradient(circle at 80% 80%, rgba(60,100,160,0.25), rgba(10,10,20,0.95) 55%)',
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center'
-                      } : undefined}
-                      onLoad={() => onMainLoad && onMainLoad()}
-                  />
-              )
-      ) : null}
+      {/* Previous background container (for fade-out transition) */}
+      <div ref={previousContainerRef} className="contents" />
+
+      {/* Current background container */}
+      <div
+        ref={currentContainerRef}
+        className="contents"
+        style={bgLoading ? {
+          backgroundImage: 'radial-gradient(circle at 20% 20%, rgba(90,70,140,0.35), rgba(20,15,30,0.9) 60%), radial-gradient(circle at 80% 80%, rgba(60,100,160,0.25), rgba(10,10,20,0.95) 55%)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        } : undefined}
+      />
+
+      {/* Loading gradient overlay */}
       {(bgLoading || !currentSrc) ? (
         <div className="absolute inset-0">
           <div className={`w-full h-full ${popupOpen ? "scale-[1.03]" : ""}`} style={{
@@ -143,6 +254,8 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
           }} />
         </div>
       ) : null}
+
+      {/* Loading spinner */}
       {bgLoading ? (
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="h-10 w-10 rounded-full border-4 border-white/20 border-t-white/80 animate-spin" />

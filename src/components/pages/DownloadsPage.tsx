@@ -51,11 +51,17 @@ const formatTime = (seconds: number): string => {
     return `${hours}h ${minutes % 60}m`;
 };
 
-/* Calculate ETA */
-const calculateETA = (totalBytes: number, progressBytes: number, currentSpeed: number): string => {
+/* Calculate ETA using average of recent speeds */
+const calculateETA = (totalBytes: number, progressBytes: number, speedHistory: TelemetrySample[]): string => {
     const remaining = Math.max(totalBytes - progressBytes, 0);
-    if (!currentSpeed || remaining === 0) return '—';
-    const seconds = Math.ceil(remaining / currentSpeed);
+    if (remaining === 0 || speedHistory.length === 0) return '—';
+
+    // Use last 10 samples (or all if less than 10) for average
+    const recentSamples = speedHistory.slice(-10);
+    const avgSpeed = recentSamples.reduce((sum, sample) => sum + sample.net, 0) / recentSamples.length;
+
+    if (!avgSpeed || avgSpeed <= 0) return '—';
+    const seconds = Math.ceil(remaining / avgSpeed);
     return formatTime(seconds);
 };
 
@@ -602,19 +608,22 @@ export default function DownloadsPage({
                     >
                         {/* Graph and Progress Area */}
                         <div className="border-b border-white/5">
-                            <div className="flex gap-6 relative items-end pl-72">
-                                {/* Banner Background */}
-                                <div className="absolute left-0 top-0 bottom-0 w-1/2 overflow-hidden pointer-events-none z-0">
+                            <div className="flex gap-0 relative items-end pl-72">
+                                {/* Banner Background - Extended */}
+                                <div className="absolute left-0 top-0 bottom-0 w-[65%] overflow-hidden pointer-events-none z-0">
                                     {bannerImage ? (
                                         <img
                                             src={bannerImage}
                                             alt=""
                                             className="w-full h-full object-cover opacity-30"
+                                            style={{
+                                                maskImage: 'linear-gradient(to right, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 40%, rgba(0,0,0,0.5) 70%, rgba(0,0,0,0) 100%)',
+                                                WebkitMaskImage: 'linear-gradient(to right, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 40%, rgba(0,0,0,0.5) 70%, rgba(0,0,0,0) 100%)'
+                                            }}
                                         />
                                     ) : (
                                         <div className="w-full h-full bg-gray-800/50" />
                                     )}
-                                    <div className="absolute right-0 top-0 bottom-0 w-1/2 bg-gradient-to-l from-[#09090b]/90 to-transparent pointer-events-none" />
 
                                     {/* Title overlay */}
                                     <div className="absolute left-6 top-6 z-10 text-left pointer-events-none">
@@ -625,25 +634,27 @@ export default function DownloadsPage({
                                     </div>
                                 </div>
 
-                                {/* Graph */}
-                                <div className="flex-1 relative z-10">
-                                    <div ref={containerRef} className="w-full h-[120px] overflow-hidden">
-                                        <canvas
-                                            ref={canvasRef}
-                                            className="w-full h-full cursor-pointer touch-none block"
-                                            style={{ width: '100%', height: '100%' }}
-                                            onMouseMove={handleCanvasMouseMove}
-                                            onMouseLeave={handleCanvasMouseLeave}
-                                        />
+                                {/* Graph - Wrapper to keep full width layout but constrain graph */}
+                                <div className="flex-1 relative z-10 min-w-0 flex items-end justify-end">
+                                    <div className="w-full max-w-[800px]">
+                                        <div ref={containerRef} className="w-full h-[140px] overflow-hidden">
+                                            <canvas
+                                                ref={canvasRef}
+                                                className="w-full h-full cursor-pointer touch-none block"
+                                                style={{ width: '100%', height: '100%' }}
+                                                onMouseMove={handleCanvasMouseMove}
+                                                onMouseLeave={handleCanvasMouseLeave}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
 
-                                {/* Stats Panel */}
-                                <div className="w-80 flex flex-col justify-between z-10 px-2">
+                                {/* Stats Panel - Wider with background */}
+                                <div className="w-[420px] flex flex-col justify-between z-10 px-6 py-4 bg-black/40 backdrop-blur-sm border-l border-white/5">
                                     <div className="space-y-6">
                                         {/* Stats Row */}
                                         <div className="mt-3">
-                                            <div className="flex items-start gap-6">
+                                            <div className="flex items-start gap-8 justify-between">
                                                 <div className="flex flex-col text-xs">
                                                     <div className="flex items-center gap-2 text-gray-400 uppercase tracking-wider">
                                                         <div className="flex items-end gap-0.5 h-3">
@@ -735,7 +746,7 @@ export default function DownloadsPage({
                                                         <div>
                                                             <span className="uppercase tracking-wider">Estimate:</span>
                                                             <span className="ml-2 text-white font-medium">
-                                                                {calculateETA(totalBytes, progressBytes, currentSpeed)}
+                                                                {calculateETA(totalBytes, progressBytes, speedHistory)}
                                                             </span>
                                                         </div>
                                                     ) : null}

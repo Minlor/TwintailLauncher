@@ -20,6 +20,7 @@ import { startInitialLoad } from "./services/loader";
 import SidebarRunners from "./components/sidebar/SidebarRunners.tsx";
 import SidebarDownloads from "./components/sidebar/SidebarDownloads";
 import { toPercent } from "./utils/progress";
+import BackgroundControls from "./components/common/BackgroundControls";
 
 
 export default class App extends React.Component<any, any> {
@@ -53,6 +54,7 @@ export default class App extends React.Component<any, any> {
         this.handleSpeedSample = this.handleSpeedSample.bind(this);
         this.handleClearSpeedHistory = this.handleClearSpeedHistory.bind(this);
         this.setCurrentPage = this.setCurrentPage.bind(this);
+        this.updateAvailableBackgrounds = this.updateAvailableBackgrounds.bind(this);
 
         // @ts-ignore
         this.preloadedBackgrounds = new Set();
@@ -115,7 +117,8 @@ export default class App extends React.Component<any, any> {
             downloadManagerOpen: false,
             speedHistory: [] as { net: number; disk: number }[],
             downloadsPageOpen: false,
-            currentPage: PAGES.NONE
+            currentPage: PAGES.NONE,
+            availableBackgrounds: [] as { src: string; label: string; isDynamic: boolean }[]
         }
     }
 
@@ -373,6 +376,12 @@ export default class App extends React.Component<any, any> {
                         installGameFps={this.state.installGameFps}
                         installs={this.state.installs}
                     />
+                    <BackgroundControls
+                        currentBackground={this.state.gameBackground}
+                        availableBackgrounds={this.state.availableBackgrounds}
+                        onBackgroundChange={this.handleBackgroundChange}
+                        isVisible={this.state.openPopup === POPUPS.NONE && this.state.currentPage === PAGES.NONE && (this.state.currentInstall !== "" || this.state.currentGame !== "")}
+                    />
                 </main>
                 {/* Page View Container */}
                 {this.state.currentPage !== PAGES.NONE && (
@@ -445,6 +454,24 @@ export default class App extends React.Component<any, any> {
             this.fetchInstallResumeStates(this.state.currentInstall);
             this.fetchCompatibilityVersions();
             this.fetchInstalledRunners();
+            this.updateAvailableBackgrounds();
+        }
+
+        // Update available backgrounds when current game changes (for manifests without installs)
+        if (this.state.currentGame && this.state.currentGame !== prevState.currentGame && !this.state.currentInstall) {
+            this.updateAvailableBackgrounds();
+        }
+
+        // Update available backgrounds when gamesinfo updates (handles late-loading dynamic backgrounds)
+        // This ensures dynamic backgrounds show up even if data wasn't ready when user first clicked a game
+        if (this.state.gamesinfo !== prevState.gamesinfo && this.state.gamesinfo.length > 0 && (this.state.currentGame || this.state.currentInstall)) {
+            this.updateAvailableBackgrounds();
+        }
+
+        // Update available backgrounds when installs list changes (handles async pushInstalls completion)
+        // This fixes the race condition where setCurrentInstall is called before pushInstalls completes
+        if (this.state.installs !== prevState.installs && this.state.currentInstall) {
+            this.updateAvailableBackgrounds();
         }
     }
 
@@ -509,7 +536,8 @@ export default class App extends React.Component<any, any> {
 
                     if (this.state.installs.length === 0) {
                         if (games.length > 0 && this.state.currentGame == "") {
-                            let bg = (gi[0].assets.game_live_background !== "") ? gi[0].assets.game_live_background : gi[0].assets.game_background;
+                            // Use dynamic background if available, otherwise fall back to static
+                            let bg = gi[0].assets.game_live_background || gi[0].assets.game_background;
                             this.setCurrentGame(games[0].filename.replace(".json", ""));
                             this.setDisplayName(games[0].display_name);
                             this.setBackground(bg);
@@ -604,12 +632,17 @@ export default class App extends React.Component<any, any> {
     fetchGameVersions(biz: string): Promise<void> {
         return new Promise((resolve) => {
             let game = this.state.gamesinfo.filter((g: any) => g.biz == biz)[0];
-            let tmp: { value: any; name: any; background?: string; }[] = [];
+            let tmp: { value: any; name: any; background?: string; liveBackground?: string; }[] = [];
             game.game_versions.forEach((g: any) => {
+                // Only use version-specific live background if it exists for this version
+                // Don't fall back to game's global live background for older versions
+                const versionLiveBackground = g.assets?.game_live_background || "";
+                const staticBackground = g.assets?.game_background || "";
                 tmp.push({
                     value: g.metadata.version,
                     name: (game.latest_version === g.metadata.version) ? `Latest (${g.metadata.version})` : g.metadata.version,
-                    background: g.assets?.game_background || ""
+                    background: staticBackground,
+                    liveBackground: versionLiveBackground // Only use version-specific, no fallback
                 });
             });
             this.setState({ gameVersions: tmp }, resolve);
@@ -726,16 +759,117 @@ export default class App extends React.Component<any, any> {
     handleClearSpeedHistory() {
         this.setState({ speedHistory: [] });
     }
+
+    // Update available backgrounds for the current game/install
+    updateAvailableBackgrounds() {
+        const backgrounds: { src: string; label: string; isDynamic: boolean }[] = [];
+        const seen = new Set<string>();
+
+        const addBg = (src: string, label: string, isDynamic: boolean) => {
+            if (src && !seen.has(src)) {
+                backgrounds.push({ src, label, isDynamic });
+                seen.add(src);
+            }
+        };
+
+        // If we have a current install, get backgrounds from the install
+        if (this.state.currentInstall) {
+            const install = this.state.installs.find((i: any) => i.id === this.state.currentInstall);
+            if (install) {
+                // Try to find the game manifest by ID first, then by title
+                let game = this.state.gamesinfo.find((g: any) => g.manifest_id === install.manifest_id);
+                if (!game) {
+                    game = this.state.gamesinfo.find((g: any) => g.title === install.name);
+                }
+
+                if (game) {
+                    // Add dynamic background if available
+                    if (game.assets?.game_live_background) {
+                        addBg(game.assets.game_live_background, "Dynamic", true);
+                    }
+                    // Add static background from game manifest
+                    if (game.assets?.game_background) {
+                        addBg(game.assets.game_background, "Static", false);
+                    }
+                }
+
+                // Always ensure the install's own background is added if we didn't get it yet
+                if (install.game_background) {
+                    addBg(install.game_background, "Static", false);
+                }
+            }
+        } else if (this.state.currentGame) {
+            // If no install, get backgrounds from the current game manifest
+            const game = this.state.gamesinfo.find((g: any) => g.biz === this.state.currentGame);
+            if (game) {
+                if (game.assets?.game_live_background) {
+                    addBg(game.assets.game_live_background, "Dynamic", true);
+                }
+                if (game.assets?.game_background) {
+                    addBg(game.assets.game_background, "Static", false);
+                }
+            }
+        }
+
+        // Ensure the currently displayed background is in the list (if valid)
+        if (this.state.gameBackground && !seen.has(this.state.gameBackground)) {
+            // Determine if it's dynamic based on URL
+            const isDynamic = this.state.gameBackground.endsWith(".mp4") || this.state.gameBackground.endsWith(".webm");
+            addBg(this.state.gameBackground, isDynamic ? "Dynamic" : "Static", isDynamic);
+        }
+
+        // Sort: Dynamic first
+        backgrounds.sort((a, b) => (a.isDynamic === b.isDynamic ? 0 : a.isDynamic ? -1 : 1));
+
+        this.setState({ availableBackgrounds: backgrounds }, () => {
+            // Check if the user has a saved preference for this install
+            const install = this.state.currentInstall
+                ? this.state.installs.find((i: any) => i.id === this.state.currentInstall)
+                : null;
+
+            if (install?.preferred_background) {
+                // User has a saved preference - use it if it's in the available list
+                const preferredBg = backgrounds.find(b => b.src === install.preferred_background);
+                if (preferredBg && this.state.gameBackground !== preferredBg.src) {
+                    this.setBackground(preferredBg.src);
+                }
+            } else {
+                // No saved preference - default to dynamic background if available
+                const dynamicBg = backgrounds.find(b => b.isDynamic);
+                if (dynamicBg && this.state.gameBackground !== dynamicBg.src) {
+                    this.setBackground(dynamicBg.src);
+                }
+            }
+        });
+    }
+
     // Store the background transition timeout
     bgTransitionTimeout?: number;
 
-    setBackground(file: string) {
+    setBackground(file: string, savePreference: boolean = false) {
         if (!file || file === this.state.gameBackground) return; // nothing to do
 
         // Cancel any previous transition timeout
         if (this.bgTransitionTimeout) {
             clearTimeout(this.bgTransitionTimeout);
             this.bgTransitionTimeout = undefined;
+        }
+
+        // Save user preference if this is a manual change
+        if (savePreference && this.state.currentInstall) {
+            invoke("update_install_preferred_background", {
+                id: this.state.currentInstall,
+                background: file
+            }).catch(console.error);
+
+            // Also update the local state so the preference is immediately reflected
+            this.setState((prev: any) => ({
+                installs: prev.installs.map((i: any) =>
+                    i.id === this.state.currentInstall
+                        ? { ...i, preferred_background: file }
+                        : i
+                )
+            }));
         }
 
         // Start loading: show gradient on the new image while it loads
@@ -758,6 +892,11 @@ export default class App extends React.Component<any, any> {
             }
         });
     }
+
+    // Wrapper for user-initiated background changes (saves preference)
+    handleBackgroundChange = (file: string) => {
+        this.setBackground(file, true);
+    };
     setGameIcon(file: string) { this.setState({ gameIcon: file }); }
     setReposList(reposList: any) { this.setState({ reposList: reposList }); }
     setCurrentInstall(game: string) { this.setState({ currentInstall: game }); }
