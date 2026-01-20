@@ -902,7 +902,7 @@ pub fn get_download_sizes(app: AppHandle, biz: String, version: String, lang: St
             fss = gs.add(audio);
         }
 
-        let p = Path::new(&path);
+        let p = Path::new(&path).parent().unwrap_or(Path::new(&path)).to_path_buf();
         let a = available(p);
         let stringified;
         
