@@ -20,6 +20,7 @@ export type ActionBarProps = {
   refreshDownloadButtonInfo: (existingInstall?: boolean) => void | Promise<void>;
   onOpenInstallSettings: () => Promise<void> | void;
   isVisible?: boolean;
+  isPausing?: boolean;
 };
 
 export default function ActionBar(props: ActionBarProps) {
@@ -39,6 +40,7 @@ export default function ActionBar(props: ActionBarProps) {
     refreshDownloadButtonInfo,
     onOpenInstallSettings,
     isVisible = true,
+    isPausing = false,
   } = props;
 
   // Return null when not visible to trigger re-mount animation when becoming visible again
@@ -95,6 +97,7 @@ export default function ActionBar(props: ActionBarProps) {
         installSettings={installSettings}
         refreshDownloadButtonInfo={refreshDownloadButtonInfo}
         buttonType={buttonType}
+        isPausing={isPausing}
       />
     </div>
   );

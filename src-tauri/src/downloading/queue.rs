@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::time::Duration;
@@ -34,6 +34,7 @@ pub enum QueueJobStatus {
     Completed,
     Failed,
     Cancelled,
+    Paused,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -54,6 +55,8 @@ pub struct QueueStatePayload {
     pub running: Vec<QueueJobView>,
     pub queued: Vec<QueueJobView>,
     pub completed: Vec<QueueJobView>,
+    pub paused_jobs: Vec<QueueJobView>,
+    pub pausing_installs: Vec<String>,
 }
 
 #[derive(Clone)]
@@ -129,12 +132,25 @@ impl DownloadQueueHandle {
         let _ = self.tx.send(QueueCommand::GetState(tx));
         rx.recv().ok()
     }
+
+    /// Resume a paused job - moves it from paused to active/running
+    pub fn resume_job(&self, install_id: String) -> bool {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let _ = self.tx.send(QueueCommand::ResumeJob(install_id, tx));
+        rx.recv().unwrap_or(false)
+    }
+
+    /// Mark an install as "pausing" (transitioning to paused state)
+    pub fn set_pausing(&self, install_id: String, is_pausing: bool) {
+        let _ = self.tx.send(QueueCommand::SetPausing(install_id, is_pausing));
+    }
 }
 
 pub enum QueueCommand {
     Enqueue(QueueJob),
     SetMaxConcurrent(usize),
     SetPaused(bool),
+    SetPausing(String, bool),
     MoveUp(String, mpsc::Sender<bool>),
     MoveDown(String, mpsc::Sender<bool>),
     Remove(String, mpsc::Sender<bool>),
@@ -142,6 +158,7 @@ pub enum QueueCommand {
     ActivateJob(String, mpsc::Sender<Option<String>>),
     Reorder(String, usize, mpsc::Sender<bool>),
     GetState(mpsc::Sender<QueueStatePayload>),
+    ResumeJob(String, mpsc::Sender<bool>),
     Shutdown,
 }
 
@@ -159,6 +176,8 @@ fn emit_queue_state(
     active: &HashMap<String, QueueJobView>,
     queued: &VecDeque<QueueJobView>,
     completed: &VecDeque<QueueJobView>,
+    paused_jobs: &HashMap<String, QueueJobView>,
+    pausing_installs: &HashSet<String>,
 ) {
     let payload = QueueStatePayload {
         max_concurrent,
@@ -166,6 +185,8 @@ fn emit_queue_state(
         running: active.values().cloned().collect(),
         queued: queued.iter().cloned().collect(),
         completed: completed.iter().cloned().collect(),
+        paused_jobs: paused_jobs.values().cloned().collect(),
+        pausing_installs: pausing_installs.iter().cloned().collect(),
     };
     let _ = app.emit("download_queue_state", payload);
 }
@@ -187,6 +208,9 @@ pub fn start_download_queue_worker(
         let mut active: HashMap<String, QueueJobView> = HashMap::new();
         let mut active_jobs: HashMap<String, QueueJob> = HashMap::new(); // Keep job data for potential requeueing
         let mut completed_views: VecDeque<QueueJobView> = VecDeque::new();
+        let mut paused_jobs: HashMap<String, QueueJobView> = HashMap::new(); // Jobs paused by user (keyed by install_id)
+        let mut paused_jobs_data: HashMap<String, QueueJob> = HashMap::new(); // Job data for paused jobs
+        let mut pausing_installs: HashSet<String> = HashSet::new(); // Installs currently transitioning to paused
 
         loop {
             while let Ok((job_id, outcome)) = done_rx.try_recv() {
@@ -218,12 +242,15 @@ pub fn start_download_queue_worker(
                                     queued_views.insert(1.min(queued_views.len()), view);
                                 }
                             } else {
-                                // Normal pause - go to completed and pause the queue
+                                // Normal pause - move to paused_jobs for later resume
                                 paused = true;
-                                view.status = QueueJobStatus::Cancelled;
-                                completed_views.push_front(view);
-                                while completed_views.len() > 25 {
-                                    completed_views.pop_back();
+                                view.status = QueueJobStatus::Paused;
+                                let install_id = view.install_id.clone();
+                                // Clear the "pausing" state since we're now fully paused
+                                pausing_installs.remove(&install_id);
+                                paused_jobs.insert(install_id.clone(), view);
+                                if let Some(job) = removed_job {
+                                    paused_jobs_data.insert(install_id, job);
                                 }
                             }
                         }
@@ -236,6 +263,8 @@ pub fn start_download_queue_worker(
                     &active,
                     &queued_views,
                     &completed_views,
+                    &paused_jobs,
+                    &pausing_installs,
                 );
             }
 
@@ -271,6 +300,8 @@ pub fn start_download_queue_worker(
                         &active,
                         &queued_views,
                         &completed_views,
+                        &paused_jobs,
+                        &pausing_installs,
                     );
 
                     let app2 = app.clone();
@@ -305,6 +336,8 @@ pub fn start_download_queue_worker(
                             &active,
                             &queued_views,
                             &completed_views,
+                            &paused_jobs,
+                            &pausing_installs,
                         );
                     }
                     QueueCommand::SetMaxConcurrent(n) => {
@@ -316,6 +349,8 @@ pub fn start_download_queue_worker(
                             &active,
                             &queued_views,
                             &completed_views,
+                            &paused_jobs,
+                            &pausing_installs,
                         );
                     }
                     QueueCommand::SetPaused(p) => {
@@ -327,6 +362,25 @@ pub fn start_download_queue_worker(
                             &active,
                             &queued_views,
                             &completed_views,
+                            &paused_jobs,
+                            &pausing_installs,
+                        );
+                    }
+                    QueueCommand::SetPausing(install_id, is_pausing) => {
+                        if is_pausing {
+                            pausing_installs.insert(install_id);
+                        } else {
+                            pausing_installs.remove(&install_id);
+                        }
+                        emit_queue_state(
+                            &app,
+                            max_concurrent,
+                            paused,
+                            &active,
+                            &queued_views,
+                            &completed_views,
+                            &paused_jobs,
+                            &pausing_installs,
                         );
                     }
                     QueueCommand::MoveUp(job_id, reply) => {
@@ -343,6 +397,8 @@ pub fn start_download_queue_worker(
                                     &active,
                                     &queued_views,
                                     &completed_views,
+                                    &paused_jobs,
+                                    &pausing_installs,
                                 );
                             }
                         }
@@ -362,6 +418,8 @@ pub fn start_download_queue_worker(
                                     &active,
                                     &queued_views,
                                     &completed_views,
+                                    &paused_jobs,
+                                    &pausing_installs,
                                 );
                             }
                         }
@@ -380,6 +438,8 @@ pub fn start_download_queue_worker(
                                 &active,
                                 &queued_views,
                                 &completed_views,
+                                &paused_jobs,
+                                &pausing_installs,
                             );
                         }
                         let _ = reply.send(success);
@@ -405,6 +465,8 @@ pub fn start_download_queue_worker(
                                 &active,
                                 &queued_views,
                                 &completed_views,
+                                &paused_jobs,
+                                &pausing_installs,
                             );
                         }
                         let _ = reply.send(removed_any);
@@ -425,6 +487,8 @@ pub fn start_download_queue_worker(
                                 &active,
                                 &queued_views,
                                 &completed_views,
+                                &paused_jobs,
+                                &pausing_installs,
                             );
                         }
                         let _ = reply.send(success);
@@ -447,6 +511,8 @@ pub fn start_download_queue_worker(
                                 &active,
                                 &queued_views,
                                 &completed_views,
+                                &paused_jobs,
+                                &pausing_installs,
                             );
                         }
                         let _ = reply.send(install_id);
@@ -459,8 +525,34 @@ pub fn start_download_queue_worker(
                             running: active.values().cloned().collect(),
                             queued: queued_views.iter().cloned().collect(),
                             completed: completed_views.iter().cloned().collect(),
+                            paused_jobs: paused_jobs.values().cloned().collect(),
+                            pausing_installs: pausing_installs.iter().cloned().collect(),
                         };
                         let _ = reply.send(payload);
+                    }
+                    QueueCommand::ResumeJob(install_id, reply) => {
+                        // Resume a paused job - move it from paused to front of queue and unpause
+                        let mut success = false;
+                        if let Some(mut view) = paused_jobs.remove(&install_id) {
+                            if let Some(job) = paused_jobs_data.remove(&install_id) {
+                                view.status = QueueJobStatus::Queued;
+                                queued.push_front(job);
+                                queued_views.push_front(view);
+                                paused = false; // Unpause to start this job
+                                success = true;
+                                emit_queue_state(
+                                    &app,
+                                    max_concurrent,
+                                    paused,
+                                    &active,
+                                    &queued_views,
+                                    &completed_views,
+                                    &paused_jobs,
+                                    &pausing_installs,
+                                );
+                            }
+                        }
+                        let _ = reply.send(success);
                     }
                     QueueCommand::Shutdown => break,
                 },

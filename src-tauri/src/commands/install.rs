@@ -1918,6 +1918,16 @@ pub fn cancel_download_for_install(app: &AppHandle, install_id: &str) {
 #[tauri::command]
 pub fn pause_game_download(app: AppHandle, install_id: String) -> bool {
     let state = app.state::<DownloadState>();
+
+    // Mark the install as "pausing" in the queue state
+    {
+        let queue_guard = state.queue.lock().unwrap();
+        if let Some(ref queue_handle) = *queue_guard {
+            queue_handle.set_pausing(install_id.clone(), true);
+        }
+    }
+
+    // Set the cancel token to trigger the pause
     let tokens = state.tokens.lock().unwrap();
     if let Some(token) = tokens.get(&install_id) {
         token.store(true, Ordering::Relaxed);
@@ -2002,6 +2012,16 @@ pub fn queue_reorder(app: AppHandle, job_id: String, new_position: usize) -> boo
     let queue_guard = state.queue.lock().unwrap();
     if let Some(ref queue_handle) = *queue_guard {
         return queue_handle.reorder(job_id, new_position);
+    }
+    false
+}
+
+#[tauri::command]
+pub fn queue_resume_job(app: AppHandle, install_id: String) -> bool {
+    let state = app.state::<DownloadState>();
+    let queue_guard = state.queue.lock().unwrap();
+    if let Some(ref queue_handle) = *queue_guard {
+        return queue_handle.resume_job(install_id);
     }
     false
 }

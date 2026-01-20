@@ -67,6 +67,8 @@ function formatStatus(status: QueueJobView["status"]): string {
       return "Failed";
     case "cancelled":
       return "Paused";
+    case "paused":
+      return "Paused";
   }
 }
 

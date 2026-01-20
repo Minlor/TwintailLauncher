@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { emit } from '@tauri-apps/api/event';
 import type {
   DownloadJobProgress,
   DownloadQueueStatePayload,
@@ -92,6 +91,7 @@ function formatStatus(status: QueueJobView['status'], isPaused: boolean): string
     case 'completed': return 'Completed';
     case 'failed': return 'Failed';
     case 'cancelled': return 'Paused';
+    case 'paused': return 'Paused';
   }
 }
 
@@ -124,15 +124,8 @@ export default function DownloadManager({
   const [completedItems, setCompletedItems] = useState<QueueJobView[]>([]);
   const prevJobIdsRef = useRef<Set<string>>(new Set());
 
-  // Track paused jobs (jobs that were paused and removed from queue)
-  const [pausedJob, setPausedJob] = useState<{ job: QueueJobView; progress: DownloadJobProgress | null } | null>(null);
-  const pauseRequestedRef = useRef<string | null>(null);
-
   // Peak speed tracking
   const [peakSpeed, setPeakSpeed] = useState<number>(0);
-
-  // Pausing state - true when pause requested but not yet complete
-  const [isPausing, setIsPausing] = useState<boolean>(false);
 
   // Track previous job ID to detect job changes and reset history
   const previousJobIdRef = useRef<string | null>(null);
@@ -141,20 +134,26 @@ export default function DownloadManager({
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
   const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
 
-  // Get running and queued jobs
+  // Get running, queued, and paused jobs from backend
   const runningJobs = queue?.running ?? [];
   const queuedJobs = queue?.queued ?? [];
+  const pausedJobs = queue?.pausedJobs ?? [];
+  const pausingInstalls = queue?.pausingInstalls ?? [];
   const isQueuePaused = queue?.paused ?? false;
   const allJobs = [...runningJobs, ...queuedJobs];
 
-  // Current download - either from running queue or paused state
-  const currentJob = runningJobs[0] ?? pausedJob?.job ?? null;
+  // Current download - either from running queue or paused jobs from backend
+  const pausedJob = pausedJobs[0] ?? null;
+  const currentJob = runningJobs[0] ?? pausedJob ?? null;
   const currentProgress = currentJob
-    ? (progressByJobId[currentJob.id] ?? pausedJob?.progress ?? null)
+    ? progressByJobId[currentJob.id] ?? null
     : null;
 
-  // Derive paused state - either queue is paused, job status is cancelled, OR we have a pausedJob
-  const isPaused = isQueuePaused || currentJob?.status === 'cancelled' || (pausedJob !== null && runningJobs.length === 0);
+  // Derive pausing state from backend (persists across navigation)
+  const isPausing = currentJob ? pausingInstalls.includes(currentJob.installId) : false;
+
+  // Derive paused state - job is paused if it's in pausedJobs or queue is paused
+  const isPaused = isQueuePaused || currentJob?.status === 'paused' || (pausedJob !== null && runningJobs.length === 0);
 
   // Calculate progress values
   const progressBytes = currentProgress?.progress ?? 0;
@@ -166,17 +165,15 @@ export default function DownloadManager({
   // Track completed items when jobs disappear from queue
   useEffect(() => {
     const currentIds = new Set(allJobs.map(j => j.id));
+    const pausedIds = new Set(pausedJobs.map(j => j.id));
     const prevJobIds = prevJobIdsRef.current;
 
     if (prevJobIds.size > 0) {
       const removed: QueueJobView[] = [];
       prevJobIds.forEach(id => {
         if (!currentIds.has(id)) {
-          // Check if this job was paused (we requested pause for it)
-          if (pauseRequestedRef.current === id) {
-            // This is a paused job, not completed
-            // pausedJob should already be set by handlePause, just clear the ref
-            pauseRequestedRef.current = null;
+          // Skip if the job moved to paused state (not completed)
+          if (pausedIds.has(id)) {
             return;
           }
 
@@ -197,14 +194,8 @@ export default function DownloadManager({
       }
     }
 
-    // If a new job started running (different from our paused job), clear the paused state
-    // This handles the case where resume worked and a new/resumed job is now active
-    if (runningJobs.length > 0 && pausedJob !== null && runningJobs[0].id !== pausedJob.job.id) {
-      setPausedJob(null);
-    }
-
     prevJobIdsRef.current = currentIds;
-  }, [allJobs, progressByJobId, runningJobs.length, pausedJob]);
+  }, [allJobs, progressByJobId, pausedJobs]);
 
   // Reset graph history and peak speed when active job changes
   useEffect(() => {
@@ -216,8 +207,6 @@ export default function DownloadManager({
       lastSampleRef.current = null;
       // Immediately push a zero sample so graph and peak are not broken
       onSpeedSample({ net: 0, disk: 0 });
-      // Clear pausing state when job actually changes
-      setIsPausing(false);
     }
     previousJobIdRef.current = currentJobId;
   }, [currentJob?.id, onClearHistory, onSpeedSample]);
@@ -373,64 +362,23 @@ export default function DownloadManager({
   const handlePause = async () => {
     if (!currentJob) return;
     try {
-      setIsPausing(true);
-      // Mark that we're pausing this job so we don't treat it as completed
-      pauseRequestedRef.current = currentJob.id;
-      // Save current job state before it disappears from queue
-      setPausedJob({
-        job: { ...currentJob, status: 'cancelled' },
-        progress: currentProgress,
-      });
+      // Pausing state is now tracked in backend via queue state
       await invoke('pause_game_download', { installId: currentJob.installId });
     } catch (error) {
       console.error('Failed to pause download:', error);
-      pauseRequestedRef.current = null;
-      setPausedJob(null);
-      setIsPausing(false);
     }
   };
 
   const handleResume = async () => {
     if (!pausedJob) return;
 
-    const { job } = pausedJob;
-    const installId = job.installId;
+    const installId = pausedJob.installId;
 
     try {
-      // Clear paused and pausing state before emitting resume event
-      setPausedJob(null);
-      setIsPausing(false);
-
-      // Unpause the queue first
-      await invoke('queue_set_paused', { paused: false });
-
-      // Emit the appropriate resume event based on job kind
-      // We use info from progress if available to avoid empty strings
-      const payload = {
-        install: installId,
-        biz: '', // To be looked up by backend if empty
-        lang: '',
-        region: ''
-      };
-
-      switch (job.kind) {
-        case 'game_download':
-          await emit('start_game_download', payload);
-          break;
-        case 'game_update':
-          await emit('start_game_update', payload);
-          break;
-        case 'game_preload':
-          await emit('start_game_preload', payload);
-          break;
-        case 'game_repair':
-          await emit('start_game_repair', payload);
-          break;
-      }
+      // Use the new queue_resume_job command to resume the paused job
+      await invoke('queue_resume_job', { installId });
     } catch (error) {
       console.error('Failed to resume download:', error);
-      // Restore paused state on error
-      setPausedJob(pausedJob);
     }
   };
 

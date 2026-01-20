@@ -332,6 +332,7 @@ export default class App extends React.Component<any, any> {
                         buttonType={buttonType}
                         refreshDownloadButtonInfo={this.refreshDownloadButtonInfo}
                         isVisible={this.state.openPopup === POPUPS.NONE && this.state.currentPage === PAGES.NONE}
+                        isPausing={this.state.downloadQueueState?.pausingInstalls?.includes(this.state.currentInstall) ?? false}
                         onOpenInstallSettings={() => {
                             this.setState({ disableInstallEdit: true }, async () => {
                                 // Get current install for image preloading

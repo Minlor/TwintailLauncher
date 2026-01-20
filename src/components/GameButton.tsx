@@ -12,9 +12,10 @@ interface IProps {
     disableDownload: boolean,
     disableResume: boolean,
     resumeStates: any,
-    installSettings: any
+    installSettings: any,
+    isPausing?: boolean
 }
-export default function GameButton({ currentInstall, globalSettings, buttonType, refreshDownloadButtonInfo, disableUpdate, disableRun, disableDownload, disableResume, resumeStates, installSettings }: IProps) {
+export default function GameButton({ currentInstall, globalSettings, buttonType, refreshDownloadButtonInfo, disableUpdate, disableRun, disableDownload, disableResume, resumeStates, installSettings, isPausing = false }: IProps) {
     // Compute theme classes and behavior by buttonType
     const theme = (() => {
         switch (buttonType) {
@@ -37,14 +38,14 @@ export default function GameButton({ currentInstall, globalSettings, buttonType,
     const disabled = buttonType === "launch" ? disableRun
         : buttonType === "download" ? disableDownload
             : buttonType === "update" ? disableUpdate
-                : buttonType === "pause" ? false
+                : buttonType === "pause" ? isPausing // Disable while pausing
                     : buttonType === "queued" ? true
                         : disableResume;
 
     const label = buttonType === "launch" ? "Play!"
         : buttonType === "download" ? "Download"
             : buttonType === "update" ? "Update"
-                : buttonType === "pause" ? "Pause"
+                : buttonType === "pause" ? (isPausing ? "Pausing..." : "Pause")
                     : buttonType === "queued" ? "Queued"
                         : "Resume";
 
@@ -96,18 +97,26 @@ export default function GameButton({ currentInstall, globalSettings, buttonType,
         } else if (buttonType === "pause") {
             invoke("pause_game_download", { installId: currentInstall }).then(() => { });
         } else if (buttonType === "resume") {
-            if (resumeStates.downloading) {
-                emit("start_game_download", { install: currentInstall, biz: "", lang: "", region: installSettings.region_code }).then(() => { });
-            }
-            if (resumeStates.updating) {
-                emit("start_game_update", { install: currentInstall, biz: "", lang: "", region: "" }).then(() => { });
-            }
-            if (resumeStates.preloading) {
-                emit("start_game_preload", { install: currentInstall, biz: "", lang: "", region: "" }).then(() => { });
-            }
-            if (resumeStates.repairing) {
-                emit("start_game_repair", { install: currentInstall, biz: "", lang: "", region: installSettings.region_code }).then(() => { });
-            }
+            // First try to resume from paused queue (in-memory paused job)
+            invoke<boolean>("queue_resume_job", { installId: currentInstall }).then((resumed) => {
+                if (resumed) {
+                    // Successfully resumed from paused queue
+                    return;
+                }
+                // Fall back to disk-based resume states (app was closed during download)
+                if (resumeStates.downloading) {
+                    emit("start_game_download", { install: currentInstall, biz: "", lang: "", region: installSettings.region_code }).then(() => { });
+                }
+                if (resumeStates.updating) {
+                    emit("start_game_update", { install: currentInstall, biz: "", lang: "", region: "" }).then(() => { });
+                }
+                if (resumeStates.preloading) {
+                    emit("start_game_preload", { install: currentInstall, biz: "", lang: "", region: "" }).then(() => { });
+                }
+                if (resumeStates.repairing) {
+                    emit("start_game_repair", { install: currentInstall, biz: "", lang: "", region: installSettings.region_code }).then(() => { });
+                }
+            });
         }
     };
 
