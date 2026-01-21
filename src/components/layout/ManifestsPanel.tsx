@@ -17,6 +17,7 @@ interface ManifestsPanelProps {
   manifestsInitialLoading: boolean;
   gamesinfo: GameInfoItem[];
   manifestsPanelRef: React.RefObject<HTMLDivElement>;
+  currentGame?: string;
   setCurrentGame: (id: string) => void;
   setOpenPopup: (p: POPUPS) => void;
   setDisplayName: (name: string) => void;
@@ -32,6 +33,7 @@ const ManifestsPanel: React.FC<ManifestsPanelProps> = ({
   manifestsInitialLoading,
   gamesinfo,
   manifestsPanelRef,
+  currentGame,
   setCurrentGame,
   setOpenPopup,
   setDisplayName,
@@ -103,6 +105,7 @@ const ManifestsPanel: React.FC<ManifestsPanelProps> = ({
                     name={game.display_name}
                     enabled={game.manifest_enabled}
                     id={game.biz}
+                    currentGame={currentGame}
                     setCurrentGame={setCurrentGame}
                     setOpenPopup={setOpenPopup}
                     setDisplayName={setDisplayName}

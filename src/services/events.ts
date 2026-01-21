@@ -11,15 +11,13 @@ export function registerEvents(
 ): EventStateUpdate | undefined {
   switch (eventType) {
     case 'download_queue_state': {
-      const running = (event?.payload?.running || []) as any[];
-      const queued = (event?.payload?.queued || []) as any[];
-      const hasWork = running.length > 0 || queued.length > 0;
+      // Note: disableRun and disableInstallEdit are now calculated per-install in the UI
       return {
         downloadQueueState: event.payload,
         // keep legacy fields hidden (UI is replaced)
         hideProgressBar: true,
-        disableInstallEdit: hasWork,
-        disableRun: hasWork,
+        // disableInstallEdit is now calculated per-install in the UI (allows editing settings for non-downloading games)
+        // disableRun is now calculated per-install in the UI (allows playing installed games while others download)
         // Allow queueing new downloads/updates even while work is in progress
         // The queue system handles multiple jobs
         disableUpdate: false,

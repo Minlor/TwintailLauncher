@@ -185,6 +185,7 @@ export default class App extends React.Component<any, any> {
                         manifestsInitialLoading={this.state.manifestsInitialLoading}
                         gamesinfo={this.state.currentGame !== "" ? this.state.gamesinfo : []}
                         manifestsPanelRef={this.manifestsPanelRef}
+                        currentGame={this.state.currentGame}
                         setCurrentGame={this.setCurrentGame}
                         setOpenPopup={this.setOpenPopup}
                         setDisplayName={this.setDisplayName}
@@ -321,10 +322,10 @@ export default class App extends React.Component<any, any> {
                         currentInstall={this.state.currentInstall}
                         preloadAvailable={this.state.preloadAvailable}
                         disablePreload={this.state.disablePreload}
-                        disableInstallEdit={this.state.disableInstallEdit}
+                        disableInstallEdit={isCurrentInstallDownloading || isCurrentInstallQueued}
                         disableResume={this.state.disableResume}
                         disableDownload={this.state.disableDownload}
-                        disableRun={this.state.disableRun}
+                        disableRun={isCurrentInstallDownloading || isCurrentInstallQueued}
                         disableUpdate={this.state.disableUpdate}
                         resumeStates={this.state.resumeStates}
                         globalSettings={this.state.globalSettings}
