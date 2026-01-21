@@ -685,7 +685,7 @@ pub fn empty_dir<P: AsRef<Path>>(dir: P) -> io::Result<()> {
                 if should_skip { continue; }
                 if is_dir {
                     empty_dir(&path)?;
-                    if fs::read_dir(&path)?.next().is_none() { fs::remove_dir(&path)?; }
+                    if fs::read_dir(&path)?.next().is_none() { fs::remove_dir_all(&path)?; }
                 } else { fs::remove_file(&path)?; }
             }
         }
