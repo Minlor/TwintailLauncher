@@ -56,7 +56,7 @@ export default function SidebarIconManifest({ icon, name, id, setGameIcon, setCu
 
     return (
         <React.Fragment>
-            {(enabled) ? <img ref={refs.setReference} {...getReferenceProps()} id={id} className={composedClass} srcSet={undefined} loading={"lazy"} decoding={"async"} src={icon} tabIndex={0} draggable={false} onDragStart={(e) => e.preventDefault()} onClick={() => {
+            {(enabled) ? <img ref={refs.setReference} {...getReferenceProps()} id={id} className={composedClass} srcSet={undefined} loading={"lazy"} decoding={"async"} src={icon} tabIndex={0} onClick={() => {
                 setOpenPopup(POPUPS.NONE)
                 setCurrentInstall("")
                 // Only set background if switching to a different game

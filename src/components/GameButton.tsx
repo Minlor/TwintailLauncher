@@ -1,6 +1,9 @@
+import { useEffect, useRef, useState } from "react";
 import { DownloadIcon, HardDriveDownloadIcon, RefreshCcwIcon, Rocket, PauseIcon, Clock } from "lucide-react";
 import { emit } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
+
+type GameStatus = "idle" | "launching" | "running";
 
 interface IProps {
     currentInstall: any,
@@ -16,6 +19,89 @@ interface IProps {
     isPausing?: boolean
 }
 export default function GameButton({ currentInstall, globalSettings, buttonType, refreshDownloadButtonInfo, disableUpdate, disableRun, disableDownload, disableResume, resumeStates, installSettings, isPausing = false }: IProps) {
+    const [gameStatus, setGameStatus] = useState<GameStatus>("idle");
+    const pollIntervalRef = useRef<number | null>(null);
+    const timeoutRef = useRef<number | null>(null);
+    const wasRunningRef = useRef<boolean>(false);
+
+    // Cleanup polling and timeout on unmount or when currentInstall changes
+    useEffect(() => {
+        return () => {
+            if (pollIntervalRef.current !== null) {
+                clearInterval(pollIntervalRef.current);
+                pollIntervalRef.current = null;
+            }
+            if (timeoutRef.current !== null) {
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+            }
+        };
+    }, [currentInstall]);
+
+    // Reset game status when switching installs
+    useEffect(() => {
+        setGameStatus("idle");
+        wasRunningRef.current = false;
+        if (pollIntervalRef.current !== null) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+        }
+        if (timeoutRef.current !== null) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+        }
+    }, [currentInstall]);
+
+    const stopPolling = () => {
+        if (pollIntervalRef.current !== null) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+        }
+        if (timeoutRef.current !== null) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+        }
+    };
+
+    const startGameStatusPolling = () => {
+        // Clear any existing interval/timeout
+        stopPolling();
+
+        // Fallback timeout: if game is never detected after 60 seconds, reset to idle
+        // This handles cases where process detection doesn't work (e.g., some Flatpak scenarios)
+        timeoutRef.current = window.setTimeout(() => {
+            if (!wasRunningRef.current) {
+                setGameStatus("idle");
+                stopPolling();
+            }
+        }, 60000);
+
+        // Poll every 2 seconds
+        pollIntervalRef.current = window.setInterval(async () => {
+            try {
+                const isRunning = await invoke<boolean | null>("check_game_running", { id: currentInstall });
+
+                if (isRunning === true) {
+                    wasRunningRef.current = true;
+                    setGameStatus("running");
+                    // Clear the fallback timeout since we detected the game
+                    if (timeoutRef.current !== null) {
+                        clearTimeout(timeoutRef.current);
+                        timeoutRef.current = null;
+                    }
+                } else if (wasRunningRef.current) {
+                    // Game was running but is no longer running - reset to idle
+                    wasRunningRef.current = false;
+                    setGameStatus("idle");
+                    stopPolling();
+                }
+                // If isRunning is false/null and game was never running, keep "launching" state
+                // This handles the delay between spawn and actual process start
+            } catch {
+                // On error, keep current state
+            }
+        }, 2000);
+    };
     // Compute theme classes and behavior by buttonType
     const theme = (() => {
         switch (buttonType) {
@@ -35,14 +121,22 @@ export default function GameButton({ currentInstall, globalSettings, buttonType,
         }
     })();
 
-    const disabled = buttonType === "launch" ? disableRun
+    const disabled = buttonType === "launch" ? (disableRun || gameStatus !== "idle")
         : buttonType === "download" ? disableDownload
             : buttonType === "update" ? disableUpdate
                 : buttonType === "pause" ? isPausing // Disable while pausing
                     : buttonType === "queued" ? true
                         : disableResume;
 
-    const label = buttonType === "launch" ? "Play!"
+    const getLaunchLabel = (): string => {
+        switch (gameStatus) {
+            case "launching": return "Launching...";
+            case "running": return "Running";
+            default: return "Play!";
+        }
+    };
+
+    const label = buttonType === "launch" ? getLaunchLabel()
         : buttonType === "download" ? "Download"
             : buttonType === "update" ? "Update"
                 : buttonType === "pause" ? (isPausing ? "Pausing..." : "Pause")
@@ -58,37 +152,33 @@ export default function GameButton({ currentInstall, globalSettings, buttonType,
 
     const handleClick = () => {
         if (buttonType === "launch") {
+            setGameStatus("launching");
             setTimeout(() => {
                 invoke("game_launch", { id: currentInstall }).then((r: any) => {
                     if (r) {
-                        // @ts-ignore
-                        document.getElementById(`${currentInstall}`).focus();
+                        document.getElementById(`${currentInstall}`)?.focus();
                         switch (globalSettings.launcher_action) {
                             case "exit": {
+                                // Start polling, then exit when game is detected
+                                startGameStatusPolling();
                                 setTimeout(() => { emit("launcher_action_exit", null).then(() => { }); }, 10000);
                             } break;
                             case "minimize": {
+                                startGameStatusPolling();
                                 setTimeout(() => { emit("launcher_action_minimize", null).then(() => { }); }, 500);
                             } break;
                             case 'keep': {
-                                let lb = document.getElementById("launch_game_btn");
-                                let lt = document.getElementById("launch_game_txt");
-                                if (lb !== null && lt !== null) {
-                                    lb.setAttribute("disabled", "");
-                                    lt.innerText = `Launching...`;
-                                }
-                                setTimeout(() => {
-                                    // @ts-ignore
-                                    lb.removeAttribute("disabled");
-                                    // @ts-ignore
-                                    lt.innerText = `Play!`;
-                                }, 20000);
+                                // Start polling for game status
+                                startGameStatusPolling();
                             } break;
                         }
                     } else {
                         console.error("Launch error!");
+                        setGameStatus("idle");
                     }
-                })
+                }).catch(() => {
+                    setGameStatus("idle");
+                });
             }, 20);
         } else if (buttonType === "download") {
             refreshDownloadButtonInfo();
@@ -129,7 +219,7 @@ export default function GameButton({ currentInstall, globalSettings, buttonType,
                 className={`flex flex-row gap-3 items-center justify-center w-56 md:w-64 py-3 px-7 md:px-8 rounded-full text-white border ${theme.border} disabled:cursor-not-allowed disabled:brightness-75 disabled:saturate-100 focus:outline-none focus:ring-2 ${theme.bg} ${theme.ring} shadow-lg ${theme.shadow} transition-[background-color,box-shadow,transform] duration-300 ease-out`}
             >
                 <Icon className="w-5 h-5 md:w-6 md:h-6 text-white/90" />
-                <span id={buttonType === "launch" ? "launch_game_txt" : undefined} className="font-semibold translate-y-px text-base md:text-lg text-white">{label}</span>
+                <span className="font-semibold translate-y-px text-base md:text-lg text-white">{label}</span>
             </button>
             {buttonType === "download" && (
                 <button

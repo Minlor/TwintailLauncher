@@ -33,8 +33,22 @@ export default function DownloadsQueue(props: DownloadsQueueProps) {
 
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const items = [...running, ...queued];
-  const activeCount = running.length + queued.length;
+  // Get all job IDs from the queue
+  const queueJobIds = new Set([...running, ...queued].map(j => j.id));
+
+  // Find misc downloads that exist in progressByJobId but not in the queue (proton, steamrt, etc.)
+  const miscDownloads: QueueJobView[] = Object.entries(progressByJobId)
+    .filter(([id]) => !queueJobIds.has(id))
+    .map(([id, progress]) => ({
+      id,
+      kind: 'game_download' as const,
+      installId: id,
+      name: progress.name ?? id,
+      status: 'running' as const,
+    }));
+
+  const items = [...running, ...miscDownloads, ...queued];
+  const activeCount = running.length + queued.length + miscDownloads.length;
   const isPaused = queue?.paused ?? false;
 
   // Auto-collapse when empty
@@ -44,7 +58,8 @@ export default function DownloadsQueue(props: DownloadsQueueProps) {
 
   if (activeCount === 0) return null;
 
-  const currentJob = running[0];
+  // Current job from queue or first misc download
+  const currentJob = running[0] ?? miscDownloads[0];
   const currentProgress = currentJob ? progressByJobId[currentJob.id] : null;
 
   return (

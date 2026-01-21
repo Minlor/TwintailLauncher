@@ -142,7 +142,9 @@ impl DownloadQueueHandle {
 
     /// Mark an install as "pausing" (transitioning to paused state)
     pub fn set_pausing(&self, install_id: String, is_pausing: bool) {
-        let _ = self.tx.send(QueueCommand::SetPausing(install_id, is_pausing));
+        let _ = self
+            .tx
+            .send(QueueCommand::SetPausing(install_id, is_pausing));
     }
 }
 
@@ -497,6 +499,15 @@ pub fn start_download_queue_worker(
                         // Find the job in queue and move it to front, then unpause
                         let mut install_id = None;
                         if let Some(idx) = queued.iter().position(|j| j.id == job_id) {
+                            // Move any paused jobs back to the queue (at the end) before activating new job
+                            for (paused_install_id, mut view) in paused_jobs.drain() {
+                                if let Some(job) = paused_jobs_data.remove(&paused_install_id) {
+                                    view.status = QueueJobStatus::Queued;
+                                    queued.push_back(job);
+                                    queued_views.push_back(view);
+                                }
+                            }
+
                             let job = queued.remove(idx).unwrap();
                             let view = queued_views.remove(idx).unwrap();
                             install_id = Some(view.install_id.clone());

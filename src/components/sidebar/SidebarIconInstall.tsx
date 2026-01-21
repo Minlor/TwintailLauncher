@@ -72,8 +72,7 @@ export default function SidebarIconInstall({ icon, name, id, setCurrentInstall, 
                         decoding={"async"}
                         src={icon}
                         tabIndex={0}
-                        draggable={false}
-                        onDragStart={(e) => e.preventDefault()}
+
                         onContextMenu={handleContextMenu}
                         onClick={() => {
                             let elem = document.getElementById(id);

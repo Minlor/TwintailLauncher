@@ -1,23 +1,29 @@
+use crate::utils::db_manager::{
+    get_installed_runner_info_by_id, get_installed_runner_info_by_version, get_installed_runners,
+    get_installs, get_settings, update_install_runner_location_by_id,
+    update_install_runner_version_by_id, update_installed_runner_is_installed_by_version,
+};
+use crate::utils::{PathResolve, send_notification};
 use std::fs;
 use std::path::Path;
-use tauri::{AppHandle};
-use crate::utils::db_manager::{get_installed_runner_info_by_id, get_installed_runner_info_by_version, get_installed_runners, get_installs, get_settings, update_install_runner_location_by_id, update_install_runner_version_by_id, update_installed_runner_is_installed_by_version};
-use crate::utils::{send_notification, PathResolve};
+use tauri::AppHandle;
 
 #[cfg(target_os = "linux")]
-use tauri::Emitter;
+use crate::utils::db_manager::create_installed_runner;
 #[cfg(target_os = "linux")]
-use std::collections::HashMap;
+use crate::utils::repo_manager::get_compatibility;
+#[cfg(target_os = "linux")]
+use crate::utils::show_dialog;
+#[cfg(target_os = "linux")]
+use crate::utils::{
+    models::LauncherRunner, prevent_exit, run_async_command, runner_from_runner_version,
+};
 #[cfg(target_os = "linux")]
 use fischl::compat::Compat;
 #[cfg(target_os = "linux")]
-use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+use std::collections::HashMap;
 #[cfg(target_os = "linux")]
-use crate::utils::repo_manager::{get_compatibility};
-#[cfg(target_os = "linux")]
-use crate::utils::{runner_from_runner_version, prevent_exit, run_async_command, models::LauncherRunner};
-#[cfg(target_os = "linux")]
-use crate::utils::db_manager::{create_installed_runner};
+use tauri::Emitter;
 
 #[allow(unused_variables)]
 #[tauri::command]
@@ -28,7 +34,10 @@ pub fn list_installed_runners(app: AppHandle) -> Option<String> {
 
         if repos.is_some() {
             let repository = repos.unwrap();
-            let d: Vec<&LauncherRunner> = repository.iter().filter(|r| !r.version.to_ascii_lowercase().contains("dxvk")).collect::<_>();
+            let d: Vec<&LauncherRunner> = repository
+                .iter()
+                .filter(|r| !r.version.to_ascii_lowercase().contains("dxvk"))
+                .collect::<_>();
             let stringified = serde_json::to_string(&d).unwrap();
             Some(stringified)
         } else {
@@ -69,7 +78,11 @@ pub fn get_installed_runner_by_version(app: AppHandle, runner_version: String) -
 
 #[allow(unused_variables)]
 #[tauri::command]
-pub fn update_installed_runner_install_status(app: AppHandle, version: String, is_installed: bool) -> Option<bool> {
+pub fn update_installed_runner_install_status(
+    app: AppHandle,
+    version: String,
+    is_installed: bool,
+) -> Option<bool> {
     #[cfg(target_os = "linux")]
     {
         let manifest = get_installed_runner_info_by_version(&app, version.clone());
@@ -90,22 +103,45 @@ pub fn update_installed_runner_install_status(app: AppHandle, version: String, i
 
 #[allow(unused_variables)]
 #[tauri::command]
-pub fn add_installed_runner(app: AppHandle, runner_url: String, runner_version: String) -> Option<bool> {
+pub fn add_installed_runner(
+    app: AppHandle,
+    runner_url: String,
+    runner_version: String,
+) -> Option<bool> {
     if runner_url.is_empty() || runner_version.is_empty() {
         None
     } else {
         #[cfg(target_os = "linux")]
         {
             let gs = get_settings(&app).unwrap();
-            let rm = get_compatibility(&app, &runner_from_runner_version(runner_version.as_str().to_string()).unwrap()).unwrap();
-            let rv = rm.versions.into_iter().filter(|v| v.version.as_str() == runner_version.as_str()).collect::<Vec<_>>();
+            let rm = get_compatibility(
+                &app,
+                &runner_from_runner_version(runner_version.as_str().to_string()).unwrap(),
+            )
+            .unwrap();
+            let rv = rm
+                .versions
+                .into_iter()
+                .filter(|v| v.version.as_str() == runner_version.as_str())
+                .collect::<Vec<_>>();
             let runnerp = rv.get(0).unwrap().to_owned();
-            let runner_path = Path::new(&gs.default_runner_path).follow_symlink().unwrap().join(runner_version.clone()).follow_symlink().unwrap();
-            if !runner_path.exists() { fs::create_dir_all(&runner_path).unwrap(); }
+            let runner_path = Path::new(&gs.default_runner_path)
+                .follow_symlink()
+                .unwrap()
+                .join(runner_version.clone())
+                .follow_symlink()
+                .unwrap();
+            if !runner_path.exists() {
+                fs::create_dir_all(&runner_path).unwrap();
+            }
             let ir = get_installed_runner_info_by_version(&app, runner_version.clone());
 
             // Empty folder download
-            if fs::read_dir(runner_path.as_path()).unwrap().next().is_none() {
+            if fs::read_dir(runner_path.as_path())
+                .unwrap()
+                .next()
+                .is_none()
+            {
                 let appc = app.clone();
                 let runvc = runner_version.clone();
                 let runpc = runner_path.clone();
@@ -125,46 +161,102 @@ pub fn add_installed_runner(app: AppHandle, runner_url: String, runner_version: 
                     let mut dl_url = runnerp.url.clone(); // Always x86_64
                     if let Some(urls) = runnerp.urls {
                         #[cfg(target_arch = "x86_64")]
-                        { dl_url = urls.x86_64; }
+                        {
+                            dl_url = urls.x86_64;
+                        }
                         #[cfg(target_arch = "aarch64")]
-                        { dl_url = if urls.aarch64.is_empty() { runnerp.url.clone() } else { urls.aarch64 }; }
+                        {
+                            dl_url = if urls.aarch64.is_empty() {
+                                runnerp.url.clone()
+                            } else {
+                                urls.aarch64
+                            };
+                        }
                     }
 
                     let r0 = run_async_command(async {
-                        Compat::download_runner(dl_url, runpc.to_str().unwrap().to_string(), true, {
-                            let archandle = app.clone();
-                            let dlpayload = dlp.clone();
-                            let runv = runv.clone();
-                            move |current, total, _net, _disk| {
-                                let mut dlp = dlpayload.clone();
-                                dlp.insert("name", runv.to_string());
-                                dlp.insert("progress", current.to_string());
-                                dlp.insert("total", total.to_string());
-                                archandle.emit("download_progress", dlp.clone()).unwrap();
-                            }
-                        }).await
+                        Compat::download_runner(
+                            dl_url,
+                            runpc.to_str().unwrap().to_string(),
+                            true,
+                            {
+                                let archandle = app.clone();
+                                let dlpayload = dlp.clone();
+                                let runv = runv.clone();
+                                move |current, total, _net, _disk| {
+                                    let mut dlp = dlpayload.clone();
+                                    dlp.insert("name", runv.to_string());
+                                    dlp.insert("progress", current.to_string());
+                                    dlp.insert("total", total.to_string());
+                                    archandle.emit("download_progress", dlp.clone()).unwrap();
+                                }
+                            },
+                        )
+                        .await
                     });
                     if r0 {
                         app.emit("download_complete", ()).unwrap();
                         prevent_exit(&app, false);
-                        send_notification(&app, format!("Download of {runn} complete.", runn = runv.clone().as_str().to_string()).as_str(), None);
+                        send_notification(
+                            &app,
+                            format!(
+                                "Download of {runn} complete.",
+                                runn = runv.clone().as_str().to_string()
+                            )
+                            .as_str(),
+                            None,
+                        );
                         true
                     } else {
-                        app.dialog().message(format!("Error occurred while trying to download {runn} runner! Please retry later.", runn = runv.clone().as_str().to_string()).as_str()).title("TwintailLauncher")
-                            .kind(MessageDialogKind::Error)
-                            .buttons(MessageDialogButtons::OkCustom("Ok".to_string()))
-                            .show(move |_action| {
-                                prevent_exit(&app, false);
-                                app.emit("download_complete", ()).unwrap();
-                                if runpc.exists() { fs::remove_dir_all(&runpc).unwrap(); update_installed_runner_is_installed_by_version(&app, runv.clone(), false); }
-                            });
+                        show_dialog(
+                            &app,
+                            "error",
+                            "TwintailLauncher",
+                            &format!(
+                                "Error occurred while trying to download {} runner! Please retry later.",
+                                runv.clone().as_str().to_string()
+                            ),
+                            None,
+                        );
+                        prevent_exit(&app, false);
+                        app.emit("download_complete", ()).unwrap();
+                        if runpc.exists() {
+                            fs::remove_dir_all(&runpc).unwrap();
+                            update_installed_runner_is_installed_by_version(
+                                &app,
+                                runv.clone(),
+                                false,
+                            );
+                        }
                         false
                     }
                 });
-                if ir.is_some() { update_installed_runner_is_installed_by_version(&app, runner_version.clone(), true); } else { create_installed_runner(&app, runner_version.clone(), true, runner_path.to_str().unwrap().to_string()).unwrap(); }
+                if ir.is_some() {
+                    update_installed_runner_is_installed_by_version(
+                        &app,
+                        runner_version.clone(),
+                        true,
+                    );
+                } else {
+                    create_installed_runner(
+                        &app,
+                        runner_version.clone(),
+                        true,
+                        runner_path.to_str().unwrap().to_string(),
+                    )
+                    .unwrap();
+                }
                 Some(true)
             } else {
-                send_notification(&app, format!("Runner {runn} already installed!", runn = runner_version.clone().as_str().to_string()).as_str(), None);
+                send_notification(
+                    &app,
+                    format!(
+                        "Runner {runn} already installed!",
+                        runn = runner_version.clone().as_str().to_string()
+                    )
+                    .as_str(),
+                    None,
+                );
                 Some(false)
             }
         }
@@ -181,13 +273,32 @@ pub fn remove_installed_runner(app: AppHandle, runner_version: String) -> Option
         None
     } else {
         let gs = get_settings(&app).unwrap();
-        let runner_path = Path::new(&gs.default_runner_path).follow_symlink().unwrap().join(runner_version.clone()).follow_symlink().unwrap();
-        if !runner_path.exists() { fs::create_dir_all(&runner_path).unwrap(); }
+        let runner_path = Path::new(&gs.default_runner_path)
+            .follow_symlink()
+            .unwrap()
+            .join(runner_version.clone())
+            .follow_symlink()
+            .unwrap();
+        if !runner_path.exists() {
+            fs::create_dir_all(&runner_path).unwrap();
+        }
 
-        if fs::read_dir(runner_path.as_path()).unwrap().next().is_some() {
+        if fs::read_dir(runner_path.as_path())
+            .unwrap()
+            .next()
+            .is_some()
+        {
             fs::remove_dir_all(runner_path.as_path()).unwrap();
             update_installed_runner_is_installed_by_version(&app, runner_version.clone(), false);
-            send_notification(&app, format!("Successfully removed {runn} runner.", runn = runner_version.as_str().to_string()).as_str(), None);
+            send_notification(
+                &app,
+                format!(
+                    "Successfully removed {runn} runner.",
+                    runn = runner_version.as_str().to_string()
+                )
+                .as_str(),
+                None,
+            );
 
             // Set installations using the removed runner to first available one as fallback
             let installs = get_installs(&app);
@@ -198,17 +309,34 @@ pub fn remove_installed_runner(app: AppHandle, runner_version: String) -> Option
                         let available_runners = get_installed_runners(&app);
                         if available_runners.is_some() {
                             let avr = available_runners.unwrap();
-                            let filtered_runners = avr.iter().filter(|r| r.is_installed).collect::<Vec<_>>();
+                            let filtered_runners =
+                                avr.iter().filter(|r| r.is_installed).collect::<Vec<_>>();
                             let first = filtered_runners.get(0).unwrap();
-                            update_install_runner_version_by_id(&app, i.id.clone(), first.version.clone());
-                            update_install_runner_location_by_id(&app, i.id, first.runner_path.clone());
+                            update_install_runner_version_by_id(
+                                &app,
+                                i.id.clone(),
+                                first.version.clone(),
+                            );
+                            update_install_runner_location_by_id(
+                                &app,
+                                i.id,
+                                first.runner_path.clone(),
+                            );
                         }
                     }
                 }
             }
             Some(true)
         } else {
-            send_notification(&app, format!("Runner {runn} is not installed!", runn = runner_version.as_str().to_string()).as_str(), None);
+            send_notification(
+                &app,
+                format!(
+                    "Runner {runn} is not installed!",
+                    runn = runner_version.as_str().to_string()
+                )
+                .as_str(),
+                None,
+            );
             Some(false)
         }
     }

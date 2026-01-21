@@ -74,8 +74,7 @@ const ManifestsPanel: React.FC<ManifestsPanelProps> = ({
         >
           <div
             className="flex flex-row items-center gap-2 overflow-x-auto px-3 py-2 scrollbar-none select-none"
-            draggable={false}
-            onDragStart={(e) => e.preventDefault()}
+
           >
             {gamesinfo.map((game, index) => {
               // Use dynamic background if available, otherwise fall back to static

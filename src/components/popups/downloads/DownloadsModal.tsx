@@ -8,7 +8,7 @@ import ProgressBar from "../../common/ProgressBar";
 import { CachedImage } from "../../common/CachedImage";
 import { formatBytes, toPercent } from "../../../utils/progress";
 import { POPUPS } from "../POPUPS";
-import { SettingsLayout } from "../../settings/ui/SettingsLayout";
+
 
 type TelemetrySample = {
   t: number; // epoch ms

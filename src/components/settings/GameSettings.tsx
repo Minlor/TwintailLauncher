@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
 import { POPUPS } from "../popups/POPUPS";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
-import { Folder, Play, Wrench, Trash2, Sliders, Box, Monitor, FileCode, CheckCircle } from "lucide-react";
+import { Folder, Play, Wrench, Trash2, Sliders, Box, Monitor } from "lucide-react";
 import { SettingsLayout } from "./ui/SettingsLayout";
 import { SettingsSidebar, SettingsTab } from "./ui/SettingsSidebar";
 import { SettingsSection, ModernToggle, ModernInput, ModernPathInput, ModernSelect, SettingsCard } from "./ui/SettingsComponents";
-import SubMenu from "../common/SubMenu";
+
 
 // Helper for Steam Icon
 const SteamIcon = ({ className }: { className?: string }) => (
@@ -30,7 +30,7 @@ export default function GameSettings({
     installSettings,
     fetchInstallSettings,
     prefetchedSwitches,
-    prefetchedFps,
+    prefetchedFps: _prefetchedFps,
     installedRunners,
     installs
 }: GameSettingsProps) {
@@ -144,6 +144,7 @@ export default function GameSettings({
                                 description="Directory where the game is installed."
                                 value={`${installSettings.directory}`}
                                 onChange={(val) => handleUpdate("game_path", val)}
+                                helpText="Location where game is installed. Usually should be set where main game exe is located."
                             />
                             <div className="grid grid-cols-1 gap-4 mt-4">
                                 <ModernToggle
@@ -151,12 +152,14 @@ export default function GameSettings({
                                     description="Don't check for game updates on launch."
                                     checked={installSettings.ignore_updates}
                                     onChange={(val) => handleUpdate("skip_version_updates", val)}
+                                    helpText="Skip checking for game updates."
                                 />
                                 <ModernToggle
                                     label="Skip Hash Validation"
                                     description="Skip file verification during repairs (faster but less safe)."
                                     checked={installSettings.skip_hash_check}
                                     onChange={(val) => handleUpdate("skip_hash_valid", val)}
+                                    helpText="Skip validating files during game repair process, this will speed up the repair process significantly."
                                 />
                                 {prefetchedSwitches.xxmi && (
                                     <SettingsCard className="flex items-center justify-between">
@@ -199,6 +202,7 @@ export default function GameSettings({
                                     value={installSettings.launch_args || ""}
                                     onChange={(e) => handleUpdate("launch_args", e.target.value)}
                                     placeholder="-dx11 -console"
+                                    helpText="Additional arguments to pass to the game. Each entry is separated with space."
                                 />
                                 <ModernInput
                                     label="Environment Variables"
@@ -206,18 +210,21 @@ export default function GameSettings({
                                     value={installSettings.env_vars || ""}
                                     onChange={(e) => handleUpdate("env_vars", e.target.value)}
                                     placeholder='DXVK_HUD="fps"'
+                                    helpText={`Pass extra variables to Proton.\nExamples:\n- DXVK_HUD=fps;\n-DXVK_HUD=fps,devinfo;PROTON_LOG=1;\n- DXVK_HUD="fps,devinfo";SOMEVAR="/path/to/something";`}
                                 />
                                 <ModernInput
                                     label="Pre-Launch Command"
                                     description="Command executed before the game starts."
                                     value={installSettings.pre_launch_command || ""}
                                     onChange={(e) => handleUpdate("pre_launch_cmd", e.target.value)}
+                                    helpText={`Command that will be ran before game launches. You can use quotes around paths if needed.\nAvailable variables:\n- %steamrt% = SteamLinuxRuntime binary (Usage: %steamrt% --verb=waitforexitandrun -- %reaper%)\n- %reaper% = Process reaper binary (Usage: %reaper% SteamLaunch AppId=0 -- %runner%)\n- %runner% = Call proton binary\n- %game_exe% = Points to game executable\n- %runner_dir% = Path of current runner (not a binary you can append any binary from this folder)\n- %prefix% = Path to root of runner prefix location field\n- %install_dir% = Path to game install location field\n- %steamrt_path% = Path to SteamLinuxRuntime folder (you can append other binaries from the folder)`}
                                 />
                                 <ModernInput
                                     label="Custom Launch Command"
                                     description="Override the default launch command."
                                     value={installSettings.launch_command || ""}
                                     onChange={(e) => handleUpdate("launch_cmd", e.target.value)}
+                                    helpText={`Custom command to launch the game. You can use quotes around paths if needed.\nAvailable variables:\n- %steamrt% = SteamLinuxRuntime binary (Usage: %steamrt% --verb=waitforexitandrun -- %reaper%)\n- %reaper% = Process reaper binary (Usage: %reaper% SteamLaunch AppId=0 -- %runner%)\n- %runner% = Call proton binary\n- %game_exe% = Points to game executable\n- %runner_dir% = Path of current runner (not a binary you can append any binary from this folder)\n- %prefix% = Path to root of runner prefix location field\n- %install_dir% = Path to game install location field\n- %steamrt_path% = Path to SteamLinuxRuntime folder (you can append other binaries from the folder)`}
                                 />
                             </div>
                         </SettingsSection>
@@ -232,18 +239,21 @@ export default function GameSettings({
                                     value={installSettings.runner_version || ""}
                                     options={installedRunners}
                                     onChange={(val) => handleUpdate("runner_version", val)}
+                                    helpText="Wine/Proton version used by this installation."
                                 />
                                 <ModernPathInput
                                     label="Runner Location"
                                     description="Path to the runner binary/folder."
                                     value={`${installSettings.runner_path}`}
                                     onChange={(val) => handleUpdate("runner_path", val)}
+                                    helpText={`Location of the Wine/Proton runner. Usually points to directory containing "bin" or "files" directory.`}
                                 />
                                 <ModernPathInput
                                     label="Prefix Location"
                                     description="Path to the Wine prefix."
                                     value={`${installSettings.runner_prefix}`}
                                     onChange={(val) => handleUpdate("prefix_path", val)}
+                                    helpText={`Location where Wine/Proton prefix is stored. Should point to directory where "system.reg" is stored.`}
                                 />
                                 {prefetchedSwitches.jadeite && (
                                     <ModernToggle
@@ -251,6 +261,7 @@ export default function GameSettings({
                                         description="Enable Jadeite patch improvements."
                                         checked={installSettings.use_jadeite}
                                         onChange={(val) => handleUpdate("use_jadeite", val)}
+                                        helpText="Launch game using Jadeite patch."
                                     />
                                 )}
                                 <ModernToggle
@@ -258,6 +269,7 @@ export default function GameSettings({
                                     description="Enable Feral Interactive's GameMode."
                                     checked={installSettings.use_gamemode}
                                     onChange={(val) => handleUpdate("use_gamemode", val)}
+                                    helpText="Launch game using gamemode by FeralInteractive. You need it installed on your system for this to work!"
                                 />
                                 <SettingsCard className="flex items-center justify-between">
                                     <div className="flex flex-col">
@@ -318,6 +330,48 @@ export default function GameSettings({
                                     </button>
                                 )}
 
+                                {window.navigator.platform.includes("Linux") && (
+                                    <button
+                                        onClick={() => {
+                                            setOpenPopup(POPUPS.NONE);
+                                            invoke("open_folder", {
+                                                runnerVersion: "",
+                                                manifestId: installSettings.manifest_id,
+                                                installId: installSettings.id,
+                                                pathType: "runner"
+                                            });
+                                        }}
+                                        className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left"
+                                    >
+                                        <Folder className="w-6 h-6 text-orange-400" />
+                                        <div className="flex flex-col">
+                                            <span className="font-bold">Open Runner Folder</span>
+                                            <span className="text-xs text-zinc-400">Wine/Proton location</span>
+                                        </div>
+                                    </button>
+                                )}
+
+                                {window.navigator.platform.includes("Linux") && (
+                                    <button
+                                        onClick={() => {
+                                            setOpenPopup(POPUPS.NONE);
+                                            invoke("open_folder", {
+                                                runnerVersion: "",
+                                                manifestId: installSettings.manifest_id,
+                                                installId: installSettings.id,
+                                                pathType: "runner_prefix"
+                                            });
+                                        }}
+                                        className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left"
+                                    >
+                                        <Folder className="w-6 h-6 text-yellow-400" />
+                                        <div className="flex flex-col">
+                                            <span className="font-bold">Open Prefix Folder</span>
+                                            <span className="text-xs text-zinc-400">Wine prefix location</span>
+                                        </div>
+                                    </button>
+                                )}
+
                                 <button
                                     onClick={() => {
                                         setOpenPopup(POPUPS.NONE);
@@ -360,6 +414,34 @@ export default function GameSettings({
                                         <SteamIcon className="w-6 h-6 text-blue-400" />
                                         <div className="flex flex-col">
                                             <span className="font-bold">Add to Steam</span>
+                                            <span className="text-xs text-zinc-400">Create shortcut</span>
+                                        </div>
+                                    </button>
+                                )}
+
+                                {installSettings.shortcut_path !== "" ? (
+                                    <button
+                                        onClick={() => {
+                                            invoke("remove_shortcut", { installId: installSettings.id, shortcutType: "desktop" }).then(() => fetchInstallSettings(installSettings.id));
+                                        }}
+                                        className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left"
+                                    >
+                                        <Trash2 className="w-6 h-6 text-blue-400" />
+                                        <div className="flex flex-col">
+                                            <span className="font-bold">Remove from Desktop</span>
+                                            <span className="text-xs text-zinc-400">Delete shortcut</span>
+                                        </div>
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => {
+                                            invoke("add_shortcut", { installId: installSettings.id, shortcutType: "desktop" }).then(() => fetchInstallSettings(installSettings.id));
+                                        }}
+                                        className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left"
+                                    >
+                                        <Monitor className="w-6 h-6 text-blue-400" />
+                                        <div className="flex flex-col">
+                                            <span className="font-bold">Add to Desktop</span>
                                             <span className="text-xs text-zinc-400">Create shortcut</span>
                                         </div>
                                     </button>

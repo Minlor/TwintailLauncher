@@ -38,6 +38,17 @@ export function registerEvents(
       if (currentInstall) {
         fetchInstallResumeStates(currentInstall);
       }
+
+      // Misc downloads (proton, steamrt, etc.) use name as job ID
+      // Remove from progress tracking when complete
+      const completedName = typeof event.payload === 'string' ? event.payload : event.payload?.name;
+      if (completedName) {
+        return (prev) => {
+          const next = { ...(prev?.downloadProgressByJobId || {}) };
+          delete next[completedName];
+          return { downloadProgressByJobId: next };
+        };
+      }
       return undefined;
     }
     case 'move_progress': {
@@ -58,7 +69,8 @@ export function registerEvents(
       };
     }
     case 'download_progress': {
-      const jobId = event?.payload?.job_id ?? event?.payload?.jobId;
+      // Use job_id if present, otherwise use name as fallback for misc downloads (proton, steamrt, etc.)
+      const jobId = event?.payload?.job_id ?? event?.payload?.jobId ?? event?.payload?.name;
       if (!jobId) return undefined;
       return (prev) => {
         const next = { ...(prev?.downloadProgressByJobId || {}) };

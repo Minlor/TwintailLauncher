@@ -1,6 +1,7 @@
 import React from "react";
-import { Check, ChevronDown, FolderOpen } from "lucide-react";
+import { ChevronDown, FolderOpen } from "lucide-react";
 import { open } from '@tauri-apps/plugin-dialog';
+import HelpTooltip from "../../common/HelpTooltip";
 
 // --- Card Components ---
 
@@ -24,13 +25,17 @@ export const SettingsCard = ({ children, className = "", onClick }: { children: 
 interface SettingsControlProps {
     label: string;
     description?: string;
+    helpText?: string;
 }
 
-export const ModernToggle = ({ label, description, checked, onChange }: SettingsControlProps & { checked: boolean, onChange: (val: boolean) => void }) => {
+export const ModernToggle = ({ label, description, checked, onChange, ...props }: SettingsControlProps & { checked: boolean, onChange: (val: boolean) => void }) => {
     return (
         <SettingsCard className="flex flex-row items-center justify-between group cursor-pointer" onClick={() => onChange(!checked)}>
             <div className="flex flex-col gap-1 pr-4">
-                <label className="text-base font-medium text-white group-hover:text-purple-100 transition-colors pointer-events-none">{label}</label>
+                <div className="flex items-center gap-2">
+                    <label className="text-base font-medium text-white group-hover:text-purple-100 transition-colors pointer-events-none">{label}</label>
+                    {description && description.includes("help") ? null : (props.helpText && <div onClick={e => e.stopPropagation()}><HelpTooltip text={props.helpText} /></div>)}
+                </div>
                 {description && <span className="text-sm text-zinc-400 pointer-events-none">{description}</span>}
             </div>
 
@@ -75,7 +80,10 @@ export const ModernInput = ({ label, description, value, onChange, onBlur, ...pr
         <SettingsCard>
             <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1">
-                    <label className="text-base font-medium text-white">{label}</label>
+                    <div className="flex items-center gap-2">
+                        <label className="text-base font-medium text-white">{label}</label>
+                        {props.helpText && <HelpTooltip text={props.helpText} />}
+                    </div>
                     {description && <span className="text-sm text-zinc-400">{description}</span>}
                 </div>
                 <input
@@ -96,7 +104,7 @@ export const ModernInput = ({ label, description, value, onChange, onBlur, ...pr
     );
 };
 
-export const ModernPathInput = ({ label, description, value, onChange, folder = true, extensions }: SettingsControlProps & { value: string, onChange: (val: string) => void, folder?: boolean, extensions?: string[] }) => {
+export const ModernPathInput = ({ label, description, value, onChange, folder = true, extensions, ...props }: SettingsControlProps & { value: string, onChange: (val: string) => void, folder?: boolean, extensions?: string[] }) => {
     // Use local state to allow typing without immediate save
     const [localValue, setLocalValue] = React.useState(value ?? "");
 
@@ -134,7 +142,10 @@ export const ModernPathInput = ({ label, description, value, onChange, folder = 
         <SettingsCard>
             <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1">
-                    <label className="text-base font-medium text-white">{label}</label>
+                    <div className="flex items-center gap-2">
+                        <label className="text-base font-medium text-white">{label}</label>
+                        {props.helpText && <HelpTooltip text={props.helpText} />}
+                    </div>
                     {description && <span className="text-sm text-zinc-400">{description}</span>}
                 </div>
                 <div className="flex gap-2">
@@ -162,7 +173,7 @@ export const ModernPathInput = ({ label, description, value, onChange, folder = 
     );
 };
 
-export const ModernSelect = ({ label, description, options, value, onChange }: SettingsControlProps & {
+export const ModernSelect = ({ label, description, options, value, onChange, ...props }: SettingsControlProps & {
     value: string,
     onChange: (val: string) => void,
     // Support both { value, label } and { value, name } formats for compatibility
@@ -172,7 +183,10 @@ export const ModernSelect = ({ label, description, options, value, onChange }: S
         <SettingsCard>
             <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1">
-                    <label className="text-base font-medium text-white">{label}</label>
+                    <div className="flex items-center gap-2">
+                        <label className="text-base font-medium text-white">{label}</label>
+                        {props.helpText && <HelpTooltip text={props.helpText} />}
+                    </div>
                     {description && <span className="text-sm text-zinc-400">{description}</span>}
                 </div>
                 <div className="relative">

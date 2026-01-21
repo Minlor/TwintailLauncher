@@ -309,15 +309,24 @@ export default class App extends React.Component<any, any> {
                     <GameInfoOverlay
                         displayName={this.state.displayName}
                         gameIcon={this.state.gameIcon}
-                        version={this.state.installSettings?.version}
+                        version={(() => {
+                            // For installed games, use installSettings.version
+                            if (this.state.currentInstall) {
+                                return this.state.installSettings?.version;
+                            }
+                            // For manifest games (not installed), show latest version
+                            const game = this.state.gamesinfo.find((g: any) => g.biz === this.state.currentGame);
+                            return game?.latest_version;
+                        })()}
                         hasUpdate={(() => {
                             const install = this.state.installs.find((i: any) => i.id === this.state.currentInstall);
                             const game = this.state.gamesinfo.find((g: any) => g.manifest_id === install?.manifest_id);
                             const latest = game?.latest_version ?? null;
                             return !!(latest && install?.version && latest !== install.version && !install?.ignore_updates);
                         })()}
-                        isVisible={this.state.currentInstall !== "" && this.state.openPopup === POPUPS.NONE && this.state.currentPage === PAGES.NONE}
+                        isVisible={(this.state.currentInstall !== "" || this.state.currentGame !== "") && this.state.openPopup === POPUPS.NONE && this.state.currentPage === PAGES.NONE}
                     />
+
                     <ActionBar
                         currentInstall={this.state.currentInstall}
                         preloadAvailable={this.state.preloadAvailable}

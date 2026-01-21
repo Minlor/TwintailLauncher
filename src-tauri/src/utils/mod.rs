@@ -17,7 +17,6 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::{fs, io};
 use tauri::{AppHandle, Emitter, Listener, Manager};
-use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_notification::NotificationExt;
 
 #[cfg(target_os = "linux")]
@@ -271,6 +270,26 @@ pub fn send_notification(app: &AppHandle, body: &str, icon: Option<&str>) {
             .show()
             .unwrap();
     }
+}
+
+/// Emits a dialog event to the React frontend for custom-styled dialogs
+/// instead of using native OS dialogs.
+pub fn show_dialog(
+    app: &AppHandle,
+    dialog_type: &str,
+    title: &str,
+    message: &str,
+    buttons: Option<Vec<&str>>,
+) {
+    let mut payload = HashMap::new();
+    payload.insert("dialog_type", dialog_type.to_string());
+    payload.insert("title", title.to_string());
+    payload.insert("message", message.to_string());
+    if let Some(btns) = buttons {
+        let btns_str = serde_json::to_string(&btns).unwrap_or_else(|_| "[\"OK\"]".to_string());
+        payload.insert("buttons", btns_str);
+    }
+    let _ = app.emit("show_dialog", payload);
 }
 
 pub fn prevent_exit(app: &AppHandle, val: bool) {
@@ -846,14 +865,17 @@ pub fn download_or_update_xxmi(
                         }
                     }
                 } else {
-                    app.dialog().message("Error occurred while trying to download XXMI Modding tool! Please retry later by re-enabling the \"Inject XXMI\" in Install Settings.").title("TwintailLauncher")
-                        .kind(MessageDialogKind::Error)
-                        .buttons(MessageDialogButtons::OkCustom("Ok".to_string()))
-                        .show(move |_action| {
-                            prevent_exit(&app, false);
-                            app.emit("download_complete", String::from("XXMI Modding tool")).unwrap();
-                            empty_dir(&path).unwrap();
-                        });
+                    show_dialog(
+                        &app,
+                        "error",
+                        "TwintailLauncher",
+                        "Error occurred while trying to download XXMI Modding tool! Please retry later by re-enabling the \"Inject XXMI\" in Install Settings.",
+                        None,
+                    );
+                    prevent_exit(&app, false);
+                    app.emit("download_complete", String::from("XXMI Modding tool"))
+                        .unwrap();
+                    empty_dir(&path).unwrap();
                 }
             });
         }
@@ -1044,14 +1066,17 @@ pub fn download_or_update_steamrt(app: &AppHandle) {
                         .unwrap();
                     prevent_exit(&app, false);
                 } else {
-                    app.dialog().message("Error occurred while trying to download SteamLinuxRuntime! Please restart the application to retry.").title("TwintailLauncher")
-                        .kind(MessageDialogKind::Error)
-                        .buttons(MessageDialogButtons::OkCustom("Ok".to_string()))
-                        .show(move |_action| {
-                            prevent_exit(&app, false);
-                            app.emit("download_complete", String::from("SteamLinuxRuntime 3")).unwrap();
-                            empty_dir(steamrt.as_path()).unwrap();
-                        });
+                    show_dialog(
+                        &app,
+                        "error",
+                        "TwintailLauncher",
+                        "Error occurred while trying to download SteamLinuxRuntime! Please restart the application to retry.",
+                        None,
+                    );
+                    prevent_exit(&app, false);
+                    app.emit("download_complete", String::from("SteamLinuxRuntime 3"))
+                        .unwrap();
+                    empty_dir(steamrt.as_path()).unwrap();
                 }
             });
         } else {
@@ -1106,14 +1131,17 @@ pub fn download_or_update_steamrt(app: &AppHandle) {
                                 .unwrap();
                             prevent_exit(&app, false);
                         } else {
-                            app.dialog().message("Error occurred while trying to update SteamLinuxRuntime! Please restart the application to retry.").title("TwintailLauncher")
-                                .kind(MessageDialogKind::Error)
-                                .buttons(MessageDialogButtons::OkCustom("Ok".to_string()))
-                                .show(move |_action| {
-                                    prevent_exit(&app, false);
-                                    app.emit("update_complete", String::from("SteamLinuxRuntime 3")).unwrap();
-                                    empty_dir(steamrt.as_path()).unwrap();
-                                });
+                            show_dialog(
+                                &app,
+                                "error",
+                                "TwintailLauncher",
+                                "Error occurred while trying to update SteamLinuxRuntime! Please restart the application to retry.",
+                                None,
+                            );
+                            prevent_exit(&app, false);
+                            app.emit("update_complete", String::from("SteamLinuxRuntime 3"))
+                                .unwrap();
+                            empty_dir(steamrt.as_path()).unwrap();
                         }
                     });
                 } else {
@@ -1167,11 +1195,13 @@ pub fn notify_update(app: &AppHandle) {
             let cfg = app.config();
             match compare_version(cfg.version.clone().unwrap().as_str(), v.as_str()) {
                 std::cmp::Ordering::Less => {
-                    app.dialog().message("You are running outdated version of TwintailLauncher!\nWe recommend updating to the latest version for best experience.\nIf you are using Flatpak version on Linux updates are always delayed for some time, sit tight and relax.").title("TwintailLauncher")
-                        .kind(MessageDialogKind::Warning)
-                        .buttons(MessageDialogButtons::OkCustom("Continue anyway".to_string()))
-                        //.buttons(MessageDialogButtons::OkCancelCustom("Continue anyway".to_string(), "Do not show again".to_string()))
-                        .show(move |_action| { /*if action {  } else { fs::File::create(&suppressed).unwrap(); }*/ });
+                    show_dialog(
+                        &app,
+                        "warning",
+                        "TwintailLauncher",
+                        "You are running outdated version of TwintailLauncher!\nWe recommend updating to the latest version for best experience.\nIf you are using Flatpak version on Linux updates are always delayed for some time, sit tight and relax.",
+                        Some(vec!["Continue anyway"]),
+                    );
                 }
                 std::cmp::Ordering::Equal => {
                     println!("You are running up to date version of TwintailLauncher!");
@@ -1435,7 +1465,9 @@ pub fn apply_xxmi_tweaks(package: PathBuf, mut data: Json<XXMISettings>) -> Json
                     );
                     #[cfg(target_os = "linux")]
                     {
-                        if package.to_str().unwrap().contains("gimi") || package.to_str().unwrap().contains("zzmi") {
+                        if package.to_str().unwrap().contains("gimi")
+                            || package.to_str().unwrap().contains("zzmi")
+                        {
                             data.require_admin = false;
                             data.dll_init_delay = 500;
                             data.close_delay = 20;
@@ -1523,15 +1555,23 @@ fn compare_version(a: &str, b: &str) -> std::cmp::Ordering {
 
 #[cfg(target_os = "linux")]
 pub fn is_runner_lower(min_runner_versions: Vec<String>, runner_version: String) -> bool {
-    let idx = match runner_version.find("proton-") { Some(i) => i, None => return false };
+    let idx = match runner_version.find("proton-") {
+        Some(i) => i,
+        None => return false,
+    };
     let (left, right) = runner_version.split_at(idx);
     let cand_ver = left.strip_suffix('-').unwrap_or(left).replace("-", ".");
 
     for s in min_runner_versions {
-        let idx = match s.find("proton-") { Some(i) => i, None => continue };
+        let idx = match s.find("proton-") {
+            Some(i) => i,
+            None => continue,
+        };
         let (l, r) = s.split_at(idx);
         let ver = l.strip_suffix('-').unwrap_or(l).replace("-", ".");
-        if r == right && compare_version(cand_ver.as_str(), ver.as_str()).is_lt() { return true; }
+        if r == right && compare_version(cand_ver.as_str(), ver.as_str()).is_lt() {
+            return true;
+        }
     }
     false
 }

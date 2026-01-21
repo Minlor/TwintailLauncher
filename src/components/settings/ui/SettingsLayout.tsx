@@ -13,7 +13,7 @@ interface SettingsLayoutProps {
 
 export const SettingsLayout = ({ title, onClose, children, banner, icon }: SettingsLayoutProps) => {
     // Defer content rendering to allow animation to start smoothly
-    const [isReady, setIsReady] = useState(false);
+    const [_isReady, setIsReady] = useState(false);
 
     useEffect(() => {
         // Use requestAnimationFrame to defer content until after first paint

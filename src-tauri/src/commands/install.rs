@@ -20,6 +20,7 @@ use crate::utils::{
     generate_cuid, get_mi_path_from_game, models::GameVersion, prevent_exit, send_notification,
 };
 use fischl::utils::free_space::available;
+use fischl::utils::is_process_running;
 use fischl::utils::prettify_bytes;
 use std::collections::HashMap;
 use std::fs;
@@ -1445,6 +1446,24 @@ pub fn game_launch(app: AppHandle, id: String) -> Option<bool> {
         send_notification(&app, "Failed to find game installation!", None);
         None
     }
+}
+
+#[tauri::command]
+pub fn check_game_running(app: AppHandle, id: String) -> Option<bool> {
+    let install = get_install_info_by_id(&app, id.clone());
+
+    if let Some(m) = install {
+        let gmm = get_manifest_info_by_id(&app, m.manifest_id);
+        if let Some(manifest_info) = gmm {
+            let gm = get_manifest(&app, manifest_info.filename);
+            if let Some(manifest) = gm {
+                let exe_name = manifest.paths.exe_filename.split('/').last().unwrap_or("");
+                let running = is_process_running(exe_name);
+                return Some(running);
+            }
+        }
+    }
+    None
 }
 
 #[tauri::command]

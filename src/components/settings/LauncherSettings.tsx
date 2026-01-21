@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { POPUPS } from "../popups/POPUPS";
 import { invoke } from "@tauri-apps/api/core";
 import { Settings, Download, Wrench, Folder, Shield, Info, Monitor, Box } from "lucide-react";

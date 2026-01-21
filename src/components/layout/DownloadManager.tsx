@@ -6,19 +6,7 @@ import type {
   QueueJobView,
 } from '../../types/downloadQueue';
 import { formatBytes, toPercent } from '../../utils/progress';
-import {
-  X,
-  DownloadCloud,
-  ArrowUp,
-  ArrowDown,
-  Trash2,
-  Play,
-  Pause,
-  HardDrive,
 
-  Activity,
-  Box
-} from "lucide-react";
 
 /* Telemetry sample for graph */
 interface TelemetrySample {
