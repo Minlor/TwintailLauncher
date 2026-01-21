@@ -683,10 +683,7 @@ pub fn empty_dir<P: AsRef<Path>>(dir: P) -> io::Result<()> {
                     if ex.ends_with('/') { is_dir && name.contains(&ex[..ex.len() - 1]) } else { !is_dir && name == ex }
                 });
                 if should_skip { continue; }
-                if is_dir {
-                    empty_dir(&path)?;
-                    if fs::read_dir(&path)?.next().is_none() { fs::remove_dir_all(&path)?; }
-                } else { fs::remove_file(&path)?; }
+                if is_dir { fs::remove_dir_all(&path)?; } else { fs::remove_file(&path)?; }
             }
         }
     }
