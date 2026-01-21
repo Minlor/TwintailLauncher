@@ -9,14 +9,13 @@ use crate::utils::{apply_xxmi_tweaks, edit_wuwa_configs_xxmi, get_mi_path_from_g
 use crate::utils::models::{GlobalSettings, LauncherInstall, GameManifest};
 
 #[cfg(target_os = "linux")]
-use crate::utils::{runner_from_runner_version, get_steam_appid, update_steam_compat_config, is_runner_lower, is_using_overriden_runner, repo_manager::get_compatibility};
+use crate::utils::{runner_from_runner_version, get_steam_appid, update_steam_compat_config, is_runner_lower, is_using_overriden_runner, empty_dir, repo_manager::get_compatibility};
 #[cfg(target_os = "linux")]
 use tauri::Manager;
 #[cfg(target_os = "linux")]
 use std::os::unix::process::CommandExt;
 #[cfg(target_os = "linux")]
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
-use crate::utils;
 
 #[cfg(target_os = "linux")]
 pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: GlobalSettings) -> Result<bool, Error> {
@@ -32,13 +31,24 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
     let runner = Path::new(install.runner_path.as_str()).to_str().unwrap().to_string();
     let game = gm.paths.exe_filename.clone();
     let exe = gm.paths.exe_filename.clone().split('/').last().unwrap().to_string();
-    let steamrt_path = runnerp.join("steamrt/").to_str().unwrap().to_string();
-    let steamrt = runnerp.join("steamrt/_v2-entry-point").to_str().unwrap().to_string();
+    let steamrtpp = runnerp.join("steamrt/");
+    let steamrt_path = steamrtpp.to_str().unwrap().to_string();
+    let steamrtp = runnerp.join("steamrt/_v2-entry-point");
+    let steamrt = steamrtp.to_str().unwrap().to_string();
     #[cfg(not(debug_assertions))]
     let reaper = if crate::utils::is_flatpak() { app.path().resource_dir()?.join("resources/reaper").to_str().unwrap().to_string().replace("/app/lib/", "/run/parent/app/lib/") } else { app.path().resource_dir()?.join("resources/reaper").to_str().unwrap().to_string().replace("/usr/lib/", "/run/host/usr/lib/") };
     #[cfg(debug_assertions)]
     let reaper = app.path().resource_dir()?.join("resources/reaper").to_str().unwrap().to_string();
     let appid = get_steam_appid();
+
+    if !steamrtp.exists() {
+        let appc = app.clone();
+        app.dialog().message(format!("SteamLinuxRuntime is corrupted! Pressing \"Redownload\" button will redownload SteamLinuxRuntime.").as_str()).title("TwintailLauncher")
+            .kind(MessageDialogKind::Warning)
+            .buttons(MessageDialogButtons::OkCustom("Redownload".to_string()))
+            .show(move |_action| { empty_dir(&steamrtpp).unwrap(); crate::downloading::misc::download_or_update_steamrt(&appc); });
+        return Ok(false);
+    }
 
     if is_runner_lower(cpo.min_runner_versions.clone(), install.clone().runner_version) && !cpo.min_runner_versions.is_empty() {
         app.dialog().message(format!("Launching {inn} with {sr} could lead to various unexpected behaviors.\nPlease download one of the supported minimum runner versions or higher!\nSupported minimum runner version(s): {minrunn}", inn = install.name.clone(), sr = install.runner_version.clone(), minrunn = cpo.min_runner_versions.clone().join(", ").as_str()).as_str()).title("TwintailLauncher")
@@ -292,7 +302,7 @@ fn load_xxmi(app: &AppHandle, install: LauncherInstall, prefix: String, xxmi_pat
 
             // Apply the installation tweaks
             let data = apply_xxmi_tweaks(mi_pathbuf, install.xxmi_config);
-            utils::db_manager::update_install_xxmi_config_by_id(&app, install.id, data);
+            crate::utils::db_manager::update_install_xxmi_config_by_id(&app, install.id, data);
 
             let mut cmd = Command::new("bash");
             cmd.arg("-c");
@@ -532,7 +542,7 @@ fn load_xxmi(app: &AppHandle, install: LauncherInstall, xxmi_path: String, game:
 
         // Apply the installation tweaks
         let data = apply_xxmi_tweaks(mi_pathbuf, install.xxmi_config);
-        utils::db_manager::update_install_xxmi_config_by_id(&app, install.id, data);
+        crate::utils::db_manager::update_install_xxmi_config_by_id(&app, install.id, data);
 
         let mut cmd = Command::new("powershell");
         cmd.arg("-Command");
