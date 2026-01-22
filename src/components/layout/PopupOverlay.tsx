@@ -8,7 +8,6 @@ import GameSettings from "../settings/GameSettings";
 import InstallDeleteConfirm from "../popups/settings/InstallDeleteConfirm";
 import FpsUnlockSettings from "../popups/settings/FpsUnlockSettings.tsx";
 import MangoHudSettings from "../popups/settings/MangoHudSettings.tsx";
-import RunnerManager from "../popups/runnermanager/RunnerManager.tsx";
 import XXMISettings from "../popups/settings/XXMISettings.tsx";
 
 export type PopupOverlayProps = {
@@ -71,9 +70,7 @@ export default function PopupOverlay(props: PopupOverlayProps) {
     runnerVersions,
     dxvkVersions,
     gameVersions,
-    runners,
     installedRunners,
-    fetchInstalledRunners,
     gameIcon,
     gameBackground,
     currentGame,
@@ -125,14 +122,6 @@ export default function PopupOverlay(props: PopupOverlayProps) {
           repos={reposList}
           setOpenPopup={setOpenPopup}
           fetchRepositories={fetchRepositories}
-        />
-      )}
-      {openPopup == POPUPS.RUNNERMANAGER && (
-        <RunnerManager
-          runners={runners}
-          fetchInstalledRunners={fetchInstalledRunners}
-          installedRunners={installedRunners}
-          setOpenPopup={setOpenPopup}
         />
       )}
       {openPopup == POPUPS.ADDREPO && <AddRepo setOpenPopup={setOpenPopup} />}

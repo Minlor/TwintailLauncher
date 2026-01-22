@@ -1,6 +1,7 @@
 import { PAGES } from "./PAGES";
 import SettingsPage from "./SettingsPage";
 import DownloadsPage from "./DownloadsPage";
+import RunnersPage from "./RunnersPage";
 import type { DownloadJobProgress, DownloadQueueStatePayload } from "../../types/downloadQueue";
 
 interface TelemetrySample {
@@ -13,6 +14,21 @@ interface InstallView {
     name?: string;
     game_icon?: string;
     game_background?: string;
+}
+
+interface RunnerVersion {
+    version: string;
+    url: string;
+}
+
+interface RunnerManifest {
+    display_name: string;
+    versions: RunnerVersion[];
+}
+
+interface InstalledRunner {
+    version: string;
+    is_installed: boolean;
 }
 
 interface PageViewContainerProps {
@@ -31,6 +47,11 @@ interface PageViewContainerProps {
     onSpeedSample: (sample: TelemetrySample) => void;
     onClearHistory: () => void;
     downloadSpeedLimitKiB: number;
+
+    // Runners props
+    runners: RunnerManifest[];
+    installedRunners: InstalledRunner[];
+    fetchInstalledRunners: () => void;
 }
 
 export default function PageViewContainer({
@@ -45,9 +66,12 @@ export default function PageViewContainer({
     onSpeedSample,
     onClearHistory,
     downloadSpeedLimitKiB,
+    runners,
+    installedRunners,
+    fetchInstalledRunners,
 }: PageViewContainerProps) {
     return (
-        <div className="absolute inset-0 left-16 z-30 bg-[#09090b]/95 backdrop-blur-sm flex flex-col overflow-hidden">
+        <div className="absolute inset-0 left-16 z-30 bg-black/50 flex flex-col overflow-hidden border-l border-white/10">
             {currentPage === PAGES.SETTINGS && (
                 <SettingsPage
                     settings={globalSettings}
@@ -65,6 +89,14 @@ export default function PageViewContainer({
                     onSpeedSample={onSpeedSample}
                     onClearHistory={onClearHistory}
                     downloadSpeedLimitKiB={downloadSpeedLimitKiB}
+                />
+            )}
+            {currentPage === PAGES.RUNNERS && (
+                <RunnersPage
+                    setCurrentPage={setCurrentPage}
+                    runners={runners}
+                    installedRunners={installedRunners}
+                    fetchInstalledRunners={fetchInstalledRunners}
                 />
             )}
         </div>

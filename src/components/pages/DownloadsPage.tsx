@@ -532,19 +532,19 @@ export default function DownloadsPage({
             )}
 
             {/* Page Header */}
-            <div className="flex items-center gap-4 px-8 py-6 border-b border-white/5 bg-black/30 backdrop-blur-sm">
+            <div className="flex items-center gap-4 px-8 py-5 border-b border-white/5">
                 <button
                     onClick={() => setCurrentPage(PAGES.NONE)}
-                    className="p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 transition-all duration-200 hover:scale-105"
+                    className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 transition-all duration-200 hover:scale-105 hover:shadow-[0_0_12px_rgba(59,130,246,0.15)] active:scale-95"
                 >
                     <ArrowLeft className="w-5 h-5 text-white/70" />
                 </button>
                 <div className="flex items-center gap-4">
-                    <div className="p-3 bg-blue-600/20 rounded-xl border border-blue-500/30">
+                    <div className="p-3 bg-blue-500/15 rounded-xl border border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.2)]">
                         <DownloadCloud className="w-6 h-6 text-blue-400" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-white">Download Manager</h1>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">Download Manager</h1>
                         {currentJob && (
                             <p className="text-sm text-white/50">
                                 {formatSpeed(currentSpeed)} • {allJobs.length} item{allJobs.length !== 1 ? 's' : ''} in queue

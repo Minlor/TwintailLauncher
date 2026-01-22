@@ -292,7 +292,7 @@ export default class App extends React.Component<any, any> {
                             </div>
                             {(window.navigator.platform.includes("Linux")) && (
                                 <div className="animate-slideInLeft" style={{ animationDelay: '1000ms' }}>
-                                    <SidebarRunners popup={this.state.openPopup} setOpenPopup={this.setOpenPopup} />
+                                    <SidebarRunners popup={this.state.openPopup} setOpenPopup={this.setOpenPopup} currentPage={this.state.currentPage} setCurrentPage={this.setCurrentPage} />
                                 </div>
                             )}
                             <div className="animate-slideInLeft" style={{ animationDelay: '1100ms' }}>
@@ -408,6 +408,9 @@ export default class App extends React.Component<any, any> {
                         onSpeedSample={this.handleSpeedSample}
                         onClearHistory={this.handleClearSpeedHistory}
                         downloadSpeedLimitKiB={this.state.globalSettings?.download_speed_limit ?? 0}
+                        runners={this.state.runners}
+                        installedRunners={this.state.installedRunners}
+                        fetchInstalledRunners={this.fetchInstalledRunners}
                     />
                 )}
                 {this.state.showLoadingOverlay && (

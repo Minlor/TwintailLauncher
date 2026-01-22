@@ -65,18 +65,23 @@ export default function SettingsPage({ settings, fetchSettings, setCurrentPage }
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden animate-fadeIn">
             {/* Page Header */}
-            <div className="flex items-center gap-4 px-8 py-6 border-b border-white/5 bg-black/30 backdrop-blur-sm">
+            <div className="flex items-center gap-4 px-8 py-5 border-b border-white/5">
                 <button
                     onClick={() => setCurrentPage(PAGES.NONE)}
-                    className="p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 transition-all duration-200 hover:scale-105"
+                    className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 transition-all duration-200 hover:scale-105 hover:shadow-[0_0_12px_rgba(147,51,234,0.15)] active:scale-95"
                 >
                     <ArrowLeft className="w-5 h-5 text-white/70" />
                 </button>
-                <div>
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
-                        Launcher Settings
-                    </h1>
-                    <p className="text-sm text-white/50">Configure your launcher preferences</p>
+                <div className="flex items-center gap-4">
+                    <div className="p-3 bg-purple-500/15 rounded-xl border border-purple-500/20 shadow-[0_0_15px_rgba(147,51,234,0.2)]">
+                        <Settings className="w-6 h-6 text-purple-400" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">
+                            Launcher Settings
+                        </h1>
+                        <p className="text-sm text-white/50">Configure your launcher preferences</p>
+                    </div>
                 </div>
             </div>
 

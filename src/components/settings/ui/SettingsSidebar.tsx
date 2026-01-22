@@ -90,7 +90,7 @@ export const SettingsSidebar = ({ tabs, activeTab, onTabChange }: SettingsSideba
     const styles = colorMap[activeTabObj.color] || colorMap.default;
 
     return (
-        <div className="w-64 flex-shrink-0 h-full border-r border-white/5 bg-black/20 p-4 flex flex-col gap-2 overflow-y-auto scrollbar-none relative">
+        <div className="w-64 flex-shrink-0 h-full border-r border-white/5 bg-transparent p-4 flex flex-col gap-2 overflow-y-auto scrollbar-none relative">
             {/* Floating Active Indicator Background */}
             <div
                 className={`absolute left-4 right-4 rounded-xl transition-all duration-300 ease-out pointer-events-none ${styles.glow}`}
