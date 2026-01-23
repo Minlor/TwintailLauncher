@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useCallback } from "react";
-import { isImagePreloaded, isVideoUrl, preloadImage, getPreloadedImage } from "../../utils/imagePreloader";
+import { isImagePreloaded, isVideoUrl, preloadImage, getPreloadedImage, isLinux } from "../../utils/imagePreloader";
 
 interface BackgroundLayerProps {
   currentSrc: string;
@@ -7,11 +7,12 @@ interface BackgroundLayerProps {
   transitioning: boolean;
   bgVersion: number;
   popupOpen: boolean;
+  pageOpen?: boolean;
   bgLoading?: boolean;
   onMainLoad?: () => void;
 }
 
-const isVideo = (src?: string) => !!src && isVideoUrl(src) && !navigator.userAgent.includes('Linux');
+const isVideo = (src?: string) => !!src && isVideoUrl(src) && !isLinux;
 
 // helper to detect MP4 specifically (for treating MP4 looping differently)
 const isMp4 = (src?: string) => !!src && src.endsWith(".mp4");
@@ -22,6 +23,7 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
   transitioning,
   bgVersion,
   popupOpen,
+  pageOpen,
   bgLoading,
   onMainLoad,
 }) => {
@@ -113,10 +115,7 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
 
     // Skip if same source
     if (currentSrcRef.current === currentSrc && currentElementRef.current) {
-      // Just update classes for popup state changes
-      const el = currentElementRef.current;
-      const baseClass = `w-full h-screen object-cover object-center transition-all duration-300 ease-out ${transitioning ? "animate-bg-fade-in" : ""} ${popupOpen ? "scale-[1.03] brightness-[0.45] saturate-75" : ""}`;
-      el.className = baseClass;
+      // Just update classes for popup state changes - handled by separate useEffect below
       return;
     }
 
@@ -128,7 +127,7 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
 
     if (!currentSrc) return;
 
-    const baseClass = `w-full h-screen object-cover object-center transition-all duration-300 ease-out ${transitioning ? "animate-bg-fade-in" : ""} ${popupOpen ? "scale-[1.03] brightness-[0.45] saturate-75" : ""}`;
+    const baseClass = `w-full h-screen object-cover object-center transition-all duration-300 ease-out ${transitioning ? "animate-bg-fade-in" : ""} ${(popupOpen || pageOpen) ? "scale-[1.03] brightness-[0.45] saturate-75" : ""}`;
 
     // Ensure preloaded before creating element
     const createAndAppend = () => {
@@ -168,7 +167,7 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
     } else {
       preloadImage(currentSrc).then(createAndAppend);
     }
-  }, [currentSrc, bgVersion, transitioning, popupOpen, createVideoElement, createImageElement, onMainLoad]);
+  }, [currentSrc, bgVersion, transitioning, popupOpen, pageOpen, createVideoElement, createImageElement, onMainLoad]);
 
   // Effect to handle previous background (for transitions)
   useEffect(() => {
@@ -180,7 +179,7 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
 
     if (!transitioning || !previousSrc) return;
 
-    const baseClass = `w-full h-screen object-cover object-center absolute inset-0 transition-none animate-bg-fade-out ${popupOpen ? "scale-[1.03] brightness-[0.45] saturate-75" : ""}`;
+    const baseClass = `w-full h-screen object-cover object-center absolute inset-0 transition-none animate-bg-fade-out ${(popupOpen || pageOpen) ? "scale-[1.03] brightness-[0.45] saturate-75" : ""}`;
 
     if (isVideo(previousSrc)) {
       const preloaded = getPreloadedImage(previousSrc);
@@ -219,16 +218,22 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
 
       container.appendChild(img);
     }
-  }, [transitioning, previousSrc, bgVersion, popupOpen]);
+  }, [transitioning, previousSrc, bgVersion, popupOpen, pageOpen]);
 
   // Effect to update popup styling without re-creating elements
   useEffect(() => {
     const el = currentElementRef.current;
     if (!el || !currentSrc) return;
 
-    const baseClass = `w-full h-screen object-cover object-center transition-all duration-300 ease-out ${transitioning ? "animate-bg-fade-in" : ""} ${popupOpen ? "scale-[1.03] brightness-[0.45] saturate-75" : ""}`;
-    el.className = baseClass;
-  }, [popupOpen, transitioning, currentSrc]);
+    const baseClass = `w-full h-screen object-cover object-center transition-all duration-300 ease-out ${transitioning ? "animate-bg-fade-in" : ""} ${(popupOpen || pageOpen) ? "scale-[1.03] brightness-[0.45] saturate-75" : ""}`;
+
+    // Use requestAnimationFrame to prevent layout thrashing
+    requestAnimationFrame(() => {
+      if (el) {
+        el.className = baseClass;
+      }
+    });
+  }, [popupOpen, pageOpen, transitioning, currentSrc]);
 
   return (
     <div className="absolute inset-0 -z-10 pointer-events-none overflow-hidden">
@@ -249,7 +254,7 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
       {/* Loading gradient overlay */}
       {(bgLoading || !currentSrc) ? (
         <div className="absolute inset-0">
-          <div className={`w-full h-full ${popupOpen ? "scale-[1.03]" : ""}`} style={{
+          <div className={`w-full h-full ${(popupOpen || pageOpen) ? "scale-[1.03]" : ""}`} style={{
             backgroundImage: 'radial-gradient(circle at 20% 20%, rgba(90,70,140,0.35), rgba(20,15,30,0.9) 60%), radial-gradient(circle at 80% 80%, rgba(60,100,160,0.25), rgba(10,10,20,0.95) 55%)'
           }} />
         </div>

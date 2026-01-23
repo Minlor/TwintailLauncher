@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { POPUPS } from "../popups/POPUPS";
+import { PAGES } from "../pages/PAGES";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { Folder, Play, Wrench, Trash2, Sliders, Box, Monitor } from "lucide-react";
@@ -17,22 +18,26 @@ const SteamIcon = ({ className }: { className?: string }) => (
 
 interface GameSettingsProps {
     setOpenPopup: (popup: POPUPS) => void;
+    setCurrentPage: (page: PAGES) => void;
     installSettings: any;
     fetchInstallSettings: (id: string) => void;
     prefetchedSwitches: any;
     prefetchedFps: any;
     installedRunners: any[];
-    installs?: any[]; // Optional for now to avoid breaking if not immediately passed, but we'll update PopupOverlay next.
+    installs?: any[];
+    gamesinfo?: any[]; // Game manifests to look up static backgrounds
 }
 
 export default function GameSettings({
     setOpenPopup,
+    setCurrentPage,
     installSettings,
     fetchInstallSettings,
     prefetchedSwitches,
     prefetchedFps: _prefetchedFps,
     installedRunners,
-    installs
+    installs,
+    gamesinfo
 }: GameSettingsProps) {
     const [activeTab, setActiveTab] = useState("general");
 
@@ -115,16 +120,28 @@ export default function GameSettings({
             }
 
             await invoke(command, payload);
-            fetchInstallSettings(installId);
+
+            // Use requestAnimationFrame to prevent flickering on Linux
+            requestAnimationFrame(() => {
+                fetchInstallSettings(installId);
+            });
         } catch (e) {
             console.error(`Failed to update game setting ${key}:`, e);
         }
     }
 
-    // Find images
-    const installInfo = (installs || []).find((i: any) => i.id === installSettings.id);
-    const banner = installInfo?.game_background || installSettings.game_background;
-    const icon = installInfo?.game_icon || installSettings.game_icon;
+    // Find images - always use static backgrounds for settings popup
+    // Memoize to prevent unnecessary re-renders on Linux
+    const banner = useMemo(() => {
+        const installInfo = (installs || []).find((i: any) => i.id === installSettings.id);
+        const gameInfo = (gamesinfo || []).find((g: any) => g.biz === installSettings.manifest_id);
+        return gameInfo?.background || installInfo?.game_background || installSettings.game_background;
+    }, [installs, gamesinfo, installSettings.id, installSettings.manifest_id, installSettings.game_background]);
+
+    const icon = useMemo(() => {
+        const installInfo = (installs || []).find((i: any) => i.id === installSettings.id);
+        return installInfo?.game_icon || installSettings.game_icon;
+    }, [installs, installSettings.id, installSettings.game_icon]);
 
     return (
         <SettingsLayout
@@ -233,14 +250,25 @@ export default function GameSettings({
                     {activeTab === "linux" && (
                         <SettingsSection title="Linux Configuration">
                             <div className="flex flex-col gap-4">
-                                <ModernSelect
-                                    label="Runner Version"
-                                    description="Select the Wine/Proton version to use."
-                                    value={installSettings.runner_version || ""}
-                                    options={installedRunners}
-                                    onChange={(val) => handleUpdate("runner_version", val)}
-                                    helpText="Wine/Proton version used by this installation."
-                                />
+                                <div className="flex flex-col gap-2">
+                                    <ModernSelect
+                                        label="Runner Version"
+                                        description="Select the Wine/Proton version to use."
+                                        value={installSettings.runner_version || ""}
+                                        options={installedRunners}
+                                        onChange={(val) => handleUpdate("runner_version", val)}
+                                        helpText="Wine/Proton version used by this installation."
+                                    />
+                                    <button
+                                        onClick={() => {
+                                            setOpenPopup(POPUPS.NONE);
+                                            setCurrentPage(PAGES.RUNNERS);
+                                        }}
+                                        className="text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors text-left px-1 underline-offset-2 hover:underline"
+                                    >
+                                        → Manage Runners
+                                    </button>
+                                </div>
                                 <ModernPathInput
                                     label="Runner Location"
                                     description="Path to the runner binary/folder."

@@ -2,6 +2,7 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 import { listen } from "@tauri-apps/api/event";
 import { Events } from "../constants/events.ts";
 import { registerEvents } from "./events.ts";
+import { isLinux } from "../utils/imagePreloader.ts";
 
 const IMAGE_PRELOAD_TIMEOUT_MS = 20000;
 export type SetProgressFn = (progress: number, message: string) => void;
@@ -11,6 +12,7 @@ export interface LoaderOptions {
   fetchRepositories: () => Promise<void>;
   fetchCompatibilityVersions: () => Promise<void>;
   fetchInstalledRunners: () => Promise<void>;
+  fetchSteamRTStatus: () => Promise<void>;
   getGamesInfo: () => any[];
   getInstalls: () => any[];
   preloadImages: (
@@ -58,6 +60,7 @@ export function startInitialLoad(opts: LoaderOptions): LoaderController {
         if (window.navigator.platform.includes("Linux")) {
           await opts.fetchCompatibilityVersions();
           await opts.fetchInstalledRunners();
+          await opts.fetchSteamRTStatus();
         }
         if (cancelled) return;
         opts.setProgress(50, "Loading game data...");
@@ -80,11 +83,12 @@ export function startInitialLoad(opts: LoaderOptions): LoaderController {
       const games = opts.getGamesInfo() || [];
       const installs = opts.getInstalls ? (opts.getInstalls() || []) : [];
       const gameBackgrounds: string[] = games.map((g: any) => g?.assets?.game_background).filter(Boolean);
-      const gameLiveBackgrounds: string[] = games.map((g: any) => g?.assets?.game_live_background).filter(Boolean);
+      // Skip live backgrounds on Linux - video backgrounds not supported
+      const gameLiveBackgrounds: string[] = isLinux ? [] : games.map((g: any) => g?.assets?.game_live_background).filter(Boolean);
       const gameIcons: string[] = games.map((g: any) => g?.assets?.game_icon).filter(Boolean);
       const installBackgrounds: string[] = installs.map((i: any) => i?.game_background).filter(Boolean);
       const installIcons: string[] = installs.map((i: any) => i?.game_icon).filter(Boolean);
-      // Deduplicate all URLs - live backgrounds are preloaded first for immediate use
+      // Deduplicate all URLs - live backgrounds are preloaded first for immediate use (if not on Linux)
       const images = Array.from(new Set([
         ...gameLiveBackgrounds,
         ...gameBackgrounds,
@@ -124,7 +128,15 @@ export function startInitialLoad(opts: LoaderOptions): LoaderController {
         for (const eventType of Events) {
           const unlisten = await listen(eventType, (event) => {
             if (cancelled) return;
-            const ns = registerEvents(eventType, event, opts.pushInstalls, opts.getCurrentInstall, opts.fetchInstallResumeStates);
+            const ns = registerEvents(
+              eventType,
+              event,
+              opts.pushInstalls,
+              opts.getCurrentInstall,
+              opts.fetchInstallResumeStates,
+              opts.fetchInstalledRunners,
+              opts.fetchSteamRTStatus
+            );
             if (ns !== undefined) opts.applyEventState(ns);
           });
           unlistenFns.push(unlisten);

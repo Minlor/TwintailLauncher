@@ -6,7 +6,7 @@ use crate::utils::db_manager::{
 use crate::utils::models::{GameVersion, XXMISettings};
 use crate::utils::repo_manager::get_manifest;
 #[cfg(target_os = "linux")]
-use crate::utils::repo_manager::get_manifests;
+use crate::utils::repo_manager::{get_compatibilities, get_manifests};
 use fischl::download::Extras;
 use fischl::utils::{extract_archive, get_github_release};
 use serde::{Deserialize, Serialize};
@@ -28,7 +28,13 @@ use crate::utils::db_manager::{
     update_settings_default_runner_location,
 };
 #[cfg(target_os = "linux")]
-use fischl::compat::{check_steamrt_update, download_steamrt};
+use fischl::compat::check_steamrt_update;
+#[cfg(target_os = "linux")]
+use crate::downloading::{QueueJobPayload, SteamrtDownloadPayload};
+#[cfg(target_os = "linux")]
+use crate::downloading::queue::QueueJobKind;
+#[cfg(target_os = "linux")]
+use crate::DownloadState;
 #[cfg(target_os = "linux")]
 use libc::{RLIMIT_NOFILE, getrlimit, rlim_t, rlimit, setrlimit};
 #[cfg(target_os = "linux")]
@@ -664,6 +670,7 @@ pub fn download_or_update_fps_unlock(path: PathBuf, update_mode: bool) {
     }
 }
 
+/// Downloads or updates XXMI modding tool via the queue system
 #[allow(unused_variables)]
 pub fn download_or_update_xxmi(
     app: &AppHandle,
@@ -671,213 +678,30 @@ pub fn download_or_update_xxmi(
     install_id: Option<String>,
     update_mode: bool,
 ) {
-    if update_mode {
-        if fs::read_dir(&path).unwrap().next().is_some() {
-            let app = app.clone();
-            std::thread::spawn(move || {
-                let dl = run_async_command(async {
-                    Extras::download_xxmi(
-                        "SpectrumQT/XXMI-Libs-Package".parse().unwrap(),
-                        path.as_path().to_str().unwrap().parse().unwrap(),
-                        true,
-                        move |_current, _total, _net_speed, _disk_speed| {},
-                    )
-                    .await
-                });
-                if dl {
-                    extract_archive(
-                        path.join("xxmi.zip")
-                            .as_path()
-                            .to_str()
-                            .unwrap()
-                            .parse()
-                            .unwrap(),
-                        path.as_path().to_str().unwrap().parse().unwrap(),
-                        false,
-                    );
-                    let gimi = String::from("SilentNightSound/GIMI-Package");
-                    let srmi = String::from("SpectrumQT/SRMI-Package");
-                    let zzmi = String::from("leotorrez/ZZMI-Package");
-                    let wwmi = String::from("SpectrumQT/WWMI-Package");
-                    let himi = String::from("leotorrez/HIMI-Package");
+    use crate::downloading::queue::QueueJobKind;
+    use crate::downloading::{QueueJobPayload, XXMIDownloadPayload};
+    use crate::DownloadState;
 
-                    let dl1 = run_async_command(async {
-                        Extras::download_xxmi_packages(
-                            gimi,
-                            srmi,
-                            zzmi,
-                            wwmi,
-                            himi,
-                            path.as_path().to_str().unwrap().parse().unwrap(),
-                        )
-                        .await
-                    });
-                    if dl1 {
-                        for mi in ["gimi", "srmi", "zzmi", "wwmi", "himi"] {
-                            extract_archive(
-                                path.join(format!("{mi}.zip"))
-                                    .as_path()
-                                    .to_str()
-                                    .unwrap()
-                                    .parse()
-                                    .unwrap(),
-                                path.join(mi).as_path().to_str().unwrap().parse().unwrap(),
-                                false,
-                            );
-                            for lib in ["d3d11.dll", "d3dcompiler_47.dll"] {
-                                let linkedpath = path.join(mi).join(lib);
-                                if !linkedpath.exists() {
-                                    #[cfg(target_os = "linux")]
-                                    std::os::unix::fs::symlink(path.join(lib), linkedpath).unwrap();
-                                    #[cfg(target_os = "windows")]
-                                    fs::copy(path.join(lib), linkedpath).unwrap();
-                                }
-                            }
-                        }
-                        #[cfg(target_os = "linux")]
-                        {
-                            if let Some(id) = install_id {
-                                let ai = get_install_info_by_id(&app, id).unwrap();
-                                let repm = get_manifest_info_by_id(&app, ai.manifest_id).unwrap();
-                                let gm = get_manifest(&app, repm.filename).unwrap();
-                                let exe = gm
-                                    .paths
-                                    .exe_filename
-                                    .clone()
-                                    .split('/')
-                                    .last()
-                                    .unwrap()
-                                    .to_string();
-                                let mi = get_mi_path_from_game(exe).unwrap();
-                                let base = path.join(mi);
-                                let data = apply_xxmi_tweaks(base, ai.xxmi_config);
-                                update_install_xxmi_config_by_id(&app, ai.id, data);
-                            }
-                        }
-                    }
-                }
-            });
-        }
+    let should_download = if update_mode {
+        // Update mode: only download if directory has content
+        fs::read_dir(&path).map(|mut d| d.next().is_some()).unwrap_or(false)
     } else {
-        if fs::read_dir(&path).unwrap().next().is_none() {
-            let app = app.clone();
-            let path = path.clone();
-            std::thread::spawn(move || {
-                let mut dlpayload = HashMap::new();
-                dlpayload.insert("name", String::from("XXMI Modding tool"));
-                dlpayload.insert("progress", "0".to_string());
-                dlpayload.insert("total", "1000".to_string());
-                app.emit("download_progress", dlpayload.clone()).unwrap();
-                prevent_exit(&app, true);
-                let dl = run_async_command(async {
-                    Extras::download_xxmi(
-                        "SpectrumQT/XXMI-Libs-Package".parse().unwrap(),
-                        path.as_path().to_str().unwrap().parse().unwrap(),
-                        true,
-                        {
-                            let app = app.clone();
-                            let dlpayload = dlpayload.clone();
-                            move |current, total, net_speed, disk_speed| {
-                                let mut dlpayload = dlpayload.clone();
-                                dlpayload.insert("name", "XXMI Modding tool".to_string());
-                                dlpayload.insert("progress", current.to_string());
-                                dlpayload.insert("total", total.to_string());
-                                dlpayload.insert("speed", net_speed.to_string());
-                                dlpayload.insert("disk", disk_speed.to_string());
-                                app.emit("download_progress", dlpayload.clone()).unwrap();
-                            }
-                        },
-                    )
-                    .await
-                });
-                if dl {
-                    extract_archive(
-                        path.join("xxmi.zip")
-                            .as_path()
-                            .to_str()
-                            .unwrap()
-                            .parse()
-                            .unwrap(),
-                        path.as_path().to_str().unwrap().parse().unwrap(),
-                        false,
-                    );
-                    let gimi = String::from("SilentNightSound/GIMI-Package");
-                    let srmi = String::from("SpectrumQT/SRMI-Package");
-                    let zzmi = String::from("leotorrez/ZZMI-Package");
-                    let wwmi = String::from("SpectrumQT/WWMI-Package");
-                    let himi = String::from("leotorrez/HIMI-Package");
+        // Fresh install mode: only download if directory is empty
+        fs::read_dir(&path).map(|mut d| d.next().is_none()).unwrap_or(true)
+    };
 
-                    let dl1 = run_async_command(async {
-                        Extras::download_xxmi_packages(
-                            gimi,
-                            srmi,
-                            zzmi,
-                            wwmi,
-                            himi,
-                            path.as_path().to_str().unwrap().parse().unwrap(),
-                        )
-                        .await
-                    });
-                    if dl1 {
-                        for mi in ["gimi", "srmi", "zzmi", "wwmi", "himi"] {
-                            extract_archive(
-                                path.join(format!("{mi}.zip"))
-                                    .as_path()
-                                    .to_str()
-                                    .unwrap()
-                                    .parse()
-                                    .unwrap(),
-                                path.join(mi).as_path().to_str().unwrap().parse().unwrap(),
-                                false,
-                            );
-                            for lib in ["d3d11.dll", "d3dcompiler_47.dll"] {
-                                let linkedpath = path.join(mi).join(lib);
-                                if !linkedpath.exists() {
-                                    #[cfg(target_os = "linux")]
-                                    std::os::unix::fs::symlink(path.join(lib), linkedpath).unwrap();
-                                    #[cfg(target_os = "windows")]
-                                    fs::copy(path.join(lib), linkedpath).unwrap();
-                                }
-                            }
-                        }
-                        app.emit("download_complete", String::from("XXMI Modding tool"))
-                            .unwrap();
-                        prevent_exit(&app, false);
-                        #[cfg(target_os = "linux")]
-                        {
-                            if let Some(id) = install_id {
-                                let ai = get_install_info_by_id(&app, id).unwrap();
-                                let repm = get_manifest_info_by_id(&app, ai.manifest_id).unwrap();
-                                let gm = get_manifest(&app, repm.filename).unwrap();
-                                let exe = gm
-                                    .paths
-                                    .exe_filename
-                                    .clone()
-                                    .split('/')
-                                    .last()
-                                    .unwrap()
-                                    .to_string();
-                                let mi = get_mi_path_from_game(exe).unwrap();
-                                let base = path.join(mi);
-                                let data = apply_xxmi_tweaks(base, ai.xxmi_config);
-                                update_install_xxmi_config_by_id(&app, ai.id, data);
-                            }
-                        }
-                    }
-                } else {
-                    show_dialog(
-                        &app,
-                        "error",
-                        "TwintailLauncher",
-                        "Error occurred while trying to download XXMI Modding tool! Please retry later by re-enabling the \"Inject XXMI\" in Install Settings.",
-                        None,
-                    );
-                    prevent_exit(&app, false);
-                    app.emit("download_complete", String::from("XXMI Modding tool"))
-                        .unwrap();
-                    empty_dir(&path).unwrap();
-                }
-            });
+    if should_download {
+        let state = app.state::<DownloadState>();
+        let q = state.queue.lock().unwrap().clone();
+        if let Some(queue) = q {
+            queue.enqueue(
+                QueueJobKind::XxmiDownload,
+                QueueJobPayload::XXMI(XXMIDownloadPayload {
+                    xxmi_path: path.to_str().unwrap().to_string(),
+                    install_id,
+                    is_update: update_mode,
+                }),
+            );
         }
     }
 }
@@ -1028,58 +852,23 @@ pub fn download_or_update_steamrt(app: &AppHandle) {
             }
         }
 
-        if fs::read_dir(&steamrt).unwrap().next().is_none() {
-            let app = app.clone();
-            std::thread::spawn(move || {
-                let app = app.clone();
-                let mut dlpayload = HashMap::new();
-                dlpayload.insert("name", String::from("SteamLinuxRuntime 3"));
-                dlpayload.insert("progress", "0".to_string());
-                dlpayload.insert("total", "1000".to_string());
-                app.emit("download_progress", dlpayload.clone()).unwrap();
-                prevent_exit(&app, true);
+        let steamrt_path = steamrt.to_str().unwrap().to_string();
 
-                let r = run_async_command(async {
-                    download_steamrt(
-                        steamrt.clone(),
-                        steamrt.clone(),
-                        "steamrt3".to_string(),
-                        "latest-public-beta".to_string(),
-                        {
-                            let app = app.clone();
-                            let dlpayload = dlpayload.clone();
-                            move |current, total, net_speed, disk_speed| {
-                                let mut dlpayload = dlpayload.clone();
-                                dlpayload.insert("name", "SteamLinuxRuntime 3".to_string());
-                                dlpayload.insert("progress", current.to_string());
-                                dlpayload.insert("total", total.to_string());
-                                dlpayload.insert("speed", net_speed.to_string());
-                                dlpayload.insert("disk", disk_speed.to_string());
-                                app.emit("download_progress", dlpayload.clone()).unwrap();
-                            }
-                        },
-                    )
-                    .await
-                });
-                if r {
-                    app.emit("download_complete", String::from("SteamLinuxRuntime 3"))
-                        .unwrap();
-                    prevent_exit(&app, false);
-                } else {
-                    show_dialog(
-                        &app,
-                        "error",
-                        "TwintailLauncher",
-                        "Error occurred while trying to download SteamLinuxRuntime! Please restart the application to retry.",
-                        None,
-                    );
-                    prevent_exit(&app, false);
-                    app.emit("download_complete", String::from("SteamLinuxRuntime 3"))
-                        .unwrap();
-                    empty_dir(steamrt.as_path()).unwrap();
-                }
-            });
+        if fs::read_dir(&steamrt).unwrap().next().is_none() {
+            // SteamRT not installed - enqueue download
+            let state = app.state::<DownloadState>();
+            let q = state.queue.lock().unwrap().clone();
+            if let Some(queue) = q {
+                queue.enqueue(
+                    QueueJobKind::SteamrtDownload,
+                    QueueJobPayload::Steamrt(SteamrtDownloadPayload {
+                        steamrt_path,
+                        is_update: false,
+                    }),
+                );
+            }
         } else {
+            // Check for updates
             let vp = steamrt.join("VERSIONS.txt");
             if !vp.exists() {
                 return;
@@ -1093,57 +882,21 @@ pub fn download_or_update_steamrt(app: &AppHandle) {
             if remote_ver.is_some() {
                 let rv = remote_ver.unwrap();
                 if compare_steamrt_versions(&rv, &cur_ver) {
+                    // Clear the old version before update
                     empty_dir(steamrt.as_path()).unwrap();
-                    let app = app.clone();
-                    std::thread::spawn(move || {
-                        let app = app.clone();
-                        let mut dlpayload = HashMap::new();
-                        dlpayload.insert("name", String::from("SteamLinuxRuntime 3"));
-                        dlpayload.insert("progress", "0".to_string());
-                        dlpayload.insert("total", "1000".to_string());
-                        app.emit("update_progress", dlpayload.clone()).unwrap();
-                        prevent_exit(&app, true);
 
-                        let r = run_async_command(async {
-                            download_steamrt(
-                                steamrt.clone(),
-                                steamrt.clone(),
-                                "steamrt3".to_string(),
-                                "latest-public-beta".to_string(),
-                                {
-                                    let app = app.clone();
-                                    let dlpayload = dlpayload.clone();
-                                    move |current, total, net_speed, disk_speed| {
-                                        let mut dlpayload = dlpayload.clone();
-                                        dlpayload.insert("name", "SteamLinuxRuntime 3".to_string());
-                                        dlpayload.insert("progress", current.to_string());
-                                        dlpayload.insert("total", total.to_string());
-                                        dlpayload.insert("speed", net_speed.to_string());
-                                        dlpayload.insert("disk", disk_speed.to_string());
-                                        app.emit("update_progress", dlpayload.clone()).unwrap();
-                                    }
-                                },
-                            )
-                            .await
-                        });
-                        if r {
-                            app.emit("update_complete", String::from("SteamLinuxRuntime 3"))
-                                .unwrap();
-                            prevent_exit(&app, false);
-                        } else {
-                            show_dialog(
-                                &app,
-                                "error",
-                                "TwintailLauncher",
-                                "Error occurred while trying to update SteamLinuxRuntime! Please restart the application to retry.",
-                                None,
-                            );
-                            prevent_exit(&app, false);
-                            app.emit("update_complete", String::from("SteamLinuxRuntime 3"))
-                                .unwrap();
-                            empty_dir(steamrt.as_path()).unwrap();
-                        }
-                    });
+                    // Enqueue update job
+                    let state = app.state::<DownloadState>();
+                    let q = state.queue.lock().unwrap().clone();
+                    if let Some(queue) = q {
+                        queue.enqueue(
+                            QueueJobKind::SteamrtDownload,
+                            QueueJobPayload::Steamrt(SteamrtDownloadPayload {
+                                steamrt_path,
+                                is_update: true,
+                            }),
+                        );
+                    }
                 } else {
                     println!("SteamLinuxRuntime is up to date!");
                 }

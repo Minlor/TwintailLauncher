@@ -1,5 +1,6 @@
 import { DownloadCloudIcon, HardDriveDownloadIcon, X, HardDrive, ChevronDown, Check, Folder } from "lucide-react";
 import { POPUPS } from "./POPUPS.ts";
+import { PAGES } from "../pages/PAGES.ts";
 import FolderInput from "../common/FolderInput.tsx";
 import CheckBox from "../common/CheckBox.tsx";
 import SelectMenu from "../common/SelectMenu.tsx";
@@ -26,12 +27,19 @@ interface IProps {
     setBackground: (background: string) => void;
     fetchDownloadSizes: (biz: any, version: any, lang: any, path: any, callback: (data: any) => void) => void;
     openAsExisting?: boolean;
+    setCurrentPage: (page: PAGES) => void;
 }
 
-export default function DownloadGame({ disk, setOpenPopup, displayName, settings, biz, versions, background, icon, pushInstalls, runnerVersions, dxvkVersions, setCurrentInstall, setBackground, fetchDownloadSizes, openAsExisting }: IProps) {
+export default function DownloadGame({ disk, setOpenPopup, displayName, settings, biz, versions, background, icon, pushInstalls, runnerVersions, dxvkVersions, setCurrentInstall, fetchDownloadSizes, openAsExisting, setCurrentPage }: IProps) {
     const [skipGameDownload] = useState<boolean>(!!openAsExisting);
     const [selectedGameVersion, setSelectedGameVersion] = useState(versions?.[0]?.value || "");
     const [isVersionOpen, setIsVersionOpen] = useState(false);
+
+    // Local state for popup banner (don't change main app background)
+    const [popupBanner, setPopupBanner] = useState(() => {
+        const selectedVersion = versions.find(v => v.value === versions?.[0]?.value);
+        return selectedVersion?.background || background;
+    });
 
     // @ts-ignore
     const [selectedAudioLang, setSelectedAudioLang] = useState("en-us");
@@ -59,17 +67,6 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
 
     // Controlled State for Install Path
     const [installPath, setInstallPath] = useState(`${settings.default_game_path}/${biz}`);
-
-    // Initialize background to the selected version's dynamic background
-    useEffect(() => {
-        const selectedVersion = versions.find(v => v.value === selectedGameVersion);
-        if (selectedVersion) {
-            const newBackground = selectedVersion.liveBackground || selectedVersion.background;
-            if (newBackground && newBackground !== background) {
-                setBackground(newBackground);
-            }
-        }
-    }, []); // Run only once on mount
 
     // Update path effect to fetch sizes
     useEffect(() => {
@@ -149,7 +146,7 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
                 runnerVersion: rvv,
                 dxvkVersion: dvv,
                 gameIcon: icon,
-                gameBackground: background,
+                gameBackground: popupBanner,
                 ignoreUpdates: skip_version,
                 skipHashCheck: hash_skip,
                 useJadeite: false,
@@ -190,9 +187,9 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
 
             {/* Hero Header */}
             <div className="relative h-48 w-full flex-shrink-0">
-                {background && (
+                {popupBanner && (
                     <div className="absolute inset-0">
-                        <CachedImage src={background} className="w-full h-full object-cover opacity-80" alt="Game Background" />
+                        <CachedImage src={popupBanner} className="w-full h-full object-cover opacity-80" alt="Game Background" />
                         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-[#0c0c0c]" />
                     </div>
                 )}
@@ -236,10 +233,10 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
                                                 onClick={() => {
                                                     setSelectedGameVersion(v.value);
                                                     setIsVersionOpen(false);
-                                                    // Use dynamic background (liveBackground) if available, otherwise fall back to static background
-                                                    const newBackground = v.liveBackground || v.background;
+                                                    // Update local popup banner (don't change main app background)
+                                                    const newBackground = v.background;
                                                     if (newBackground) {
-                                                        setBackground(newBackground);
+                                                        setPopupBanner(newBackground);
                                                     }
                                                 }}
                                                 className="w-full px-4 py-2 text-left hover:bg-white/10 flex items-center justify-between group"
@@ -340,7 +337,25 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-white/5">
                         <div className="space-y-2">
                             <label className="text-white/70 text-sm font-medium ml-1">Runner</label>
-                            <SelectMenu id={"runner_version"} name="" multiple={false} options={runnerVersions} selected={selectedRunnerVersion} helpText={"Wine/Proton version."} setOpenPopup={setOpenPopup} onSelect={setSelectedRunnerVersion} />
+                            <SelectMenu
+                                id={"runner_version"}
+                                name=""
+                                multiple={false}
+                                options={runnerVersions}
+                                selected={selectedRunnerVersion}
+                                helpText={"Wine/Proton version."}
+                                setOpenPopup={setOpenPopup}
+                                onSelect={setSelectedRunnerVersion}
+                            />
+                            <button
+                                onClick={() => {
+                                    setOpenPopup(POPUPS.NONE);
+                                    setCurrentPage(PAGES.RUNNERS);
+                                }}
+                                className="text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors text-left px-1 underline-offset-2 hover:underline"
+                            >
+                                → Manage Runners
+                            </button>
                         </div>
                         <div className="space-y-2 md:col-span-2">
                             <label className="text-white/70 text-sm font-medium ml-1">Prefix Path</label>

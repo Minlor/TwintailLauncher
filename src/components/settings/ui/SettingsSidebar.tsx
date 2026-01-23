@@ -75,15 +75,30 @@ const colorMap: Record<string, { accent: string, glow: string, icon: string, sha
 export const SettingsSidebar = ({ tabs, activeTab, onTabChange }: SettingsSidebarProps) => {
     const [indicatorStyle, setIndicatorStyle] = React.useState({ top: 0, height: 48 });
     const tabsRef = React.useRef<{ [key: string]: HTMLButtonElement | null }>({});
+    const rafRef = React.useRef<number | null>(null);
 
     React.useEffect(() => {
-        const activeElement = tabsRef.current[activeTab];
-        if (activeElement) {
-            setIndicatorStyle({
-                top: activeElement.offsetTop,
-                height: activeElement.offsetHeight
-            });
+        // Cancel any pending RAF
+        if (rafRef.current) {
+            cancelAnimationFrame(rafRef.current);
         }
+
+        // Use RAF to prevent flickering on Linux
+        rafRef.current = requestAnimationFrame(() => {
+            const activeElement = tabsRef.current[activeTab];
+            if (activeElement) {
+                setIndicatorStyle({
+                    top: activeElement.offsetTop,
+                    height: activeElement.offsetHeight
+                });
+            }
+        });
+
+        return () => {
+            if (rafRef.current) {
+                cancelAnimationFrame(rafRef.current);
+            }
+        };
     }, [activeTab, tabs]);
 
     const activeTabObj = tabs.find(t => t.id === activeTab) || tabs[0];
@@ -93,7 +108,7 @@ export const SettingsSidebar = ({ tabs, activeTab, onTabChange }: SettingsSideba
         <div className="w-64 flex-shrink-0 h-full border-r border-white/5 bg-transparent p-4 flex flex-col gap-2 overflow-y-auto scrollbar-none relative">
             {/* Floating Active Indicator Background */}
             <div
-                className={`absolute left-4 right-4 rounded-xl transition-all duration-300 ease-out pointer-events-none ${styles.glow}`}
+                className={`absolute left-4 right-4 rounded-xl transition-all duration-300 ease-out pointer-events-none will-change-transform ${styles.glow}`}
                 style={{
                     top: indicatorStyle.top,
                     height: indicatorStyle.height,
@@ -101,7 +116,7 @@ export const SettingsSidebar = ({ tabs, activeTab, onTabChange }: SettingsSideba
                 }}
             >
                 {/* Active Line (Accent Bar) */}
-                <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full transition-all duration-300 ${styles.accent} ${styles.shadow}`} />
+                <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full transition-all duration-300 will-change-transform ${styles.accent} ${styles.shadow}`} />
             </div>
 
             {tabs.map((tab) => {

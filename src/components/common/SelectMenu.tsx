@@ -5,7 +5,7 @@ import HelpTooltip from "./HelpTooltip.tsx";
 import {POPUPS} from "../popups/POPUPS.ts";
 
 
-export default function SelectMenu({ id, name, options, selected, install, biz, lang, version, dir, fetchInstallSettings, fetchSettings, fetchDownloadSizes, helpText, setOpenPopup, skipGameDownload, onSelect}: { id: string, name: string, options: any, selected: any, multiple: boolean, install?: string, biz?: string, lang?: () => string, version?: () => any, dir?: () => string, helpText: string, fetchInstallSettings?: (id: string) => void, fetchSettings?: () => void, fetchDownloadSizes?: (biz: any, version: any, lang: any, dir: any, callback: (data: any) => void) => void, setOpenPopup: (popup: POPUPS) => void, skipGameDownload?: boolean, onSelect?: (value: string) => void }) {
+export default function SelectMenu({ id, name, options, selected, install, biz, lang, version, dir, fetchInstallSettings, fetchSettings, fetchDownloadSizes, helpText, setOpenPopup, skipGameDownload, onSelect }: { id: string, name: string, options: any, selected: any, multiple: boolean, install?: string, biz?: string, lang?: () => string, version?: () => any, dir?: () => string, helpText: string, fetchInstallSettings?: (id: string) => void, fetchSettings?: () => void, fetchDownloadSizes?: (biz: any, version: any, lang: any, dir: any, callback: (data: any) => void) => void, setOpenPopup: (popup: POPUPS) => void, skipGameDownload?: boolean, onSelect?: (value: string) => void }) {
     // Animation state for closing
     const [animateOut, setAnimateOut] = React.useState(false);
     // Animation state for portal dropdown
@@ -261,23 +261,25 @@ export default function SelectMenu({ id, name, options, selected, install, biz, 
                                         {filteredOptions.length === 0 ? (
                                             <div className="px-3 py-2 text-white/80">No matches</div>
                                         ) : (
-                                            filteredOptions.map((option: any, idx: number) => {
-                                                let rounded = "";
-                                                if (highlighted === idx) {
-                                                    if (idx === 0) rounded += " rounded-t-lg";
-                                                    if (idx === filteredOptions.length - 1) rounded += " rounded-b-lg";
-                                                }
-                                                return (
-                                                    <div
-                                                        key={option.value}
-                                                        className={`px-3 py-2 cursor-pointer ${highlighted === idx ? "bg-purple-600 text-white" : "hover:bg-white/10 text-white"}${rounded}`}
-                                                        onMouseEnter={() => setHighlighted(idx)}
-                                                        onMouseDown={e => { e.preventDefault(); handleSelect(option); }}
-                                                    >
-                                                        {option.name}
-                                                    </div>
-                                                );
-                                            })
+                                            <>
+                                                {filteredOptions.map((option: any, idx: number) => {
+                                                    let rounded = "";
+                                                    if (highlighted === idx) {
+                                                        if (idx === 0) rounded += " rounded-t-lg";
+                                                        if (idx === filteredOptions.length - 1) rounded += " rounded-b-lg";
+                                                    }
+                                                    return (
+                                                        <div
+                                                            key={option.value}
+                                                            className={`px-3 py-2 cursor-pointer ${highlighted === idx ? "bg-purple-600 text-white" : "hover:bg-white/10 text-white"}${rounded}`}
+                                                            onMouseEnter={() => setHighlighted(idx)}
+                                                            onMouseDown={e => { e.preventDefault(); handleSelect(option); }}
+                                                        >
+                                                            {option.name}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </>
                                         )}
                                     </div>
                                 </div>

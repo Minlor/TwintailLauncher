@@ -11,6 +11,10 @@
  * @returns Promise that resolves when all images are loaded
  */
 
+// Platform detection - used to disable dynamic backgrounds on Linux
+// TODO: Remove this check when Linux video backgrounds are fixed
+export const isLinux = window.navigator.platform.includes("Linux");
+
 // Keep strong references to preloaded elements to prevent GC
 const imageElementCache: Map<string, HTMLImageElement | HTMLVideoElement> = new Map();
 
@@ -44,7 +48,7 @@ export function getPreloadedImage(url: string): HTMLImageElement | HTMLVideoElem
  * Check if content is a video based on file extension
  */
 export function isVideoUrl(url: string): boolean {
-  if (navigator.userAgent.includes('Linux')) return false; // TODO: Re-enable when Linux video backgrounds are fixed
+  if (isLinux) return false; // TODO: Re-enable when Linux video backgrounds are fixed
   return url.endsWith('.webm') || url.endsWith('.mp4');
 }
 

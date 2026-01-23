@@ -1,4 +1,5 @@
 import { POPUPS } from "../popups/POPUPS";
+import { PAGES } from "../pages/PAGES";
 import { useEffect } from "react";
 import RepoManager from "../popups/repomanager/RepoManager";
 import AddRepo from "../popups/repomanager/AddRepo";
@@ -56,6 +57,9 @@ export type PopupOverlayProps = {
 
   // Delete confirmation
   installs: any[];
+
+  // Page navigation
+  setCurrentPage: (page: PAGES) => void;
 };
 
 export default function PopupOverlay(props: PopupOverlayProps) {
@@ -87,6 +91,7 @@ export default function PopupOverlay(props: PopupOverlayProps) {
     installGameSwitches,
     installGameFps,
     installs,
+    setCurrentPage,
   } = props;
 
   // ESC to close and scroll lock while a popup is open
@@ -149,6 +154,7 @@ export default function PopupOverlay(props: PopupOverlayProps) {
           setBackground={setBackground}
           setCurrentInstall={setCurrentInstall}
           openAsExisting={openDownloadAsExisting}
+          setCurrentPage={setCurrentPage}
         />
       )}
 
@@ -161,6 +167,8 @@ export default function PopupOverlay(props: PopupOverlayProps) {
           prefetchedSwitches={installGameSwitches}
           prefetchedFps={installGameFps}
           installs={installs}
+          setCurrentPage={setCurrentPage}
+          gamesinfo={gamesinfo}
         />
       )}
       {openPopup == POPUPS.INSTALLDELETECONFIRMATION && (

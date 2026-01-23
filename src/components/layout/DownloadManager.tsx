@@ -67,6 +67,7 @@ function formatKind(kind: QueueJobView['kind']): string {
     case 'game_update': return 'Update';
     case 'game_preload': return 'Preload';
     case 'game_repair': return 'Repair';
+    default: return 'Unknown';
   }
 }
 
@@ -80,6 +81,7 @@ function formatStatus(status: QueueJobView['status'], isPaused: boolean): string
     case 'failed': return 'Failed';
     case 'cancelled': return 'Paused';
     case 'paused': return 'Paused';
+    default: return 'Unknown';
   }
 }
 

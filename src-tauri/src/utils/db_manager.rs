@@ -1,13 +1,24 @@
-use std::collections::HashMap;
-use std::fs;
-use futures_core::future::BoxFuture;
-use sqlx::{query, Error, Executor, Pool, Row, Sqlite, error::BoxDynError, sqlite::SqliteQueryResult, migrate::{Migration as SqlxMigration, MigrateDatabase, MigrationSource, MigrationType, Migrator}};
-use sqlx::types::Json;
-use tauri::{AppHandle, Manager};
-use tokio::sync::{Mutex};
+use crate::utils::models::{
+    GlobalSettings, LauncherInstall, LauncherManifest, LauncherRepository, LauncherRunner,
+    XXMISettings,
+};
 use crate::utils::repo_manager::{setup_compatibility_repository, setup_official_repository};
 use crate::utils::{run_async_command, setup_or_fix_default_paths};
-use crate::utils::models::{GlobalSettings, LauncherInstall, LauncherManifest, LauncherRepository, LauncherRunner, XXMISettings};
+use futures_core::future::BoxFuture;
+use sqlx::types::Json;
+use sqlx::{
+    Error, Executor, Pool, Row, Sqlite,
+    error::BoxDynError,
+    migrate::{
+        MigrateDatabase, Migration as SqlxMigration, MigrationSource, MigrationType, Migrator,
+    },
+    query,
+    sqlite::SqliteQueryResult,
+};
+use std::collections::HashMap;
+use std::fs;
+use tauri::{AppHandle, Manager};
+use tokio::sync::Mutex;
 
 pub async fn init_db(app: &AppHandle) {
     let data_path = app.path().app_data_dir().unwrap();
@@ -17,10 +28,17 @@ pub async fn init_db(app: &AppHandle) {
     if !conn_url.exists() {
         fs::create_dir_all(&data_path).unwrap();
 
-        if !Sqlite::database_exists(conn_url.to_str().unwrap()).await.unwrap() {
-            Sqlite::create_database(conn_url.to_str().unwrap()).await.unwrap();
+        if !Sqlite::database_exists(conn_url.to_str().unwrap())
+            .await
+            .unwrap()
+        {
+            Sqlite::create_database(conn_url.to_str().unwrap())
+                .await
+                .unwrap();
             #[cfg(debug_assertions)]
-            { println!("Database does not exist... Creating new one for you!"); }
+            {
+                println!("Database does not exist... Creating new one for you!");
+            }
         }
     }
 
@@ -164,7 +182,9 @@ pub async fn init_db(app: &AppHandle) {
     if !manifests_dir.exists() {
         fs::create_dir_all(&manifests_dir).unwrap();
         #[cfg(debug_assertions)]
-        { println!("Manifests directory does not exist... Creating new one for you!"); }
+        {
+            println!("Manifests directory does not exist... Creating new one for you!");
+        }
         setup_official_repository(&app, &manifests_dir);
         setup_compatibility_repository(&app, &manifests_dir);
     } else {
@@ -173,14 +193,20 @@ pub async fn init_db(app: &AppHandle) {
     }
 }
 
-
 // === SETTINGS ===
 
 pub fn get_settings(app: &AppHandle) -> Option<GlobalSettings> {
     let mut rslt = vec![];
 
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("SELECT * FROM settings WHERE id = 1");
         rslt = query.fetch_all(&db).await.unwrap();
@@ -210,16 +236,31 @@ pub fn get_settings(app: &AppHandle) -> Option<GlobalSettings> {
 
 pub fn update_settings_third_party_repo_update(app: &AppHandle, enabled: bool) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE settings SET 'third_party_repo_updates' = $1 WHERE id = 1").bind(enabled);
+        let query =
+            query("UPDATE settings SET 'third_party_repo_updates' = $1 WHERE id = 1").bind(enabled);
         query.execute(&db).await.unwrap();
     });
 }
 
 pub fn update_settings_default_game_location(app: &AppHandle, path: String) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("UPDATE settings SET 'default_game_path' = $1 WHERE id = 1").bind(path);
         query.execute(&db).await.unwrap();
@@ -228,7 +269,14 @@ pub fn update_settings_default_game_location(app: &AppHandle, path: String) {
 
 pub fn update_settings_default_xxmi_location(app: &AppHandle, path: String) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("UPDATE settings SET 'xxmi_path' = $1 WHERE id = 1").bind(path);
         query.execute(&db).await.unwrap();
@@ -237,7 +285,14 @@ pub fn update_settings_default_xxmi_location(app: &AppHandle, path: String) {
 
 pub fn update_settings_default_fps_unlock_location(app: &AppHandle, path: String) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("UPDATE settings SET 'fps_unlock_path' = $1 WHERE id = 1").bind(path);
         query.execute(&db).await.unwrap();
@@ -246,7 +301,14 @@ pub fn update_settings_default_fps_unlock_location(app: &AppHandle, path: String
 
 pub fn update_settings_default_jadeite_location(app: &AppHandle, path: String) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("UPDATE settings SET 'jadeite_path' = $1 WHERE id = 1").bind(path);
         query.execute(&db).await.unwrap();
@@ -255,16 +317,31 @@ pub fn update_settings_default_jadeite_location(app: &AppHandle, path: String) {
 
 pub fn update_settings_default_prefix_location(app: &AppHandle, path: String) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE settings SET 'default_runner_prefix_path' = $1 WHERE id = 1").bind(path);
+        let query =
+            query("UPDATE settings SET 'default_runner_prefix_path' = $1 WHERE id = 1").bind(path);
         query.execute(&db).await.unwrap();
     });
 }
 
 pub fn update_settings_default_runner_location(app: &AppHandle, path: String) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("UPDATE settings SET 'default_runner_path' = $1 WHERE id = 1").bind(path);
         query.execute(&db).await.unwrap();
@@ -273,16 +350,31 @@ pub fn update_settings_default_runner_location(app: &AppHandle, path: String) {
 
 pub fn update_settings_download_speed_limit(app: &AppHandle, limit_kib_per_sec: i64) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE settings SET 'download_speed_limit' = $1 WHERE id = 1").bind(limit_kib_per_sec);
+        let query = query("UPDATE settings SET 'download_speed_limit' = $1 WHERE id = 1")
+            .bind(limit_kib_per_sec);
         query.execute(&db).await.unwrap();
     });
 }
 
 pub fn update_settings_default_dxvk_location(app: &AppHandle, path: String) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("UPDATE settings SET 'default_dxvk_path' = $1 WHERE id = 1").bind(path);
         query.execute(&db).await.unwrap();
@@ -291,16 +383,31 @@ pub fn update_settings_default_dxvk_location(app: &AppHandle, path: String) {
 
 pub fn update_settings_default_mangohud_config_location(app: &AppHandle, path: String) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE settings SET 'default_mangohud_config_path' = $1 WHERE id = 1").bind(path);
+        let query = query("UPDATE settings SET 'default_mangohud_config_path' = $1 WHERE id = 1")
+            .bind(path);
         query.execute(&db).await.unwrap();
     });
 }
 
 pub fn update_settings_launch_action(app: &AppHandle, action: String) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("UPDATE settings SET 'launcher_action' = $1 WHERE id = 1").bind(action);
         query.execute(&db).await.unwrap();
@@ -309,7 +416,14 @@ pub fn update_settings_launch_action(app: &AppHandle, action: String) {
 
 pub fn update_settings_hide_manifests(app: &AppHandle, enabled: bool) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("UPDATE settings SET 'hide_manifests' = $1 WHERE id = 1").bind(enabled);
         query.execute(&db).await.unwrap();
@@ -322,9 +436,18 @@ pub fn create_repository(app: &AppHandle, id: String, github_id: &str) -> Result
     let mut rslt = SqliteQueryResult::default();
 
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("INSERT INTO repository(id, github_id) VALUES ($1, $2)").bind(id).bind(github_id);
+        let query = query("INSERT INTO repository(id, github_id) VALUES ($1, $2)")
+            .bind(id)
+            .bind(github_id);
         rslt = query.execute(&db).await.unwrap();
     });
 
@@ -339,7 +462,14 @@ pub fn delete_repository_by_id(app: &AppHandle, id: String) -> Result<bool, Erro
     let mut rslt = SqliteQueryResult::default();
 
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("DELETE FROM repository WHERE id = $1").bind(id);
         rslt = query.execute(&db).await.unwrap();
@@ -356,7 +486,14 @@ pub fn get_repository_info_by_id(app: &AppHandle, id: String) -> Option<Launcher
     let mut rslt = vec![];
 
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("SELECT * FROM repository WHERE id = $1").bind(id);
         rslt = query.fetch_all(&db).await.unwrap();
@@ -374,11 +511,21 @@ pub fn get_repository_info_by_id(app: &AppHandle, id: String) -> Option<Launcher
     }
 }
 
-pub fn get_repository_info_by_github_id(app: &AppHandle, github_id: String) -> Option<LauncherRepository> {
+pub fn get_repository_info_by_github_id(
+    app: &AppHandle,
+    github_id: String,
+) -> Option<LauncherRepository> {
     let mut rslt = vec![];
 
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("SELECT * FROM repository WHERE github_id = $1").bind(github_id);
         rslt = query.fetch_all(&db).await.unwrap();
@@ -400,7 +547,14 @@ pub fn get_repositories(app: &AppHandle) -> Option<Vec<LauncherRepository>> {
     let mut rslt = vec![];
 
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("SELECT * FROM repository");
         rslt = query.fetch_all(&db).await.unwrap();
@@ -423,11 +577,25 @@ pub fn get_repositories(app: &AppHandle) -> Option<Vec<LauncherRepository>> {
 
 // === MANIFESTS ===
 
-pub fn create_manifest(app: &AppHandle, id: String, repository_id: String, display_name: &str, filename: &str, enabled: bool) -> Result<bool, Error> {
+pub fn create_manifest(
+    app: &AppHandle,
+    id: String,
+    repository_id: String,
+    display_name: &str,
+    filename: &str,
+    enabled: bool,
+) -> Result<bool, Error> {
     let mut rslt = SqliteQueryResult::default();
 
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         rslt = db.execute(format!("INSERT INTO manifest(id, repository_id, display_name, filename, enabled) VALUES ('{id}', '{repository_id}', '{display_name}', '{filename}', {enabled})").as_str()).await.unwrap();
     });
@@ -440,12 +608,26 @@ pub fn create_manifest(app: &AppHandle, id: String, repository_id: String, displ
 }
 
 #[allow(dead_code)]
-pub fn delete_manifest_by_repository_id(app: &AppHandle, repository_id: String) -> Result<bool, Error> {
+pub fn delete_manifest_by_repository_id(
+    app: &AppHandle,
+    repository_id: String,
+) -> Result<bool, Error> {
     let mut rslt = SqliteQueryResult::default();
 
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
-        rslt = query("DELETE FROM manifest WHERE repository_id = ? LIMIT = 1;").bind(&repository_id).execute(&db).await.unwrap();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
+        rslt = query("DELETE FROM manifest WHERE repository_id = ? LIMIT = 1;")
+            .bind(&repository_id)
+            .execute(&db)
+            .await
+            .unwrap();
     });
 
     if rslt.rows_affected() >= 1 {
@@ -459,7 +641,14 @@ pub fn delete_manifest_by_id(app: &AppHandle, id: String) -> Result<bool, Error>
     let mut rslt = SqliteQueryResult::default();
 
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("DELETE FROM manifest WHERE id = $1").bind(id);
         rslt = query.execute(&db).await.unwrap();
@@ -476,7 +665,14 @@ pub fn get_manifest_info_by_id(app: &AppHandle, id: String) -> Option<LauncherMa
     let mut rslt = vec![];
 
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("SELECT * FROM manifest WHERE id = $1").bind(id);
         rslt = query.fetch_all(&db).await.unwrap();
@@ -488,7 +684,7 @@ pub fn get_manifest_info_by_id(app: &AppHandle, id: String) -> Option<LauncherMa
             repository_id: rslt.get(0).unwrap().get("repository_id"),
             display_name: rslt.get(0).unwrap().get("display_name"),
             filename: rslt.get(0).unwrap().get("filename"),
-            enabled: rslt.get(0).unwrap().get("enabled")
+            enabled: rslt.get(0).unwrap().get("enabled"),
         };
 
         Some(rsltt)
@@ -497,11 +693,21 @@ pub fn get_manifest_info_by_id(app: &AppHandle, id: String) -> Option<LauncherMa
     }
 }
 
-pub fn get_manifest_info_by_filename(app: &AppHandle, filename: String) -> Option<LauncherManifest> {
+pub fn get_manifest_info_by_filename(
+    app: &AppHandle,
+    filename: String,
+) -> Option<LauncherManifest> {
     let mut rslt = vec![];
 
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("SELECT * FROM manifest WHERE filename = $1").bind(filename);
         rslt = query.fetch_all(&db).await.unwrap();
@@ -513,7 +719,7 @@ pub fn get_manifest_info_by_filename(app: &AppHandle, filename: String) -> Optio
             repository_id: rslt.get(0).unwrap().get("repository_id"),
             display_name: rslt.get(0).unwrap().get("display_name"),
             filename: rslt.get(0).unwrap().get("filename"),
-            enabled: rslt.get(0).unwrap().get("enabled")
+            enabled: rslt.get(0).unwrap().get("enabled"),
         };
 
         Some(rsltt)
@@ -522,11 +728,21 @@ pub fn get_manifest_info_by_filename(app: &AppHandle, filename: String) -> Optio
     }
 }
 
-pub fn get_manifests_by_repository_id(app: &AppHandle, repository_id: String) -> Option<Vec<LauncherManifest>> {
+pub fn get_manifests_by_repository_id(
+    app: &AppHandle,
+    repository_id: String,
+) -> Option<Vec<LauncherManifest>> {
     let mut rslt = vec![];
 
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("SELECT * FROM manifest WHERE repository_id = $1").bind(repository_id);
         rslt = query.fetch_all(&db).await.unwrap();
@@ -540,7 +756,7 @@ pub fn get_manifests_by_repository_id(app: &AppHandle, repository_id: String) ->
                 repository_id: r.get("repository_id"),
                 display_name: r.get("display_name"),
                 filename: r.get("filename"),
-                enabled: r.get("enabled")
+                enabled: r.get("enabled"),
             })
         }
 
@@ -552,20 +768,65 @@ pub fn get_manifests_by_repository_id(app: &AppHandle, repository_id: String) ->
 
 pub fn update_manifest_enabled_by_id(app: &AppHandle, id: String, enabled: bool) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE manifest SET 'enabled' = $1 WHERE id = $2").bind(enabled).bind(id);
+        let query = query("UPDATE manifest SET 'enabled' = $1 WHERE id = $2")
+            .bind(enabled)
+            .bind(id);
         query.execute(&db).await.unwrap();
     });
 }
 
 // === INSTALLS ===
 
-pub fn create_installation(app: &AppHandle, id: String, manifest_id: String, version: String, audio_langs: String, name: String, directory: String, runner_path: String, dxvk_path: String, runner_version: String, dxvk_version: String, game_icon: String, game_background: String, ignore_updates: bool, skip_hash_check: bool, use_jadeite: bool, use_xxmi: bool, use_fps_unlock: bool, env_vars: String, pre_launch_command: String, launch_command: String, fps_value: String, runner_prefix_path: String, launch_args: String, use_gamemode: bool, use_mangohud: bool, mangohud_config_path: String, region_code: String) -> Result<bool, Error> {
+pub fn create_installation(
+    app: &AppHandle,
+    id: String,
+    manifest_id: String,
+    version: String,
+    audio_langs: String,
+    name: String,
+    directory: String,
+    runner_path: String,
+    dxvk_path: String,
+    runner_version: String,
+    dxvk_version: String,
+    game_icon: String,
+    game_background: String,
+    ignore_updates: bool,
+    skip_hash_check: bool,
+    use_jadeite: bool,
+    use_xxmi: bool,
+    use_fps_unlock: bool,
+    env_vars: String,
+    pre_launch_command: String,
+    launch_command: String,
+    fps_value: String,
+    runner_prefix_path: String,
+    launch_args: String,
+    use_gamemode: bool,
+    use_mangohud: bool,
+    mangohud_config_path: String,
+    region_code: String,
+) -> Result<bool, Error> {
     let mut rslt = SqliteQueryResult::default();
 
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("INSERT INTO install(id, manifest_id, version, name, directory, runner_path, dxvk_path, runner_version, dxvk_version, game_icon, game_background, ignore_updates, skip_hash_check, use_jadeite, use_xxmi, use_fps_unlock, env_vars, pre_launch_command, launch_command, fps_value, runner_prefix_path, launch_args, audio_langs, use_gamemode, use_mangohud, mangohud_config_path, region_code) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)").bind(id).bind(manifest_id).bind(version).bind(name).bind(directory).bind(runner_path).bind(dxvk_path).bind(runner_version).bind(dxvk_version).bind(game_icon).bind(game_background).bind(ignore_updates).bind(skip_hash_check).bind(use_jadeite).bind(use_xxmi).bind(use_fps_unlock).bind(env_vars).bind(pre_launch_command).bind(launch_command).bind(fps_value).bind(runner_prefix_path).bind(launch_args).bind(audio_langs).bind(use_gamemode).bind(use_mangohud).bind(mangohud_config_path).bind(region_code);
         rslt = query.execute(&db).await.unwrap();
@@ -582,7 +843,14 @@ pub fn delete_installation_by_id(app: &AppHandle, id: String) -> Result<bool, Er
     let mut rslt = SqliteQueryResult::default();
 
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("DELETE FROM install WHERE id = $1").bind(id);
         rslt = query.execute(&db).await.unwrap();
@@ -599,7 +867,14 @@ pub fn get_install_info_by_id(app: &AppHandle, id: String) -> Option<LauncherIns
     let mut rslt = vec![];
 
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("SELECT * FROM install WHERE id = $1").bind(id);
         rslt = query.fetch_all(&db).await.unwrap();
@@ -637,7 +912,7 @@ pub fn get_install_info_by_id(app: &AppHandle, id: String) -> Option<LauncherIns
             shortcut_path: rslt.get(0).unwrap().get("shortcut_path"),
             region_code: rslt.get(0).unwrap().get("region_code"),
             xxmi_config: rslt.get(0).unwrap().get("xxmi_config"),
-            preferred_background: rslt.get(0).unwrap().get("preferred_background")
+            preferred_background: rslt.get(0).unwrap().get("preferred_background"),
         };
 
         Some(rsltt)
@@ -646,11 +921,21 @@ pub fn get_install_info_by_id(app: &AppHandle, id: String) -> Option<LauncherIns
     }
 }
 
-pub fn get_installs_by_manifest_id(app: &AppHandle, manifest_id: String) -> Option<Vec<LauncherInstall>> {
+pub fn get_installs_by_manifest_id(
+    app: &AppHandle,
+    manifest_id: String,
+) -> Option<Vec<LauncherInstall>> {
     let mut rslt = vec![];
 
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("SELECT * FROM install WHERE manifest_id = $1").bind(manifest_id);
         rslt = query.fetch_all(&db).await.unwrap();
@@ -690,7 +975,7 @@ pub fn get_installs_by_manifest_id(app: &AppHandle, manifest_id: String) -> Opti
                 shortcut_path: r.get("shortcut_path"),
                 region_code: r.get("region_code"),
                 xxmi_config: r.get("xxmi_config"),
-                preferred_background: r.get("preferred_background")
+                preferred_background: r.get("preferred_background"),
             })
         }
 
@@ -704,7 +989,14 @@ pub fn get_installs(app: &AppHandle) -> Option<Vec<LauncherInstall>> {
     let mut rslt = vec![];
 
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("SELECT * FROM install");
         rslt = query.fetch_all(&db).await.unwrap();
@@ -744,7 +1036,7 @@ pub fn get_installs(app: &AppHandle) -> Option<Vec<LauncherInstall>> {
                 shortcut_path: r.get("shortcut_path"),
                 region_code: r.get("region_code"),
                 xxmi_config: r.get("xxmi_config"),
-                preferred_background: r.get("preferred_background")
+                preferred_background: r.get("preferred_background"),
             })
         }
 
@@ -756,153 +1048,306 @@ pub fn get_installs(app: &AppHandle) -> Option<Vec<LauncherInstall>> {
 
 pub fn update_install_game_location_by_id(app: &AppHandle, id: String, location: String) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE install SET 'directory' = $1 WHERE id = $2").bind(location).bind(id);
+        let query = query("UPDATE install SET 'directory' = $1 WHERE id = $2")
+            .bind(location)
+            .bind(id);
         query.execute(&db).await.unwrap();
     });
 }
 
 pub fn update_install_preferred_background_by_id(app: &AppHandle, id: String, background: String) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE install SET 'preferred_background' = $1 WHERE id = $2").bind(background).bind(id);
+        let query = query("UPDATE install SET 'preferred_background' = $1 WHERE id = $2")
+            .bind(background)
+            .bind(id);
         query.execute(&db).await.unwrap();
     });
 }
 
 pub fn update_install_runner_location_by_id(app: &AppHandle, id: String, location: String) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE install SET 'runner_path' = $1 WHERE id = $2").bind(location).bind(id);
+        let query = query("UPDATE install SET 'runner_path' = $1 WHERE id = $2")
+            .bind(location)
+            .bind(id);
         query.execute(&db).await.unwrap();
     });
 }
 
 pub fn update_install_dxvk_location_by_id(app: &AppHandle, id: String, location: String) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE install SET 'dxvk_path' = $1 WHERE id = $2").bind(location).bind(id);
+        let query = query("UPDATE install SET 'dxvk_path' = $1 WHERE id = $2")
+            .bind(location)
+            .bind(id);
         query.execute(&db).await.unwrap();
     });
 }
 
 pub fn update_install_ignore_updates_by_id(app: &AppHandle, id: String, enabled: bool) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE install SET 'ignore_updates' = $1 WHERE id = $2").bind(enabled).bind(id);
+        let query = query("UPDATE install SET 'ignore_updates' = $1 WHERE id = $2")
+            .bind(enabled)
+            .bind(id);
         query.execute(&db).await.unwrap();
     });
 }
 
 pub fn update_install_skip_hash_check_by_id(app: &AppHandle, id: String, enabled: bool) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE install SET 'skip_hash_check' = $1 WHERE id = $2").bind(enabled).bind(id);
+        let query = query("UPDATE install SET 'skip_hash_check' = $1 WHERE id = $2")
+            .bind(enabled)
+            .bind(id);
         query.execute(&db).await.unwrap();
     });
 }
 
 pub fn update_install_use_jadeite_by_id(app: &AppHandle, id: String, enabled: bool) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE install SET 'use_jadeite' = $1 WHERE id = $2").bind(enabled).bind(id);
+        let query = query("UPDATE install SET 'use_jadeite' = $1 WHERE id = $2")
+            .bind(enabled)
+            .bind(id);
         query.execute(&db).await.unwrap();
     });
 }
 
 pub fn update_install_use_xxmi_by_id(app: &AppHandle, id: String, enabled: bool) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE install SET 'use_xxmi' = $1 WHERE id = $2").bind(enabled).bind(id);
+        let query = query("UPDATE install SET 'use_xxmi' = $1 WHERE id = $2")
+            .bind(enabled)
+            .bind(id);
         query.execute(&db).await.unwrap();
     });
 }
 
 pub fn update_install_use_fps_unlock_by_id(app: &AppHandle, id: String, enabled: bool) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE install SET 'use_fps_unlock' = $1 WHERE id = $2").bind(enabled).bind(id);
+        let query = query("UPDATE install SET 'use_fps_unlock' = $1 WHERE id = $2")
+            .bind(enabled)
+            .bind(id);
         query.execute(&db).await.unwrap();
     });
 }
 
 pub fn update_install_fps_value_by_id(app: &AppHandle, id: String, fps: String) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE install SET 'fps_value' = $1 WHERE id = $2").bind(fps).bind(id);
+        let query = query("UPDATE install SET 'fps_value' = $1 WHERE id = $2")
+            .bind(fps)
+            .bind(id);
         query.execute(&db).await.unwrap();
     });
 }
 
 pub fn update_install_use_gamemode_by_id(app: &AppHandle, id: String, enabled: bool) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE install SET 'use_gamemode' = $1 WHERE id = $2").bind(enabled).bind(id);
+        let query = query("UPDATE install SET 'use_gamemode' = $1 WHERE id = $2")
+            .bind(enabled)
+            .bind(id);
         query.execute(&db).await.unwrap();
     });
 }
 
 pub fn update_install_use_mangohud_by_id(app: &AppHandle, id: String, enabled: bool) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE install SET 'use_mangohud' = $1 WHERE id = $2").bind(enabled).bind(id);
+        let query = query("UPDATE install SET 'use_mangohud' = $1 WHERE id = $2")
+            .bind(enabled)
+            .bind(id);
         query.execute(&db).await.unwrap();
     });
 }
 
 pub fn update_install_env_vars_by_id(app: &AppHandle, id: String, env_vars: String) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE install SET 'env_vars' = $1 WHERE id = $2").bind(env_vars).bind(id);
+        let query = query("UPDATE install SET 'env_vars' = $1 WHERE id = $2")
+            .bind(env_vars)
+            .bind(id);
         query.execute(&db).await.unwrap();
     });
 }
 
 pub fn update_install_pre_launch_cmd_by_id(app: &AppHandle, id: String, cmd: String) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE install SET 'pre_launch_command' = $1 WHERE id = $2").bind(cmd).bind(id);
+        let query = query("UPDATE install SET 'pre_launch_command' = $1 WHERE id = $2")
+            .bind(cmd)
+            .bind(id);
         query.execute(&db).await.unwrap();
     });
 }
 
 pub fn update_install_launch_cmd_by_id(app: &AppHandle, id: String, cmd: String) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE install SET 'launch_command' = $1 WHERE id = $2").bind(cmd).bind(id);
+        let query = query("UPDATE install SET 'launch_command' = $1 WHERE id = $2")
+            .bind(cmd)
+            .bind(id);
         query.execute(&db).await.unwrap();
     });
 }
 
 pub fn update_install_prefix_location_by_id(app: &AppHandle, id: String, location: String) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE install SET 'runner_prefix_path' = $1 WHERE id = $2").bind(location).bind(id);
+        let query = query("UPDATE install SET 'runner_prefix_path' = $1 WHERE id = $2")
+            .bind(location)
+            .bind(id);
         query.execute(&db).await.unwrap();
     });
 }
 
 pub fn update_install_launch_args_by_id(app: &AppHandle, id: String, args: String) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE install SET 'launch_args' = $1 WHERE id = $2").bind(args).bind(id);
+        let query = query("UPDATE install SET 'launch_args' = $1 WHERE id = $2")
+            .bind(args)
+            .bind(id);
         query.execute(&db).await.unwrap();
     });
 }
@@ -910,9 +1355,18 @@ pub fn update_install_launch_args_by_id(app: &AppHandle, id: String, args: Strin
 #[allow(dead_code)]
 pub fn update_install_runner_version_by_id(app: &AppHandle, id: String, version: String) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE install SET 'runner_version' = $1 WHERE id = $2").bind(version).bind(id);
+        let query = query("UPDATE install SET 'runner_version' = $1 WHERE id = $2")
+            .bind(version)
+            .bind(id);
         query.execute(&db).await.unwrap();
     });
 }
@@ -920,21 +1374,52 @@ pub fn update_install_runner_version_by_id(app: &AppHandle, id: String, version:
 #[allow(dead_code)]
 pub fn update_install_dxvk_version_by_id(app: &AppHandle, id: String, version: String) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE install SET 'dxvk_version' = $1 WHERE id = $2").bind(version).bind(id);
+        let query = query("UPDATE install SET 'dxvk_version' = $1 WHERE id = $2")
+            .bind(version)
+            .bind(id);
         query.execute(&db).await.unwrap();
     });
 }
 
-pub fn update_install_after_update_by_id(app: &AppHandle, id: String, name: String, icon: String, background: String, version: String) {
+pub fn update_install_after_update_by_id(
+    app: &AppHandle,
+    id: String,
+    name: String,
+    icon: String,
+    background: String,
+    version: String,
+) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE install SET 'name' = $1 WHERE id = $2").bind(name).bind(id.clone());
-        let query2 = sqlx::query("UPDATE install SET 'game_icon' = $1 WHERE id = $2").bind(icon).bind(id.clone());
-        let query3 = sqlx::query("UPDATE install SET 'game_background' = $1 WHERE id = $2").bind(background).bind(id.clone());
-        let query4 = sqlx::query("UPDATE install SET 'version' = $1 WHERE id = $2").bind(version).bind(id.clone());
+        let query = query("UPDATE install SET 'name' = $1 WHERE id = $2")
+            .bind(name)
+            .bind(id.clone());
+        let query2 = sqlx::query("UPDATE install SET 'game_icon' = $1 WHERE id = $2")
+            .bind(icon)
+            .bind(id.clone());
+        let query3 = sqlx::query("UPDATE install SET 'game_background' = $1 WHERE id = $2")
+            .bind(background)
+            .bind(id.clone());
+        let query4 = sqlx::query("UPDATE install SET 'version' = $1 WHERE id = $2")
+            .bind(version)
+            .bind(id.clone());
 
         query.execute(&db).await.unwrap();
         query2.execute(&db).await.unwrap();
@@ -943,20 +1428,42 @@ pub fn update_install_after_update_by_id(app: &AppHandle, id: String, name: Stri
     });
 }
 
-pub fn update_install_mangohud_config_location_by_id(app: &AppHandle, id: String, location: String) {
+pub fn update_install_mangohud_config_location_by_id(
+    app: &AppHandle,
+    id: String,
+    location: String,
+) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE install SET 'mangohud_config_path' = $1 WHERE id = $2").bind(location).bind(id);
+        let query = query("UPDATE install SET 'mangohud_config_path' = $1 WHERE id = $2")
+            .bind(location)
+            .bind(id);
         query.execute(&db).await.unwrap();
     });
 }
 
 pub fn update_install_shortcut_location_by_id(app: &AppHandle, id: String, location: String) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE install SET 'shortcut_path' = $1 WHERE id = $2").bind(location).bind(id);
+        let query = query("UPDATE install SET 'shortcut_path' = $1 WHERE id = $2")
+            .bind(location)
+            .bind(id);
         query.execute(&db).await.unwrap();
     });
 }
@@ -964,18 +1471,40 @@ pub fn update_install_shortcut_location_by_id(app: &AppHandle, id: String, locat
 #[allow(dead_code)]
 pub fn update_install_shortcut_is_steam_by_id(app: &AppHandle, id: String, is_steam: bool) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE install SET 'shortcut_is_steam' = $1 WHERE id = $2").bind(is_steam).bind(id);
+        let query = query("UPDATE install SET 'shortcut_is_steam' = $1 WHERE id = $2")
+            .bind(is_steam)
+            .bind(id);
         query.execute(&db).await.unwrap();
     });
 }
 
-pub fn update_install_xxmi_config_by_id(app: &AppHandle, id: String, xxmi_config: Json<XXMISettings>) {
+pub fn update_install_xxmi_config_by_id(
+    app: &AppHandle,
+    id: String,
+    xxmi_config: Json<XXMISettings>,
+) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE install SET 'xxmi_config' = $1 WHERE id = $2").bind(xxmi_config).bind(id);
+        let query = query("UPDATE install SET 'xxmi_config' = $1 WHERE id = $2")
+            .bind(xxmi_config)
+            .bind(id);
         query.execute(&db).await.unwrap();
     });
 }
@@ -986,7 +1515,14 @@ pub fn get_installed_runners(app: &AppHandle) -> Option<Vec<LauncherRunner>> {
     let mut rslt = vec![];
 
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("SELECT * FROM installed_runners");
         rslt = query.fetch_all(&db).await.unwrap();
@@ -1012,11 +1548,23 @@ pub fn get_installed_runners(app: &AppHandle) -> Option<Vec<LauncherRunner>> {
 }
 
 #[allow(dead_code)]
-pub fn create_installed_runner(app: &AppHandle, version: String, is_installed: bool, runner_path: String) -> Result<bool, Error> {
+pub fn create_installed_runner(
+    app: &AppHandle,
+    version: String,
+    is_installed: bool,
+    runner_path: String,
+) -> Result<bool, Error> {
     let mut rslt = SqliteQueryResult::default();
 
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("INSERT INTO installed_runners(runner_path, is_installed, version, id) VALUES ($1, $2, $3, null)").bind(runner_path).bind(is_installed).bind(version);
         rslt = query.execute(&db).await.unwrap();
@@ -1033,7 +1581,14 @@ pub fn get_installed_runner_info_by_id(app: &AppHandle, id: String) -> Option<La
     let mut rslt = vec![];
 
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("SELECT * FROM installed_runners WHERE id = $1").bind(id);
         rslt = query.fetch_all(&db).await.unwrap();
@@ -1045,8 +1600,8 @@ pub fn get_installed_runner_info_by_id(app: &AppHandle, id: String) -> Option<La
             runner_path: rslt.get(0).unwrap().get("runner_path"),
             is_installed: rslt.get(0).unwrap().get("is_installed"),
             version: rslt.get(0).unwrap().get("version"),
-            name:  rslt.get(0).unwrap().get("version"),
-            value:  rslt.get(0).unwrap().get("version"),
+            name: rslt.get(0).unwrap().get("version"),
+            value: rslt.get(0).unwrap().get("version"),
         };
 
         Some(rsltt)
@@ -1055,11 +1610,21 @@ pub fn get_installed_runner_info_by_id(app: &AppHandle, id: String) -> Option<La
     }
 }
 
-pub fn get_installed_runner_info_by_version(app: &AppHandle, version: String) -> Option<LauncherRunner> {
+pub fn get_installed_runner_info_by_version(
+    app: &AppHandle,
+    version: String,
+) -> Option<LauncherRunner> {
     let mut rslt = vec![];
 
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
         let query = query("SELECT * FROM installed_runners WHERE version = $1").bind(version);
         rslt = query.fetch_all(&db).await.unwrap();
@@ -1071,8 +1636,8 @@ pub fn get_installed_runner_info_by_version(app: &AppHandle, version: String) ->
             runner_path: rslt.get(0).unwrap().get("runner_path"),
             is_installed: rslt.get(0).unwrap().get("is_installed"),
             version: rslt.get(0).unwrap().get("version"),
-            name:  rslt.get(0).unwrap().get("version"),
-            value:  rslt.get(0).unwrap().get("version"),
+            name: rslt.get(0).unwrap().get("version"),
+            value: rslt.get(0).unwrap().get("version"),
         };
 
         Some(rsltt)
@@ -1081,31 +1646,62 @@ pub fn get_installed_runner_info_by_version(app: &AppHandle, version: String) ->
     }
 }
 
-pub fn update_installed_runner_is_installed_by_version(app: &AppHandle, version: String, is_installed: bool) {
+pub fn update_installed_runner_is_installed_by_version(
+    app: &AppHandle,
+    version: String,
+    is_installed: bool,
+) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE installed_runners SET 'is_installed' = $1 WHERE version = $2").bind(is_installed).bind(version);
+        let query = query("UPDATE installed_runners SET 'is_installed' = $1 WHERE version = $2")
+            .bind(is_installed)
+            .bind(version);
         query.execute(&db).await.unwrap();
     });
 }
 
 #[allow(dead_code)]
-pub fn update_installed_runner_path_by_version(app: &AppHandle, version: String, runner_path: String) {
+pub fn update_installed_runner_path_by_version(
+    app: &AppHandle,
+    version: String,
+    runner_path: String,
+) {
     run_async_command(async {
-        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
 
-        let query = query("UPDATE installed_runners SET 'runner_path' = $1 WHERE version = $2").bind(runner_path).bind(version);
+        let query = query("UPDATE installed_runners SET 'runner_path' = $1 WHERE version = $2")
+            .bind(runner_path)
+            .bind(version);
         query.execute(&db).await.unwrap();
     });
 }
 
 // === DB RELATED ===
 
-fn add_migrations(db_url: &str, migrations: Vec<Migration>) -> Option<HashMap<String, MigrationList>> {
+fn add_migrations(
+    db_url: &str,
+    migrations: Vec<Migration>,
+) -> Option<HashMap<String, MigrationList>> {
     let mut migrs: Option<HashMap<String, MigrationList>> = Some(HashMap::new());
 
-    migrs.get_or_insert(Default::default()).insert(db_url.to_string(), MigrationList(migrations));
+    migrs
+        .get_or_insert(Default::default())
+        .insert(db_url.to_string(), MigrationList(migrations));
     migrs
 }
 

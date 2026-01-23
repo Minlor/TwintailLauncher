@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import SidebarIconManifest from "../sidebar/SidebarIconManifest.tsx";
 import { POPUPS } from "../popups/POPUPS.ts";
+import { isLinux } from "../../utils/imagePreloader";
 
 interface GameInfoItem {
   manifest_enabled: boolean;
@@ -77,9 +78,9 @@ const ManifestsPanel: React.FC<ManifestsPanelProps> = ({
 
           >
             {gamesinfo.map((game, index) => {
-              // Use dynamic background if available, otherwise fall back to static
+              // Use dynamic background if available (skip on Linux), otherwise fall back to static
               // Using || handles undefined, null, and empty string cases
-              let bg = game.assets.game_live_background || game.assets.game_background;
+              let bg = (!isLinux && game.assets.game_live_background) || game.assets.game_background;
               const opening = manifestsOpenVisual;
               const delayMs = manifestsInitialLoading
                 ? (index * 100 + 400)

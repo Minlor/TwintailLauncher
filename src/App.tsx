@@ -6,7 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 import SidebarSettings from "./components/sidebar/SidebarSettings.tsx";
 import SidebarIconInstall from "./components/sidebar/SidebarIconInstall.tsx";
 import SidebarLink from "./components/sidebar/SidebarLink.tsx";
-import { preloadImages } from "./utils/imagePreloader";
+import { preloadImages, isLinux } from "./utils/imagePreloader";
 import AppLoadingScreen from "./components/AppLoadingScreen";
 import SidebarManifests from "./components/sidebar/SidebarManifests.tsx";
 import { determineButtonType } from "./utils/determineButtonType";
@@ -51,6 +51,7 @@ export default class App extends React.Component<any, any> {
         this.fetchCompatibilityVersions = this.fetchCompatibilityVersions.bind(this);
         this.refreshDownloadButtonInfo = this.refreshDownloadButtonInfo.bind(this);
         this.fetchInstalledRunners = this.fetchInstalledRunners.bind(this);
+        this.fetchSteamRTStatus = this.fetchSteamRTStatus.bind(this);
         this.handleSpeedSample = this.handleSpeedSample.bind(this);
         this.handleClearSpeedHistory = this.handleClearSpeedHistory.bind(this);
         this.setCurrentPage = this.setCurrentPage.bind(this);
@@ -93,6 +94,7 @@ export default class App extends React.Component<any, any> {
             dxvkVersions: [],
             runners: [],
             installedRunners: [],
+            steamrtInstalled: true, // Default to true (no blocking on Windows, checked on Linux)
             downloadSizes: {},
             downloadDir: "",
             downloadVersion: "",
@@ -133,6 +135,17 @@ export default class App extends React.Component<any, any> {
 
         const hasDownloads = runningJobs.length + queuedJobs.length > 0;
 
+        // Check if runner dependencies are ready (Linux only)
+        const isLinux = window.navigator.platform.includes("Linux");
+        const currentInstallData = this.state.installs.find((i: any) => i.id === this.state.currentInstall);
+        const currentRunnerVersion = currentInstallData?.runner_version ?? "";
+        const isRunnerInstalled = this.state.installedRunners.some(
+            (r: any) => r.version === currentRunnerVersion && r.is_installed
+        );
+        const runnerDepsNotReady = isLinux && currentInstallData && (
+            !this.state.steamrtInstalled || !isRunnerInstalled
+        );
+
         const primaryRunningJobId = runningJobs.length > 0 ? runningJobs[0].id : undefined;
         const primaryProgress = primaryRunningJobId ? this.state.downloadProgressByJobId?.[primaryRunningJobId] : undefined;
         const downloadsPercent =
@@ -158,6 +171,7 @@ export default class App extends React.Component<any, any> {
                         transitioning={this.state.transitioningBackground}
                         bgVersion={this.state.bgVersion}
                         popupOpen={this.state.openPopup != POPUPS.NONE}
+                        pageOpen={this.state.currentPage !== PAGES.NONE}
                         bgLoading={this.state.bgLoading}
                         onMainLoad={() => {
                             // Background image has rendered; stop spinner and finish initial reveal if needed
@@ -168,8 +182,8 @@ export default class App extends React.Component<any, any> {
                             });
                         }}
                     />
-                    {this.state.openPopup != POPUPS.NONE && (
-                        <div className="pointer-events-none absolute top-0 bottom-0 left-16 right-0 z-40 animate-fadeIn">
+                    {(this.state.openPopup != POPUPS.NONE || this.state.currentPage !== PAGES.NONE) && (
+                        <div className={`pointer-events-none absolute inset-0 animate-fadeIn ${this.state.openPopup != POPUPS.NONE ? "z-40" : "z-20"}`}>
                             {/* Frost-like light veil */}
                             <div className="absolute inset-0 bg-gradient-to-br from-white/[0.08] via-white/[0.03] to-white/[0.06]" />
                             {/* Subtle dark vignette for depth */}
@@ -198,7 +212,7 @@ export default class App extends React.Component<any, any> {
                             }
                         }}
                     />
-                    <div className="h-full w-16 p-2 bg-black/50 flex flex-col items-center justify-start animate-slideInLeft" style={{ animationDelay: '100ms' }}>
+                    <div className="h-full w-16 p-2 bg-black/50 flex flex-col items-center justify-start animate-slideInLeft relative z-30" style={{ animationDelay: '100ms' }}>
                         {/* Separate, centered section for the download/manifests toggle */}
                         <div className="flex items-center justify-center h-16 animate-slideInLeft" style={{ animationDelay: '150ms' }}>
                             <SidebarManifests
@@ -262,11 +276,20 @@ export default class App extends React.Component<any, any> {
                                                 onOpenInstallSettings={async () => {
                                                     this.setCurrentInstall(install.id);
                                                     this.setDisplayName(install.name);
-                                                    this.setBackground(install.game_background);
                                                     this.setGameIcon(install.game_icon);
+
+                                                    // Find game manifest to get dynamic background if available
+                                                    const game = this.state.gamesinfo.find((g: any) => g.manifest_id === install.manifest_id);
+                                                    const dynamicBg = game?.assets?.game_live_background;
+                                                    const staticBg = game?.assets?.game_background || install.game_background;
+                                                    // Prefer dynamic background (video) over static, skip video on Linux
+                                                    const bestBackground = (!isLinux && dynamicBg) ? dynamicBg : staticBg;
+
+                                                    this.setBackground(bestBackground);
+
                                                     // Preload images and fetch settings in parallel
                                                     await Promise.all([
-                                                        preloadImages([install.game_background, install.game_icon].filter(Boolean)),
+                                                        preloadImages([bestBackground, install.game_icon].filter(Boolean)),
                                                         this.fetchInstallSettings(install.id)
                                                     ]);
                                                     this.setOpenPopup(POPUPS.INSTALLSETTINGS);
@@ -334,7 +357,7 @@ export default class App extends React.Component<any, any> {
                         disableInstallEdit={isCurrentInstallDownloading || isCurrentInstallQueued}
                         disableResume={this.state.disableResume}
                         disableDownload={this.state.disableDownload}
-                        disableRun={isCurrentInstallDownloading || isCurrentInstallQueued}
+                        disableRun={isCurrentInstallDownloading || isCurrentInstallQueued || runnerDepsNotReady}
                         disableUpdate={this.state.disableUpdate}
                         resumeStates={this.state.resumeStates}
                         globalSettings={this.state.globalSettings}
@@ -386,6 +409,7 @@ export default class App extends React.Component<any, any> {
                         installGameSwitches={this.state.installGameSwitches}
                         installGameFps={this.state.installGameFps}
                         installs={this.state.installs}
+                        setCurrentPage={this.setCurrentPage}
                     />
                     <BackgroundControls
                         currentBackground={this.state.gameBackground}
@@ -431,6 +455,7 @@ export default class App extends React.Component<any, any> {
             fetchRepositories: this.fetchRepositories,
             fetchCompatibilityVersions: this.fetchCompatibilityVersions,
             fetchInstalledRunners: this.fetchInstalledRunners,
+            fetchSteamRTStatus: this.fetchSteamRTStatus,
             getGamesInfo: () => this.state.gamesinfo,
             getInstalls: () => this.state.installs,
             preloadImages: (images, onProgress, preloaded) => preloadImages(images, onProgress, preloaded),
@@ -468,6 +493,7 @@ export default class App extends React.Component<any, any> {
             this.fetchInstallResumeStates(this.state.currentInstall);
             this.fetchCompatibilityVersions();
             this.fetchInstalledRunners();
+            this.fetchSteamRTStatus();
             this.updateAvailableBackgrounds();
         }
 
@@ -550,8 +576,8 @@ export default class App extends React.Component<any, any> {
 
                     if (this.state.installs.length === 0) {
                         if (games.length > 0 && this.state.currentGame == "") {
-                            // Use dynamic background if available, otherwise fall back to static
-                            let bg = gi[0].assets.game_live_background || gi[0].assets.game_background;
+                            // Use dynamic background if available (unless on Linux), otherwise fall back to static
+                            let bg = (!isLinux && gi[0].assets.game_live_background) || gi[0].assets.game_background;
                             this.setCurrentGame(games[0].filename.replace(".json", ""));
                             this.setDisplayName(games[0].display_name);
                             this.setBackground(bg);
@@ -697,6 +723,19 @@ export default class App extends React.Component<any, any> {
         })
     }
 
+    fetchSteamRTStatus() {
+        // Only check on Linux
+        if (!window.navigator.platform.includes("Linux")) {
+            this.setState({ steamrtInstalled: true });
+            return Promise.resolve();
+        }
+        return invoke<boolean>("is_steamrt_installed").then(installed => {
+            this.setState({ steamrtInstalled: installed });
+        }).catch(() => {
+            this.setState({ steamrtInstalled: false });
+        });
+    }
+
     fetchDownloadSizes(biz: any, version: any, lang: any, path: any, callback: (data: any) => void) {
         invoke("get_download_sizes", { biz: biz, version: version, path: path, lang: lang }).then(data => {
             if (data === null) {
@@ -797,8 +836,8 @@ export default class App extends React.Component<any, any> {
                 }
 
                 if (game) {
-                    // Add dynamic background if available
-                    if (game.assets?.game_live_background) {
+                    // Add dynamic background if available (skip on Linux)
+                    if (!isLinux && game.assets?.game_live_background) {
                         addBg(game.assets.game_live_background, "Dynamic", true);
                     }
                     // Add static background from game manifest
@@ -816,7 +855,8 @@ export default class App extends React.Component<any, any> {
             // If no install, get backgrounds from the current game manifest
             const game = this.state.gamesinfo.find((g: any) => g.biz === this.state.currentGame);
             if (game) {
-                if (game.assets?.game_live_background) {
+                // Add dynamic background if available (skip on Linux)
+                if (!isLinux && game.assets?.game_live_background) {
                     addBg(game.assets.game_live_background, "Dynamic", true);
                 }
                 if (game.assets?.game_background) {

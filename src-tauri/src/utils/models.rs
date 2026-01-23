@@ -8,7 +8,7 @@ pub struct XXMISettings {
     pub dll_init_delay: u64,
     pub close_delay: u64,
     pub show_warnings: u64,
-    pub dump_shaders: bool
+    pub dump_shaders: bool,
 }
 
 // === DATABASE ===
@@ -34,13 +34,13 @@ pub struct RepositoryManifest {
     pub name: String,
     pub description: String,
     pub maintainers: Vec<String>,
-    pub manifests: Vec<String>
+    pub manifests: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct LauncherRepository {
     pub id: String,
-    pub github_id: String
+    pub github_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -49,7 +49,7 @@ pub struct LauncherManifest {
     pub repository_id: String,
     pub display_name: String,
     pub filename: String,
-    pub enabled: bool
+    pub enabled: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -84,7 +84,7 @@ pub struct LauncherInstall {
     pub shortcut_path: String,
     pub region_code: String,
     pub xxmi_config: Json<XXMISettings>,
-    pub preferred_background: Option<String>
+    pub preferred_background: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -94,7 +94,7 @@ pub struct LauncherRunner {
     pub is_installed: bool,
     pub version: String,
     pub value: String,
-    pub name: String
+    pub name: String,
 }
 
 // === STRUCTS FOR MANIFESTS ===
@@ -104,7 +104,7 @@ pub struct RunnerManifest {
     pub version: i32,
     pub display_name: String,
     pub versions: Vec<RunnerVersion>,
-    pub paths: RunnerPaths
+    pub paths: RunnerPaths,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -117,7 +117,7 @@ pub struct RunnerPlatformUrls {
 pub struct RunnerVersion {
     pub version: String,
     pub url: String,
-    pub urls: Option<RunnerPlatformUrls>
+    pub urls: Option<RunnerPlatformUrls>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -125,7 +125,7 @@ pub struct RunnerPaths {
     pub wine32: String,
     pub wine64: String,
     pub wine_server: String,
-    pub wine_boot: String
+    pub wine_boot: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -138,7 +138,7 @@ pub struct GameManifest {
     pub telemetry_hosts: Vec<String>,
     pub paths: GamePaths,
     pub assets: VersionAssets,
-    pub extra: GameExtras
+    pub extra: GameExtras,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -146,7 +146,7 @@ pub struct GameVersion {
     pub metadata: VersionMetadata,
     pub assets: VersionAssets,
     pub game: VersionGameFiles,
-    pub audio: VersionAudioFiles
+    pub audio: VersionAudioFiles,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -155,7 +155,7 @@ pub struct GamePaths {
     pub exe_filename: String,
     pub installation_dir: String,
     pub screenshot_dir: String,
-    pub screenshot_dir_relative_to: String
+    pub screenshot_dir_relative_to: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -166,7 +166,7 @@ pub struct VersionMetadata {
     pub game_hash: String,
     pub index_file: String,
     pub res_list_url: String,
-    pub diff_list_url: DiffUrls
+    pub diff_list_url: DiffUrls,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -175,20 +175,20 @@ pub struct DiffUrls {
     pub en_us: String,
     pub zh_cn: String,
     pub ja_jp: String,
-    pub ko_kr: String
+    pub ko_kr: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct VersionAssets {
     pub game_icon: String,
     pub game_background: String,
-    pub game_live_background: Option<String>
+    pub game_live_background: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct VersionGameFiles {
     pub full: Vec<FullGameFile>,
-    pub diff: Vec<DiffGameFile>
+    pub diff: Vec<DiffGameFile>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -198,7 +198,7 @@ pub struct FullGameFile {
     pub decompressed_size: String,
     pub file_hash: String,
     pub file_path: String,
-    pub region_code: Option<String>
+    pub region_code: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -209,13 +209,13 @@ pub struct DiffGameFile {
     pub file_hash: String,
     pub diff_type: String,
     pub original_version: String,
-    pub delete_files: Vec<String>
+    pub delete_files: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct VersionAudioFiles {
     pub full: Vec<FullAudioFile>,
-    pub diff: Vec<DiffAudioFile>
+    pub diff: Vec<DiffAudioFile>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -225,7 +225,7 @@ pub struct FullAudioFile {
     pub decompressed_size: String,
     pub file_hash: String,
     pub language: String,
-    pub region_code: Option<String>
+    pub region_code: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -236,7 +236,7 @@ pub struct DiffAudioFile {
     pub file_hash: String,
     pub diff_type: String,
     pub original_version: String,
-    pub language: String
+    pub language: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -245,26 +245,26 @@ pub struct GamePreload {
     pub index_file: Option<String>,
     pub res_list_url: Option<String>,
     pub game: Option<VersionGameFiles>,
-    pub audio: Option<VersionAudioFiles>
+    pub audio: Option<VersionAudioFiles>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GameTweakSwitches {
     pub fps_unlocker: bool,
     pub jadeite: bool,
-    pub xxmi: bool
+    pub xxmi: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CompatRunnerOverrides {
     pub enabled: bool,
-    pub runner_version: String
+    pub runner_version: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CompatPlatformOverrides {
     pub linux: CompatRunnerOverrides,
-    pub macos: CompatRunnerOverrides
+    pub macos: CompatRunnerOverrides,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -277,7 +277,7 @@ pub struct GameCompatOverrides {
     pub block_first_req: bool,
     pub proton_compat_config: Vec<String>,
     pub override_runner: CompatPlatformOverrides,
-    pub min_runner_versions: Vec<String>
+    pub min_runner_versions: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

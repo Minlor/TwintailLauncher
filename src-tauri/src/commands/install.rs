@@ -35,6 +35,10 @@ use crate::utils::db_manager::{
     create_installed_runner, get_installed_runner_info_by_version,
     update_install_shortcut_is_steam_by_id, update_installed_runner_is_installed_by_version,
 };
+#[cfg(target_os = "linux")]
+use crate::downloading::queue::QueueJobKind;
+#[cfg(target_os = "linux")]
+use crate::downloading::{QueueJobPayload, RunnerDownloadPayload};
 use crate::utils::models::XXMISettings;
 #[cfg(target_os = "linux")]
 use crate::utils::repo_manager::get_compatibility;
@@ -251,137 +255,83 @@ pub fn add_install(
                 runv = Arc::new(co.override_runner.linux.runner_version.clone());
             }
 
-            std::thread::spawn(move || {
-                let rm = get_compatibility(
-                    archandle.as_ref(),
-                    &runner_from_runner_version(runv.as_str().to_string()).unwrap(),
-                )
-                .unwrap();
+            // Download runner via queue system (shows in downloads UI)
+            let rm = get_compatibility(
+                &app,
+                &runner_from_runner_version(runv.as_str().to_string()).unwrap(),
+            );
+            if let Some(rm) = rm {
                 let rv = rm
                     .versions
                     .into_iter()
                     .filter(|v| v.version.as_str() == runv.as_str())
                     .collect::<Vec<_>>();
-                let runnerp = rv.get(0).unwrap().to_owned();
-                let rp = Path::new(runpp.as_str())
-                    .follow_symlink()
-                    .unwrap()
-                    .to_path_buf();
-                let is_proton = rm.display_name.to_ascii_lowercase().contains("proton")
-                    && !rm.display_name.to_ascii_lowercase().contains("wine");
-                let ir = get_installed_runner_info_by_version(archandle.as_ref(), runv.to_string());
+                if let Some(runnerp) = rv.get(0) {
+                    let rp = Path::new(runpp.as_str())
+                        .follow_symlink()
+                        .unwrap()
+                        .to_path_buf();
 
-                // Download selected DXVK | Deprecated | Reason: Proton ships their own and this is pointless if wine is deprecated
-                /*let dm = get_compatibility(archandle.as_ref(), &runner_from_runner_version(dxvkv.as_str().to_string()).unwrap()).unwrap();
-                let dv = dm.versions.into_iter().filter(|v| v.version.as_str() == dxvkv.as_str()).collect::<Vec<_>>();
-                let dxvkp = dv.get(0).unwrap().to_owned();
-                if fs::read_dir(dxvkpp.as_str().to_string()).unwrap().next().is_none() { Compat::download_dxvk(dxvkp.url, dxvkpp.as_str().to_string(), true, move |_current, _total| {}); }*/
-
-                if fs::read_dir(rp.as_path()).unwrap().next().is_none() {
-                    let mut dlpayload = HashMap::new();
-                    dlpayload.insert("name", runv.to_string());
-                    dlpayload.insert("progress", "0".to_string());
-                    dlpayload.insert("total", "1000".to_string());
-                    archandle
-                        .emit("download_progress", dlpayload.clone())
-                        .unwrap();
-                    prevent_exit(&*archandle, true);
-
-                    let mut dl_url = runnerp.url.clone(); // Always x86_64
-                    if let Some(urls) = runnerp.urls {
-                        #[cfg(target_arch = "x86_64")]
-                        {
-                            dl_url = urls.x86_64;
-                        }
-                        #[cfg(target_arch = "aarch64")]
-                        {
-                            dl_url = if urls.aarch64.is_empty() {
-                                runnerp.url.clone()
-                            } else {
-                                urls.aarch64
-                            };
-                        }
-                    }
-                    let r0 = run_async_command(async {
-                        Compat::download_runner(dl_url, rp.to_str().unwrap().to_string(), true, {
-                            let archandle = archandle.clone();
-                            let dlpayload = dlpayload.clone();
-                            let runv = runv.clone();
-                            move |current, total, _net, _disk| {
-                                let mut dlpayload = dlpayload.clone();
-                                dlpayload.insert("name", runv.to_string());
-                                dlpayload.insert("progress", current.to_string());
-                                dlpayload.insert("total", total.to_string());
-                                archandle
-                                    .emit("download_progress", dlpayload.clone())
-                                    .unwrap();
+                    // Only download if directory is empty
+                    if fs::read_dir(rp.as_path())
+                        .map(|mut d| d.next().is_none())
+                        .unwrap_or(true)
+                    {
+                        // Determine the download URL based on architecture
+                        let mut dl_url = runnerp.url.clone();
+                        if let Some(ref urls) = runnerp.urls {
+                            #[cfg(target_arch = "x86_64")]
+                            {
+                                dl_url = urls.x86_64.clone();
                             }
-                        })
-                        .await
-                    });
-                    if r0 {
-                        if is_proton {
-                            archandle.emit("download_complete", ()).unwrap();
-                            prevent_exit(&*archandle, false);
-                            send_notification(
-                                &*archandle,
-                                format!(
-                                    "Download of {runn} complete.",
-                                    runn = runv.as_str().to_string()
-                                )
-                                .as_str(),
-                                None,
+                            #[cfg(target_arch = "aarch64")]
+                            {
+                                dl_url = if urls.aarch64.is_empty() {
+                                    runnerp.url.clone()
+                                } else {
+                                    urls.aarch64.clone()
+                                };
+                            }
+                        }
+
+                        // Create runner directory if needed
+                        if !rp.exists() {
+                            let _ = fs::create_dir_all(&rp);
+                        }
+
+                        // Create/update database entry (will be marked as installed by download job on completion)
+                        let ir = get_installed_runner_info_by_version(&app, runv.to_string());
+                        if ir.is_some() {
+                            update_installed_runner_is_installed_by_version(
+                                &app,
+                                runv.to_string(),
+                                false,
                             );
-                            if ir.is_some() {
-                                update_installed_runner_is_installed_by_version(
-                                    &*archandle,
-                                    runv.to_string(),
-                                    true,
-                                );
-                            } else {
-                                create_installed_runner(
-                                    &*archandle,
-                                    runv.to_string(),
-                                    true,
-                                    rp.to_str().unwrap().to_string().clone(),
-                                )
-                                .unwrap();
-                            }
                         } else {
-                            archandle.emit("download_complete", ()).unwrap();
-                            prevent_exit(&*archandle, false);
-                            // Wine is deprecated | Reason: Honestly more trouble than its worth it and some games won't even work on it anymore
+                            let _ = create_installed_runner(
+                                &app,
+                                runv.to_string(),
+                                false,
+                                rp.to_str().unwrap().to_string(),
+                            );
                         }
-                    } else {
-                        archandle.dialog().message(format!("Error occurred while trying to download {runn} runner! Please retry later.", runn = runv.clone().as_str().to_string()).as_str()).title("TwintailLauncher")
-                            .kind(MessageDialogKind::Error)
-                            .buttons(MessageDialogButtons::OkCustom("Ok".to_string()))
-                            .show(move |_action| {
-                                prevent_exit(&*archandle, false);
-                                archandle.emit("download_complete", ()).unwrap();
-                                if rp.exists() { fs::remove_dir_all(&rp).unwrap(); update_installed_runner_is_installed_by_version(&*archandle, runv.clone().as_str().to_string(), false); }
-                            });
-                    }
-                } else {
-                    //let wine64 = if rm.paths.wine64.is_empty() { rm.paths.wine32 } else { rm.paths.wine64 };
-                    //let winebin = rp.join(wine64).to_str().unwrap().to_string();
 
-                    /*if is_proton {  } else {
-                        // Wine is deprecated | Reason: same as stated in many comments around this function
-                        let r1 = Compat::setup_prefix(winebin, rpp.as_str().to_string());
-                        if r1.is_ok() {
-                            let r = r1.unwrap();
-                            let r2 = Compat::stop_processes(r.wine.binary.to_str().unwrap().to_string(), rpp.as_str().to_string(), false);
-                            if r2.is_ok() {
-                                let da = Compat::add_dxvk(r.wine.binary.to_str().unwrap().to_string(), rpp.as_str().to_string(), dxvkpp.as_str().to_string(), false);
-                                if da.is_ok() {
-                                    Compat::stop_processes(r.wine.binary.to_str().unwrap().to_string(), rpp.as_str().to_string(), false).unwrap();
-                                }
-                            }
+                        // Enqueue the download job via the queue system
+                        let state = app.state::<DownloadState>();
+                        let q = state.queue.lock().unwrap().clone();
+                        if let Some(queue) = q {
+                            queue.enqueue(
+                                QueueJobKind::RunnerDownload,
+                                QueueJobPayload::Runner(RunnerDownloadPayload {
+                                    runner_version: runv.to_string(),
+                                    runner_url: dl_url,
+                                    runner_path: rp.to_str().unwrap().to_string(),
+                                }),
+                            );
                         }
-                    }*/
+                    }
                 }
-            });
+            }
 
             // Patch wuwa if existing install
             if gm.biz == "wuwa_global" && skip_game_dl {
@@ -1075,117 +1025,72 @@ pub fn update_install_runner_version(app: AppHandle, id: String, version: String
         let rpp = Arc::new(m.runner_prefix.clone());
 
         if fs::read_dir(rpn.as_str()).unwrap().next().is_none() {
-            std::thread::spawn(move || {
-                let rm = get_compatibility(
-                    archandle.as_ref(),
-                    &runner_from_runner_version(runv.to_string()).unwrap(),
-                )
-                .unwrap();
+            // Download runner via queue system (shows in downloads UI)
+            let rm = get_compatibility(
+                &app,
+                &runner_from_runner_version(version.clone()).unwrap(),
+            );
+            if let Some(rm) = rm {
                 let rv = rm
                     .versions
                     .into_iter()
-                    .filter(|v| v.version.as_str() == runv.as_str())
+                    .filter(|v| v.version.as_str() == version.as_str())
                     .collect::<Vec<_>>();
-                let runnerp = rv.get(0).unwrap().to_owned();
-                let rp = Path::new(runpp.as_str())
-                    .follow_symlink()
-                    .unwrap()
-                    .to_path_buf();
-                let is_proton = rm.display_name.to_ascii_lowercase().contains("proton")
-                    && !rm.display_name.to_ascii_lowercase().contains("wine");
-                let ir = get_installed_runner_info_by_version(&*archandle, runv.to_string());
+                if let Some(runnerp) = rv.get(0) {
+                    let rp = Path::new(rpn.as_str())
+                        .follow_symlink()
+                        .unwrap()
+                        .to_path_buf();
 
-                let mut dlpayload = HashMap::new();
-                dlpayload.insert("name", runv.to_string());
-                dlpayload.insert("progress", "0".to_string());
-                dlpayload.insert("total", "1000".to_string());
-                archandle
-                    .emit("download_progress", dlpayload.clone())
-                    .unwrap();
-                prevent_exit(&*archandle, true);
-
-                let mut dl_url = runnerp.url.clone(); // Always x86_64
-                if let Some(urls) = runnerp.urls {
-                    #[cfg(target_arch = "x86_64")]
-                    {
-                        dl_url = urls.x86_64;
-                    }
-                    #[cfg(target_arch = "aarch64")]
-                    {
-                        dl_url = if urls.aarch64.is_empty() {
-                            runnerp.url.clone()
-                        } else {
-                            urls.aarch64
-                        };
-                    }
-                }
-
-                let r0 = run_async_command(async {
-                    Compat::download_runner(dl_url, rp.to_str().unwrap().to_string(), true, {
-                        let archandle = archandle.clone();
-                        let dlpayload = dlpayload.clone();
-                        let runv = runv.clone();
-                        move |current, total, _net, _disk| {
-                            let mut dlpayload = dlpayload.clone();
-                            dlpayload.insert("name", runv.to_string());
-                            dlpayload.insert("progress", current.to_string());
-                            dlpayload.insert("total", total.to_string());
-                            archandle
-                                .emit("download_progress", dlpayload.clone())
-                                .unwrap();
+                    // Determine the download URL based on architecture
+                    let mut dl_url = runnerp.url.clone();
+                    if let Some(ref urls) = runnerp.urls {
+                        #[cfg(target_arch = "x86_64")]
+                        {
+                            dl_url = urls.x86_64.clone();
                         }
-                    })
-                    .await
-                });
-                if r0 {
-                    let wine64 = if rm.paths.wine64.is_empty() {
-                        rm.paths.wine32
-                    } else {
-                        rm.paths.wine64
-                    };
-                    let winebin = rp.join(wine64).to_str().unwrap().to_string();
-
-                    if is_proton {
-                    } else {
-                        Compat::update_prefix(winebin, rpp.as_str().to_string()).unwrap();
+                        #[cfg(target_arch = "aarch64")]
+                        {
+                            dl_url = if urls.aarch64.is_empty() {
+                                runnerp.url.clone()
+                            } else {
+                                urls.aarch64.clone()
+                            };
+                        }
                     }
-                    archandle.emit("download_complete", ()).unwrap();
-                    prevent_exit(&*archandle, false);
-                    send_notification(
-                        &*archandle,
-                        format!(
-                            "Download of {rnn} complete.",
-                            rnn = runv.as_str().to_string()
-                        )
-                        .as_str(),
-                        None,
-                    );
+
+                    // Create/update database entry (will be marked as installed by download job on completion)
+                    let ir = get_installed_runner_info_by_version(&app, version.clone());
                     if ir.is_some() {
                         update_installed_runner_is_installed_by_version(
-                            &*archandle,
-                            runv.to_string(),
-                            true,
+                            &app,
+                            version.clone(),
+                            false,
                         );
                     } else {
-                        create_installed_runner(
-                            &*archandle,
-                            runv.to_string(),
-                            true,
+                        let _ = create_installed_runner(
+                            &app,
+                            version.clone(),
+                            false,
                             rp.to_str().unwrap().to_string(),
-                        )
-                        .unwrap();
+                        );
                     }
-                } else {
-                    archandle.dialog().message(format!("Error occurred while trying to download {runn} runner! Please retry later.", runn = runv.clone().as_str().to_string()).as_str()).title("TwintailLauncher")
-                            .kind(MessageDialogKind::Error)
-                            .buttons(MessageDialogButtons::OkCustom("Ok".to_string()))
-                            .show(move |_action| {
-                                prevent_exit(&*archandle, false);
-                                archandle.emit("download_complete", ()).unwrap();
-                                if rp.exists() { fs::remove_dir_all(&rp).unwrap(); }
-                            });
+
+                    // Enqueue the download job via the queue system
+                    let state = app.state::<DownloadState>();
+                    let q = state.queue.lock().unwrap().clone();
+                    if let Some(queue) = q {
+                        queue.enqueue(
+                            QueueJobKind::RunnerDownload,
+                            QueueJobPayload::Runner(RunnerDownloadPayload {
+                                runner_version: version.clone(),
+                                runner_url: dl_url,
+                                runner_path: rp.to_str().unwrap().to_string(),
+                            }),
+                        );
+                    }
                 }
-            });
+            }
         } else {
             std::thread::spawn(move || {
                 let rm = get_compatibility(
@@ -2055,4 +1960,13 @@ pub fn get_download_queue_state(app: AppHandle) -> Option<String> {
         }
     }
     None
+}
+
+#[tauri::command]
+pub fn queue_clear_completed(app: AppHandle) {
+    let state = app.state::<DownloadState>();
+    let queue_guard = state.queue.lock().unwrap();
+    if let Some(ref queue_handle) = *queue_guard {
+        queue_handle.clear_completed();
+    }
 }

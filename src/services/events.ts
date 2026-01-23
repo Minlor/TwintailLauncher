@@ -7,7 +7,9 @@ export function registerEvents(
   event: any,
   pushInstalls: () => void,
   getCurrentInstall: () => string,
-  fetchInstallResumeStates: (install: string) => void
+  fetchInstallResumeStates: (install: string) => void,
+  fetchInstalledRunners?: () => void,
+  fetchSteamRTStatus?: () => void
 ): EventStateUpdate | undefined {
   switch (eventType) {
     case 'download_queue_state': {
@@ -38,6 +40,11 @@ export function registerEvents(
       if (currentInstall) {
         fetchInstallResumeStates(currentInstall);
       }
+
+      // Refresh runner status after downloads complete (runner/steamrt downloads)
+      // This ensures the Play button becomes enabled when dependencies are ready
+      if (fetchInstalledRunners) fetchInstalledRunners();
+      if (fetchSteamRTStatus) fetchSteamRTStatus();
 
       // Misc downloads (proton, steamrt, etc.) use name as job ID
       // Remove from progress tracking when complete
@@ -112,7 +119,8 @@ export function registerEvents(
       return undefined;
     }
     case 'update_progress': {
-      const jobId = event?.payload?.job_id ?? event?.payload?.jobId;
+      // Use job_id if present, otherwise use name as fallback for misc updates (steamrt, etc.)
+      const jobId = event?.payload?.job_id ?? event?.payload?.jobId ?? event?.payload?.name;
       if (!jobId) return undefined;
       return (prev) => {
         const next = { ...(prev?.downloadProgressByJobId || {}) };

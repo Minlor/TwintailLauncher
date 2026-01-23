@@ -71,6 +71,10 @@ function formatKind(kind: QueueJobView['kind']): string {
         case 'game_update': return 'Update';
         case 'game_preload': return 'Preload';
         case 'game_repair': return 'Repair';
+        case 'runner_download': return 'Runner';
+        case 'steamrt_download': return 'SteamRT';
+        case 'xxmi_download': return 'XXMI';
+        default: return 'Download';
     }
 }
 
@@ -112,9 +116,8 @@ export default function DownloadsPage({
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
     const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
 
-    // Track completed items locally (items that disappeared from queue)
-    const [completedItems, setCompletedItems] = useState<QueueJobView[]>([]);
-    const prevJobIdsRef = useRef<Set<string>>(new Set());
+    // Use completed items from backend queue state
+    const completedItems = queue?.completed ?? [];
 
     // Peak speed tracking
     const [peakSpeed, setPeakSpeed] = useState<number>(0);
@@ -154,38 +157,6 @@ export default function DownloadsPage({
     const currentSpeed = currentProgress?.speed ?? 0;
     const currentDisk = currentProgress?.disk ?? 0;
 
-    // Track completed items when jobs disappear from queue
-    useEffect(() => {
-        const currentIds = new Set(allJobs.map(j => j.id));
-        const pausedIds = new Set(pausedJobs.map(j => j.id));
-        const prevJobIds = prevJobIdsRef.current;
-
-        if (prevJobIds.size > 0) {
-            const removed: QueueJobView[] = [];
-            prevJobIds.forEach(id => {
-                if (!currentIds.has(id)) {
-                    // Skip if the job moved to paused state (not completed)
-                    if (pausedIds.has(id)) {
-                        return;
-                    }
-                    const progress = progressByJobId[id];
-                    removed.push({
-                        id,
-                        kind: 'game_download',
-                        installId: '',
-                        name: progress?.name ?? id,
-                        status: 'completed',
-                    });
-                }
-            });
-
-            if (removed.length > 0) {
-                setCompletedItems(prev => [...removed, ...prev].slice(0, 20));
-            }
-        }
-
-        prevJobIdsRef.current = currentIds;
-    }, [allJobs, progressByJobId, pausedJobs]);
 
     // Reset graph history and peak speed when active job changes
     useEffect(() => {
@@ -424,6 +395,14 @@ export default function DownloadsPage({
         }
     };
 
+    const handleClearCompleted = async () => {
+        try {
+            await invoke('queue_clear_completed');
+        } catch (error) {
+            console.error('Failed to clear completed:', error);
+        }
+    };
+
     const handleReorder = async (jobId: string, newPosition: number) => {
         try {
             await invoke('queue_reorder', { jobId, newPosition });
@@ -576,7 +555,7 @@ export default function DownloadsPage({
                                         <img
                                             src={bannerImage}
                                             alt=""
-                                            className="w-full h-full object-cover opacity-30"
+                                            className="w-full h-full object-cover"
                                             style={{
                                                 maskImage: 'linear-gradient(to right, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 40%, rgba(0,0,0,0.5) 70%, rgba(0,0,0,0) 100%)',
                                                 WebkitMaskImage: 'linear-gradient(to right, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 40%, rgba(0,0,0,0.5) 70%, rgba(0,0,0,0) 100%)'
@@ -747,7 +726,7 @@ export default function DownloadsPage({
                 )}
 
                 {/* Queue Section */}
-                <div className="bg-black/20">
+                <div className="">
                     <div className="p-6 border-b border-white/5">
                         <h3 className="text-lg font-semibold text-white">Queue ({queuedJobs.length})</h3>
                     </div>
@@ -860,12 +839,22 @@ export default function DownloadsPage({
                     {/* Completed Section */}
                     {completedItems.length > 0 && (
                         <div className="p-6 border-t border-white/5">
-                            <h3 className="text-lg font-semibold text-white mb-4">
-                                Completed <span className="text-gray-400 font-normal ml-2">({completedItems.length})</span>
-                            </h3>
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-semibold text-white">
+                                    Completed <span className="text-gray-400 font-normal ml-2">({completedItems.length})</span>
+                                </h3>
+                                <button
+                                    onClick={handleClearCompleted}
+                                    className="px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded transition-colors"
+                                >
+                                    Clear All
+                                </button>
+                            </div>
                             <div className="flex flex-col gap-2">
                                 {completedItems.map((job) => {
                                     const install = installs.find(i => i.id === job.installId);
+                                    const statusColor = job.status === 'failed' ? 'text-red-400' : 'text-green-400';
+                                    const statusText = job.status === 'failed' ? 'Failed' : 'Completed';
                                     return (
                                         <div key={job.id} className="flex items-center gap-4 p-3 rounded-lg border border-white/5 bg-white/5">
                                             {/* Game Icon */}
@@ -885,12 +874,13 @@ export default function DownloadsPage({
                                                 <h4 className="text-sm font-medium text-white truncate" title={job.name}>
                                                     {job.name}
                                                 </h4>
+                                                <p className="text-xs text-gray-400 mt-0.5">{formatKind(job.kind)}</p>
                                             </div>
-                                            <div className="text-xs text-green-400 font-medium flex items-center gap-1">
+                                            <div className={`text-xs ${statusColor} font-medium flex items-center gap-1`}>
                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                                 </svg>
-                                                Completed
+                                                {statusText}
                                             </div>
                                         </div>
                                     );

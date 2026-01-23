@@ -1,5 +1,5 @@
 use crate::DownloadState;
-use crate::downloading::DownloadGamePayload;
+use crate::downloading::{DownloadGamePayload, QueueJobPayload};
 use crate::downloading::queue::{QueueJobKind, QueueJobOutcome};
 use crate::utils::db_manager::{
     get_install_info_by_id, get_manifest_info_by_id, update_install_after_update_by_id,
@@ -29,7 +29,7 @@ pub fn register_update_handler(app: &AppHandle) {
         let state = a.state::<DownloadState>();
         let q = state.queue.lock().unwrap().clone();
         if let Some(queue) = q {
-            queue.enqueue(QueueJobKind::GameUpdate, payload);
+            queue.enqueue(QueueJobKind::GameUpdate, QueueJobPayload::Game(payload));
         } else {
             let h5 = a.clone();
             std::thread::spawn(move || {

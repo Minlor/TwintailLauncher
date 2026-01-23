@@ -1,5 +1,6 @@
 import { FolderOpenIcon, MonitorIcon, Trash2Icon, WrenchIcon, X } from "lucide-react";
 import { POPUPS } from "../POPUPS.ts";
+import { PAGES } from "../../pages/PAGES.ts";
 import FolderInput from "../../common/FolderInput.tsx";
 import CheckBox from "../../common/CheckBox.tsx";
 import TextInput from "../../common/TextInput.tsx";
@@ -21,6 +22,7 @@ interface IProps {
     installedRunners: any,
     installSettings: any,
     setOpenPopup: (popup: POPUPS) => void,
+    setCurrentPage: (page: PAGES) => void,
     pushInstalls: () => void,
     setCurrentInstall: (id: string) => void,
     setCurrentGame: (id: string) => void,
@@ -73,7 +75,20 @@ export default class SettingsInstall extends React.Component<IProps, IState> {
                         <TextInput name={"Pre launch command"} value={this.props.installSettings.pre_launch_command} readOnly={false} id={"install_pre_launch_cmd"} placeholder={`${window.navigator.platform.includes("Linux") ? '"/long path/linuxapp"' : "taskmgr.exe"}`} fetchInstallSettings={this.props.fetchInstallSettings} install={this.props.installSettings.id} helpText={`Command that will be ran before game launches. You can use quotes around paths if needed.\nAvailable variables:\n- %steamrt% = SteamLinuxRuntime binary (Usage: %steamrt% --verb=waitforexitandrun -- %reaper%)\n- %reaper% = Process reaper binary (Usage: %reaper% SteamLaunch AppId=0 -- %runner%)\n- %runner% = Call proton binary\n- %game_exe% = Points to game executable\n- %runner_dir% = Path of current runner (not a binary you can append any binary from this folder)\n- %prefix% = Path to root of runner prefix location field\n- %install_dir% = Path to game install location field\n- %steamrt_path% = Path to SteamLinuxRuntime folder (you can append other binaries from the folder)`} />
                         <TextInput name={"Launch command"} value={this.props.installSettings.launch_command} readOnly={false} id={"install_launch_cmd"} placeholder={`${window.navigator.platform.includes("Linux") ? '%runner% [run] "/path long/thing.exe"' : '"/path long/thing.exe"'}`} fetchInstallSettings={this.props.fetchInstallSettings} install={this.props.installSettings.id} helpText={`Custom command to launch the game. You can use quotes around paths if needed.\nAvailable variables:\n- %steamrt% = SteamLinuxRuntime binary (Usage: %steamrt% --verb=waitforexitandrun -- %reaper%)\n- %reaper% = Process reaper binary (Usage: %reaper% SteamLaunch AppId=0 -- %runner%)\n- %runner% = Call proton binary\n- %game_exe% = Points to game executable\n- %runner_dir% = Path of current runner (not a binary you can append any binary from this folder)\n- %prefix% = Path to root of runner prefix location field\n- %install_dir% = Path to game install location field\n- %steamrt_path% = Path to SteamLinuxRuntime folder (you can append other binaries from the folder)`} />
                         <TextInput name={"Launch arguments"} value={this.props.installSettings.launch_args} readOnly={false} id={"install_launch_args"} placeholder={"-dx11 -whatever -thisonetoo"} fetchInstallSettings={this.props.fetchInstallSettings} install={this.props.installSettings.id} helpText={"Additional arguments to pass to the game. Each entry is separated with space."} />
-                        {(window.navigator.platform.includes("Linux")) ? <SelectMenu id={"install_runner_version"} name={"Runner version"} multiple={false} options={this.props.installedRunners} selected={(this.props.installSettings.runner_version === "none" || this.props.installSettings.runner_version === "") ? this.props.installedRunners[0].value : this.props.installSettings.runner_version} install={this.props.installSettings.id} fetchInstallSettings={this.props.fetchInstallSettings} helpText={"Wine/Proton version used by this installation."} setOpenPopup={this.props.setOpenPopup} /> : null}
+                        {(window.navigator.platform.includes("Linux")) ? (
+                            <>
+                                <SelectMenu id={"install_runner_version"} name={"Runner version"} multiple={false} options={this.props.installedRunners} selected={(this.props.installSettings.runner_version === "none" || this.props.installSettings.runner_version === "") ? this.props.installedRunners[0].value : this.props.installSettings.runner_version} install={this.props.installSettings.id} fetchInstallSettings={this.props.fetchInstallSettings} helpText={"Wine/Proton version used by this installation."} setOpenPopup={this.props.setOpenPopup} />
+                                <button
+                                    onClick={() => {
+                                        this.props.setOpenPopup(POPUPS.NONE);
+                                        this.props.setCurrentPage(PAGES.RUNNERS);
+                                    }}
+                                    className="text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors text-left px-3 underline-offset-2 hover:underline"
+                                >
+                                    → Manage Runners
+                                </button>
+                            </>
+                        ) : null}
                         {(window.navigator.platform.includes("Linux")) ? <FolderInput name={"Runner location"} clearable={true} value={`${this.props.installSettings.runner_path}`} folder={true} id={"install_runner_path"} fetchInstallSettings={this.props.fetchInstallSettings} install={this.props.installSettings.id} setOpenPopup={this.props.setOpenPopup} helpText={`Location of the Wine/Proton runner. Usually points to directory containing "bin" or "files" directory.`} /> : null}
                         {(window.navigator.platform.includes("Linux")) ? <FolderInput name={"Runner prefix location"} clearable={true} value={`${this.props.installSettings.runner_prefix}`} folder={true} id={"install_prefix_path2"} fetchInstallSettings={this.props.fetchInstallSettings} install={this.props.installSettings.id} setOpenPopup={this.props.setOpenPopup} helpText={`Location where Wine/Proton prefix is stored. Should point to directory where "system.reg" is stored.`} /> : null}
                         {(window.navigator.platform.includes("Linux")) ? null/*<SelectMenu id={"install_dxvk_version"} name={"DXVK version"} multiple={false} options={this.props.dxvkVersions} selected={(this.props.installSettings.dxvk_version === "none" || this.props.installSettings.dxvk_version === "") ? this.props.dxvkVersions[0].value : this.props.installSettings.dxvk_version} install={this.props.installSettings.id} fetchInstallSettings={this.props.fetchInstallSettings} helpText={"DXVK version used by this installation."} setOpenPopup={this.props.setOpenPopup}/>*/ : null}

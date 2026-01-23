@@ -52,6 +52,8 @@ function formatKind(kind: QueueJobView["kind"]): string {
       return "Preload";
     case "game_repair":
       return "Repair";
+    default:
+      return "Unknown";
   }
 }
 
@@ -69,6 +71,8 @@ function formatStatus(status: QueueJobView["status"]): string {
       return "Paused";
     case "paused":
       return "Paused";
+    default:
+      return "Unknown";
   }
 }
 

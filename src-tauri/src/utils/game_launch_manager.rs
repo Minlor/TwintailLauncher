@@ -73,6 +73,7 @@ pub fn launch(
         .to_str()
         .unwrap()
         .to_string();
+
     #[cfg(not(debug_assertions))]
     let reaper = if crate::utils::is_flatpak() {
         app.path()

@@ -6,7 +6,7 @@ use std::time::Duration;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
-use crate::downloading::DownloadGamePayload;
+use crate::downloading::QueueJobPayload;
 
 static JOB_COUNTER: AtomicU64 = AtomicU64::new(1);
 
@@ -17,13 +17,16 @@ pub enum QueueJobKind {
     GameUpdate,
     GamePreload,
     GameRepair,
+    RunnerDownload,
+    SteamrtDownload,
+    XxmiDownload,
 }
 
 #[derive(Debug)]
 pub struct QueueJob {
     pub id: String,
     pub kind: QueueJobKind,
-    pub payload: DownloadGamePayload,
+    pub payload: QueueJobPayload,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -65,7 +68,7 @@ pub struct DownloadQueueHandle {
 }
 
 impl DownloadQueueHandle {
-    pub fn enqueue(&self, kind: QueueJobKind, payload: DownloadGamePayload) -> String {
+    pub fn enqueue(&self, kind: QueueJobKind, payload: QueueJobPayload) -> String {
         let job_id = format!("job_{}", JOB_COUNTER.fetch_add(1, Ordering::Relaxed));
         let _ = self.tx.send(QueueCommand::Enqueue(QueueJob {
             id: job_id.clone(),
@@ -146,6 +149,11 @@ impl DownloadQueueHandle {
             .tx
             .send(QueueCommand::SetPausing(install_id, is_pausing));
     }
+
+    /// Clear all completed items from the history
+    pub fn clear_completed(&self) {
+        let _ = self.tx.send(QueueCommand::ClearCompleted);
+    }
 }
 
 pub enum QueueCommand {
@@ -161,6 +169,7 @@ pub enum QueueCommand {
     Reorder(String, usize, mpsc::Sender<bool>),
     GetState(mpsc::Sender<QueueStatePayload>),
     ResumeJob(String, mpsc::Sender<bool>),
+    ClearCompleted,
     Shutdown,
 }
 
@@ -321,12 +330,13 @@ pub fn start_download_queue_worker(
             match rx.recv_timeout(Duration::from_millis(200)) {
                 Ok(cmd) => match cmd {
                     QueueCommand::Enqueue(job) => {
-                        let name = job.payload.install.clone();
+                        let name = job.payload.get_name();
+                        let install_id = job.payload.get_id();
                         // UI-visible name will be improved by the job runner via progress events.
                         queued_views.push_back(QueueJobView {
                             id: job.id.clone(),
                             kind: job.kind,
-                            install_id: job.payload.install.clone(),
+                            install_id,
                             name,
                             status: QueueJobStatus::Queued,
                         });
@@ -451,7 +461,7 @@ pub fn start_download_queue_worker(
                         // Remove all queued jobs matching this install_id
                         let mut i = 0;
                         while i < queued.len() {
-                            if queued[i].payload.install == install_id {
+                            if queued[i].payload.get_id() == install_id {
                                 queued.remove(i);
                                 queued_views.remove(i);
                                 removed_any = true;
@@ -564,6 +574,19 @@ pub fn start_download_queue_worker(
                             }
                         }
                         let _ = reply.send(success);
+                    }
+                    QueueCommand::ClearCompleted => {
+                        completed_views.clear();
+                        emit_queue_state(
+                            &app,
+                            max_concurrent,
+                            paused,
+                            &active,
+                            &queued_views,
+                            &completed_views,
+                            &paused_jobs,
+                            &pausing_installs,
+                        );
                     }
                     QueueCommand::Shutdown => break,
                 },
