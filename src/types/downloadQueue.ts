@@ -20,6 +20,8 @@ export interface DownloadQueueStatePayload {
   pausingInstalls?: string[];
 }
 
+export type DownloadPhase = 'verifying' | 'downloading' | 'installing' | 'extracting' | 'validating' | 'moving' | 'idle';
+
 export interface DownloadJobProgress {
   jobId: string;
   name?: string;
@@ -29,5 +31,6 @@ export interface DownloadJobProgress {
   disk?: number;
   installProgress?: number;
   installTotal?: number;
+  phase?: DownloadPhase;
   eventType: string;
 }

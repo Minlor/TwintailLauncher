@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import type {
     DownloadJobProgress,
+    DownloadPhase,
     DownloadQueueStatePayload,
     QueueJobView,
 } from '../../types/downloadQueue';
@@ -91,6 +92,33 @@ function formatStatus(status: QueueJobView['status'], isPaused: boolean): string
     }
 }
 
+/* Format phase to human-readable label */
+function formatPhase(phase: DownloadPhase | undefined): string {
+    switch (phase) {
+        case 'verifying': return 'Verifying';
+        case 'downloading': return 'Downloading';
+        case 'installing': return 'Installing';
+        case 'extracting': return 'Extracting';
+        case 'validating': return 'Validating';
+        case 'moving': return 'Moving';
+        case 'idle': return 'Idle';
+        default: return 'Downloading';
+    }
+}
+
+/* Get phase color class */
+function getPhaseColor(phase: DownloadPhase | undefined): string {
+    switch (phase) {
+        case 'verifying': return 'text-yellow-400';
+        case 'downloading': return 'text-blue-400';
+        case 'installing': return 'text-green-400';
+        case 'extracting': return 'text-purple-400';
+        case 'validating': return 'text-cyan-400';
+        case 'moving': return 'text-orange-400';
+        default: return 'text-blue-400';
+    }
+}
+
 /**
  * Downloads Page - Full-page view for download progress, graph, and queue
  */
@@ -156,6 +184,15 @@ export default function DownloadsPage({
     const downloadProgress = totalBytes > 0 ? toPercent(progressBytes, totalBytes) : 0;
     const currentSpeed = currentProgress?.speed ?? 0;
     const currentDisk = currentProgress?.disk ?? 0;
+
+    // Installation progress (for extraction/verification phase)
+    const installProgressBytes = currentProgress?.installProgress ?? 0;
+    const installTotalBytes = currentProgress?.installTotal ?? 0;
+    const installProgress = installTotalBytes > 0 ? toPercent(installProgressBytes, installTotalBytes) : 0;
+    const hasInstallProgress = installTotalBytes > 0;
+
+    // Current phase/status
+    const currentPhase = currentProgress?.phase;
 
 
     // Reset graph history and peak speed when active job changes
@@ -645,13 +682,20 @@ export default function DownloadsPage({
                                                     {isPaused ? (
                                                         <span className="text-yellow-400 font-medium">Paused</span>
                                                     ) : (
-                                                        <div className="text-gray-400">
-                                                            <span className="uppercase tracking-wider">Downloaded:</span>
-                                                            <span className="ml-2 text-white font-medium">
-                                                                {formatBytes(progressBytes)}
+                                                        <div className="flex items-center gap-3">
+                                                            {/* Phase indicator */}
+                                                            <div className={`flex items-center gap-1.5 ${getPhaseColor(currentPhase)}`}>
+                                                                <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+                                                                <span className="font-medium">{formatPhase(currentPhase)}</span>
+                                                            </div>
+                                                            {/* Progress bytes */}
+                                                            <div className="text-gray-400">
+                                                                <span className="text-white font-medium">
+                                                                    {formatBytes(progressBytes)}
+                                                                </span>
                                                                 <span className="mx-1 text-gray-400">/</span>
-                                                                {formatBytes(totalBytes)}
-                                                            </span>
+                                                                <span>{formatBytes(totalBytes)}</span>
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>
@@ -670,6 +714,30 @@ export default function DownloadsPage({
                                                     }}
                                                 />
                                             </div>
+
+                                            {/* Installing Progress Bar */}
+                                            {hasInstallProgress && (
+                                                <div className="mb-2">
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <div className="text-xs text-gray-400">
+                                                            <span className="uppercase tracking-wider">Installing</span>
+                                                        </div>
+                                                        <div className="text-sm text-gray-300 font-medium">
+                                                            {installProgress.toFixed(1)}%
+                                                        </div>
+                                                    </div>
+                                                    <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
+                                                        <div
+                                                            className={`h-2 rounded-full transition-all duration-500 ${isPaused ? 'bg-gray-500' : 'bg-green-500'
+                                                                }`}
+                                                            style={{
+                                                                width: `${installProgress}%`,
+                                                                boxShadow: isPaused ? 'none' : '0 0 10px rgba(34, 197, 94, 0.5)'
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
 
                                             {/* ETA and Pause Button */}
                                             <div className="flex items-center justify-between text-xs text-gray-400 mb-3">

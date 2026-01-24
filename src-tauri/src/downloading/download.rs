@@ -9,7 +9,7 @@ use crate::utils::{
     prevent_exit, run_async_command, send_notification,
 };
 use fischl::download::game::{Game, Kuro, Sophon, Zipped};
-use fischl::utils::{assemble_multipart_archive, extract_archive};
+use fischl::utils::{assemble_multipart_archive, extract_archive_with_progress};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -187,24 +187,26 @@ pub fn run_game_download(
                             let far = ap.join(aar).to_str().unwrap().to_string();
 
                             // Extraction stage (Steam-like "Installing files")
-                            {
-                                let mut dlp = dlpayload.lock().unwrap();
-                                dlp.insert("job_id", job_id.to_string());
-                                dlp.insert("name", instn.clone().to_string());
-                                dlp.insert("progress", "0".to_string());
-                                dlp.insert("total", "100".to_string());
-                                h4.emit("download_installing", dlp.clone()).unwrap();
-                            }
-                            let ext = extract_archive(far, install.directory.clone(), false);
-                            if ext {
+                            let ext = extract_archive_with_progress(
+                                far,
+                                install.directory.clone(),
+                                false,
                                 {
-                                    let mut dlp = dlpayload.lock().unwrap();
-                                    dlp.insert("job_id", job_id.to_string());
-                                    dlp.insert("name", instn.clone().to_string());
-                                    dlp.insert("progress", "100".to_string());
-                                    dlp.insert("total", "100".to_string());
-                                    h4.emit("download_installing", dlp.clone()).unwrap();
-                                }
+                                    let dlpayload = dlpayload.clone();
+                                    let h4 = h4.clone();
+                                    let instn = instn.clone();
+                                    let job_id = job_id.clone();
+                                    move |current, total| {
+                                        let mut dlp = dlpayload.lock().unwrap();
+                                        dlp.insert("job_id", job_id.to_string());
+                                        dlp.insert("name", instn.to_string());
+                                        dlp.insert("progress", current.to_string());
+                                        dlp.insert("total", total.to_string());
+                                        h4.emit("download_installing", dlp.clone()).unwrap();
+                                    }
+                                },
+                            );
+                            if ext {
                                 if downloading_marker.exists() {
                                     std::fs::remove_dir(&downloading_marker).unwrap_or_default();
                                 }
@@ -223,24 +225,26 @@ pub fn run_game_download(
                         let far = ap.join(fnn.clone()).to_str().unwrap().to_string();
 
                         // Extraction stage (Steam-like "Installing files")
-                        {
-                            let mut dlp = dlpayload.lock().unwrap();
-                            dlp.insert("job_id", job_id.to_string());
-                            dlp.insert("name", instn.clone().to_string());
-                            dlp.insert("progress", "0".to_string());
-                            dlp.insert("total", "100".to_string());
-                            h4.emit("download_installing", dlp.clone()).unwrap();
-                        }
-                        let ext = extract_archive(far, install.directory.clone(), false);
-                        if ext {
+                        let ext = extract_archive_with_progress(
+                            far,
+                            install.directory.clone(),
+                            false,
                             {
-                                let mut dlp = dlpayload.lock().unwrap();
-                                dlp.insert("job_id", job_id.to_string());
-                                dlp.insert("name", instn.clone().to_string());
-                                dlp.insert("progress", "100".to_string());
-                                dlp.insert("total", "100".to_string());
-                                h4.emit("download_installing", dlp.clone()).unwrap();
-                            }
+                                let dlpayload = dlpayload.clone();
+                                let h4 = h4.clone();
+                                let instn = instn.clone();
+                                let job_id = job_id.clone();
+                                move |current, total| {
+                                    let mut dlp = dlpayload.lock().unwrap();
+                                    dlp.insert("job_id", job_id.to_string());
+                                    dlp.insert("name", instn.to_string());
+                                    dlp.insert("progress", current.to_string());
+                                    dlp.insert("total", total.to_string());
+                                    h4.emit("download_installing", dlp.clone()).unwrap();
+                                }
+                            },
+                        );
+                        if ext {
                             if downloading_marker.exists() {
                                 std::fs::remove_dir(&downloading_marker).unwrap_or_default();
                             }
@@ -295,15 +299,20 @@ pub fn run_game_download(
                                 let dlpayload = dlpayload.clone();
                                 let instn = instn.clone();
                                 let job_id = job_id.clone();
-                                move |current, total, net_speed, disk_speed| {
+                                move |download_current, download_total, install_current, install_total, net_speed, disk_speed, phase| {
                                     let mut dlp = dlpayload.lock().unwrap();
                                     let instn = instn.to_string();
                                     dlp.insert("job_id", job_id.to_string());
-                                    dlp.insert("name", instn);
-                                    dlp.insert("progress", current.to_string());
-                                    dlp.insert("total", total.to_string());
+                                    dlp.insert("name", instn.clone());
+                                    dlp.insert("progress", download_current.to_string());
+                                    dlp.insert("total", download_total.to_string());
                                     dlp.insert("speed", net_speed.to_string());
                                     dlp.insert("disk", disk_speed.to_string());
+                                    // Include install progress in same event to avoid flickering
+                                    dlp.insert("install_progress", install_current.to_string());
+                                    dlp.insert("install_total", install_total.to_string());
+                                    // Phase: 0=idle, 1=verifying, 2=downloading, 3=installing, 4=validating, 5=moving
+                                    dlp.insert("phase", phase.to_string());
                                     h4.emit("download_progress", dlp.clone()).unwrap();
                                     drop(dlp);
                                 }

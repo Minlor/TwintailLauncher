@@ -1,6 +1,23 @@
 import { toPercent, formatBytes } from '../utils/progress.ts';
+import type { DownloadPhase } from '../types/downloadQueue.ts';
 
 export type EventStateUpdate = Record<string, any> | ((prev: any) => Record<string, any>);
+
+// Convert numeric phase from backend to string phase for frontend
+function parsePhase(phaseNum: string | number | undefined): DownloadPhase | undefined {
+  if (phaseNum === undefined) return undefined;
+  const num = typeof phaseNum === 'string' ? parseInt(phaseNum) : phaseNum;
+  // Phase: 0=idle, 1=verifying, 2=downloading, 3=installing, 4=validating, 5=moving
+  switch (num) {
+    case 0: return 'idle';
+    case 1: return 'verifying';
+    case 2: return 'downloading';
+    case 3: return 'installing';
+    case 4: return 'validating';
+    case 5: return 'moving';
+    default: return undefined;
+  }
+}
 
 export function registerEvents(
   eventType: string,
@@ -88,6 +105,11 @@ export function registerEvents(
           total: parseInt(event.payload.total),
           speed: event.payload.speed ? parseInt(event.payload.speed) : undefined,
           disk: event.payload.disk ? parseInt(event.payload.disk) : undefined,
+          // Include install progress if present in the same event (Sophon downloads)
+          installProgress: event.payload.install_progress !== undefined ? parseInt(event.payload.install_progress) : undefined,
+          installTotal: event.payload.install_total !== undefined ? parseInt(event.payload.install_total) : undefined,
+          // Phase: verifying, downloading, installing, validating, moving
+          phase: parsePhase(event.payload.phase),
           eventType,
         };
         return { downloadProgressByJobId: next };
@@ -131,6 +153,11 @@ export function registerEvents(
           total: parseInt(event.payload.total),
           speed: event.payload.speed ? parseInt(event.payload.speed) : undefined,
           disk: event.payload.disk ? parseInt(event.payload.disk) : undefined,
+          // Include install progress if present in the same event (Sophon downloads)
+          installProgress: event.payload.install_progress !== undefined ? parseInt(event.payload.install_progress) : undefined,
+          installTotal: event.payload.install_total !== undefined ? parseInt(event.payload.install_total) : undefined,
+          // Phase: verifying, downloading, installing, validating, moving
+          phase: parsePhase(event.payload.phase),
           eventType,
         };
         return { downloadProgressByJobId: next };
@@ -166,6 +193,11 @@ export function registerEvents(
           total: parseInt(event.payload.total),
           speed: event.payload.speed ? parseInt(event.payload.speed) : undefined,
           disk: event.payload.disk ? parseInt(event.payload.disk) : undefined,
+          // Include install progress if present in the same event (Sophon downloads)
+          installProgress: event.payload.install_progress !== undefined ? parseInt(event.payload.install_progress) : undefined,
+          installTotal: event.payload.install_total !== undefined ? parseInt(event.payload.install_total) : undefined,
+          // Phase: verifying, downloading, installing, validating, moving
+          phase: parsePhase(event.payload.phase),
           eventType,
         };
         return { downloadProgressByJobId: next };
@@ -201,6 +233,11 @@ export function registerEvents(
           total: parseInt(event.payload.total),
           speed: event.payload.speed ? parseInt(event.payload.speed) : undefined,
           disk: event.payload.disk ? parseInt(event.payload.disk) : undefined,
+          // Include install progress if present in the same event (Sophon downloads)
+          installProgress: event.payload.install_progress !== undefined ? parseInt(event.payload.install_progress) : undefined,
+          installTotal: event.payload.install_total !== undefined ? parseInt(event.payload.install_total) : undefined,
+          // Phase: verifying, downloading, installing, validating, moving
+          phase: parsePhase(event.payload.phase),
           eventType,
         };
         return { downloadProgressByJobId: next };

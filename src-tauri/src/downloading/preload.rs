@@ -118,17 +118,22 @@ pub fn run_game_preload(
                                             let tmp = tmp.clone();
                                             let instn = instn.clone();
                                             let job_id = job_id.clone();
-                                            move |current, total, net_speed, disk_speed| {
+                                            move |download_current, download_total, install_current, install_total, net_speed, disk_speed, phase| {
                                                 let mut dlp = dlpayload.lock().unwrap();
                                                 let tmp = tmp.clone();
                                                 let instn = instn.clone();
 
                                                 dlp.insert("job_id", job_id.to_string());
                                                 dlp.insert("name", instn.to_string());
-                                                dlp.insert("progress", current.to_string());
-                                                dlp.insert("total", total.to_string());
+                                                dlp.insert("progress", download_current.to_string());
+                                                dlp.insert("total", download_total.to_string());
                                                 dlp.insert("speed", net_speed.to_string());
                                                 dlp.insert("disk", disk_speed.to_string());
+                                                // Include install progress in same event to avoid flickering
+                                                dlp.insert("install_progress", install_current.to_string());
+                                                dlp.insert("install_total", install_total.to_string());
+                                                // Phase: 0=idle, 1=verifying, 2=downloading, 3=installing, 4=validating, 5=moving
+                                                dlp.insert("phase", phase.to_string());
                                                 tmp.emit("preload_progress", dlp.clone()).unwrap();
                                                 drop(dlp);
                                             }
