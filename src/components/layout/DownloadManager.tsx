@@ -35,6 +35,7 @@ interface DownloadManagerProps {
   onSpeedSample: (sample: TelemetrySample) => void;
   onClearHistory: () => void;
   downloadSpeedLimitKiB: number;
+  imageVersion?: number; // Used to force image re-load after network recovery
 }
 
 /* Format speed in bytes per second */
@@ -99,6 +100,7 @@ export default function DownloadManager({
   onSpeedSample,
   onClearHistory,
   downloadSpeedLimitKiB,
+  imageVersion = 0,
 }: DownloadManagerProps) {
   // Canvas ref for graph
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -574,6 +576,7 @@ export default function DownloadManager({
                   <div className="absolute left-0 top-0 bottom-0 w-1/2 overflow-hidden pointer-events-none z-0">
                     {bannerImage ? (
                       <img
+                        key={`banner-v${imageVersion}`}
                         src={bannerImage}
                         alt=""
                         className="w-full h-full object-cover opacity-30"
@@ -788,7 +791,7 @@ export default function DownloadManager({
                         {/* Game Icon */}
                         <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-gray-700">
                           {install?.game_icon ? (
-                            <img src={install.game_icon} alt="" className="w-full h-full object-cover" />
+                            <img key={`icon-${job.id}-v${imageVersion}`} src={install.game_icon} alt="" className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-gray-500">
                               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -869,7 +872,7 @@ export default function DownloadManager({
                         {/* Game Icon */}
                         <div className="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-gray-700">
                           {install?.game_icon ? (
-                            <img src={install.game_icon} alt="" className="w-full h-full object-cover" />
+                            <img key={`icon-${job.id}-v${imageVersion}`} src={install.game_icon} alt="" className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-gray-500">
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

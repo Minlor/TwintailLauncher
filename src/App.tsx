@@ -16,7 +16,8 @@ import ActionBar from "./components/layout/ActionBar";
 import PopupOverlay from "./components/layout/PopupOverlay";
 import PageViewContainer from "./components/pages/PageViewContainer";
 import GameInfoOverlay from "./components/layout/GameInfoOverlay";
-import { startInitialLoad } from "./services/loader";
+import { startInitialLoad, NetworkMonitor, type RecoveryProgress, type NetworkStatus } from "./services/loader";
+import { showDialogAsync } from "./context/DialogContext";
 import SidebarRunners from "./components/sidebar/SidebarRunners.tsx";
 import SidebarDownloads from "./components/sidebar/SidebarDownloads";
 import { toPercent } from "./utils/progress";
@@ -28,6 +29,8 @@ export default class App extends React.Component<any, any> {
     preloadedBackgrounds: Set<string>;
     // Ref to measure floating manifests panel width to prevent snap during close
     manifestsPanelRef: React.RefObject<HTMLDivElement>;
+    // Network monitor for periodic connectivity checks
+    networkMonitor?: NetworkMonitor;
     constructor(props: any) {
         super(props);
 
@@ -120,7 +123,11 @@ export default class App extends React.Component<any, any> {
             speedHistory: [] as { net: number; disk: number }[],
             downloadsPageOpen: false,
             currentPage: PAGES.NONE,
-            availableBackgrounds: [] as { src: string; label: string; isDynamic: boolean }[]
+            availableBackgrounds: [] as { src: string; label: string; isDynamic: boolean }[],
+            limitedMode: false,
+            networkStatus: "online" as "online" | "slow" | "offline",
+            recoveryProgress: null as RecoveryProgress | null,
+            imageVersion: 0 // Increments on recovery to force image re-loads
         }
     }
 
@@ -182,6 +189,61 @@ export default class App extends React.Component<any, any> {
                             });
                         }}
                     />
+                    {/* Limited Mode Banner */}
+                    {this.state.limitedMode && (
+                        <div className="absolute top-0 left-0 right-0 z-50 flex justify-center pointer-events-none">
+                            <div className="mt-2 px-4 py-2 bg-amber-500/90 backdrop-blur-sm rounded-lg shadow-lg pointer-events-auto flex items-center gap-2 animate-fadeIn">
+                                {/* Icon - changes based on recovery state */}
+                                {this.state.recoveryProgress?.phase && this.state.recoveryProgress.phase !== "idle" && this.state.recoveryProgress.phase !== "complete" ? (
+                                    <svg className="w-4 h-4 text-amber-900 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    </svg>
+                                ) : this.state.recoveryProgress?.phase === "complete" ? (
+                                    <svg className="w-4 h-4 text-green-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                ) : (
+                                    <svg className="w-4 h-4 text-amber-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                )}
+
+                                {/* Status text - shows progress when recovering */}
+                                <span className="text-sm font-medium text-amber-900">
+                                    {this.state.recoveryProgress?.phase === "checking" && "Checking connection..."}
+                                    {this.state.recoveryProgress?.phase === "loading_repos" && "Loading repositories..."}
+                                    {this.state.recoveryProgress?.phase === "loading_images" && (
+                                        <>Loading images... ({this.state.recoveryProgress.current}/{this.state.recoveryProgress.total})</>
+                                    )}
+                                    {this.state.recoveryProgress?.phase === "complete" && "Connected!"}
+                                    {(!this.state.recoveryProgress?.phase || this.state.recoveryProgress.phase === "idle") && (
+                                        <>{this.state.networkStatus === "offline" ? "Offline Mode" : "Limited Mode"} - Downloads unavailable</>
+                                    )}
+                                </span>
+
+                                {/* Progress bar for image loading */}
+                                {this.state.recoveryProgress?.phase === "loading_images" && this.state.recoveryProgress.total > 0 && (
+                                    <div className="w-20 h-1.5 bg-amber-200 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-amber-700 transition-all duration-300"
+                                            style={{ width: `${(this.state.recoveryProgress.current / this.state.recoveryProgress.total) * 100}%` }}
+                                        />
+                                    </div>
+                                )}
+
+                                {/* Retry button - disabled during recovery */}
+                                {(!this.state.recoveryProgress?.phase || this.state.recoveryProgress.phase === "idle") && (
+                                    <button
+                                        onClick={() => this.networkMonitor?.triggerRecovery()}
+                                        className="ml-2 px-2 py-0.5 text-xs font-medium text-amber-900 bg-amber-200 hover:bg-amber-100 rounded transition-colors"
+                                    >
+                                        Retry
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )}
                     {(this.state.openPopup != POPUPS.NONE || this.state.currentPage !== PAGES.NONE) && (
                         <div className={`pointer-events-none absolute inset-0 animate-fadeIn ${this.state.openPopup != POPUPS.NONE ? "z-40" : "z-20"}`}>
                             {/* Frost-like light veil */}
@@ -211,6 +273,7 @@ export default class App extends React.Component<any, any> {
                                 this.setState({ manifestsOpenVisual: false });
                             }
                         }}
+                        imageVersion={this.state.imageVersion}
                     />
                     <div className="h-full w-16 p-2 bg-black/50 flex flex-col items-center justify-start animate-slideInLeft relative z-30" style={{ animationDelay: '100ms' }}>
                         {/* Separate, centered section for the download/manifests toggle */}
@@ -256,7 +319,7 @@ export default class App extends React.Component<any, any> {
                                     const latest = game?.latest_version ?? null;
                                     const hasUpdate = !!(latest && install?.version && latest !== install.version && !install?.ignore_updates);
                                     return (
-                                        <div key={install.id} className="animate-slideInLeft" style={{ animationDelay: `${index * 100 + 600}ms` }}>
+                                        <div key={`${install.id}-v${this.state.imageVersion}`} className="animate-slideInLeft" style={{ animationDelay: `${index * 100 + 600}ms` }}>
                                             <SidebarIconInstall
                                                 popup={this.state.openPopup}
                                                 icon={install.game_icon}
@@ -348,6 +411,7 @@ export default class App extends React.Component<any, any> {
                             return !!(latest && install?.version && latest !== install.version && !install?.ignore_updates);
                         })()}
                         isVisible={(this.state.currentInstall !== "" || this.state.currentGame !== "") && this.state.openPopup === POPUPS.NONE && this.state.currentPage === PAGES.NONE}
+                        imageVersion={this.state.imageVersion}
                     />
 
                     <ActionBar
@@ -410,6 +474,7 @@ export default class App extends React.Component<any, any> {
                         installGameFps={this.state.installGameFps}
                         installs={this.state.installs}
                         setCurrentPage={this.setCurrentPage}
+                        imageVersion={this.state.imageVersion}
                     />
                     <BackgroundControls
                         currentBackground={this.state.gameBackground}
@@ -435,6 +500,7 @@ export default class App extends React.Component<any, any> {
                         runners={this.state.runners}
                         installedRunners={this.state.installedRunners}
                         fetchInstalledRunners={this.fetchInstalledRunners}
+                        imageVersion={this.state.imageVersion}
                     />
                 )}
                 {this.state.showLoadingOverlay && (
@@ -449,6 +515,36 @@ export default class App extends React.Component<any, any> {
     }
 
     async componentDidMount() {
+        // Create network monitor for periodic connectivity checks
+        this.networkMonitor = new NetworkMonitor(
+            (status: NetworkStatus, isRecovering: boolean) => {
+                // Only update state if we're in limited mode and status changes
+                if (this.state.limitedMode && status.status === "online" && !isRecovering) {
+                    // Auto-trigger recovery when connectivity is restored
+                    this.networkMonitor?.triggerRecovery();
+                }
+            },
+            (progress: RecoveryProgress) => {
+                this.setState({ recoveryProgress: progress });
+                // Increment imageVersion when recovery completes to force image re-loads
+                if (progress.phase === "complete") {
+                    this.setState((prev: any) => ({ imageVersion: prev.imageVersion + 1 }));
+                }
+            },
+            15000, // Check every 15 seconds
+            // Callback when connectivity is lost
+            () => {
+                // Show a popup when connectivity is lost while using the launcher
+                // Don't await - let it show in the background
+                showDialogAsync({
+                    type: "warning",
+                    title: "Connection Lost",
+                    message: "Your internet connection was lost. Some features like downloads and updates won't be available until the connection is restored.\n\nThe launcher will automatically reconnect when possible.",
+                    buttons: [{ label: "OK", variant: "primary" }],
+                });
+            }
+        );
+
         // Kick off background-style initial loading via service
         this.loaderController = startInitialLoad({
             fetchSettings: this.fetchSettings,
@@ -467,6 +563,22 @@ export default class App extends React.Component<any, any> {
             getCurrentInstall: () => this.state.currentInstall,
             fetchInstallResumeStates: this.fetchInstallResumeStates,
         });
+
+        // Set up network monitor with recovery options
+        this.networkMonitor.setRecoveryOptions({
+            fetchRepositories: this.fetchRepositories,
+            fetchCompatibilityVersions: this.fetchCompatibilityVersions,
+            fetchInstalledRunners: this.fetchInstalledRunners,
+            fetchSteamRTStatus: this.fetchSteamRTStatus,
+            getGamesInfo: () => this.state.gamesinfo,
+            getInstalls: () => this.state.installs,
+            preloadImages: (images, onProgress, preloaded) => preloadImages(images, onProgress, preloaded),
+            preloadedBackgrounds: this.preloadedBackgrounds,
+            applyEventState: (ns) => this.setState(ns as any),
+        });
+
+        // Start monitoring (will auto-recover when connectivity is restored)
+        this.networkMonitor.start();
     }
 
     completeInitialLoading() {
@@ -484,6 +596,9 @@ export default class App extends React.Component<any, any> {
     componentWillUnmount() {
         if (this.loaderController) {
             this.loaderController.cancel();
+        }
+        if (this.networkMonitor) {
+            this.networkMonitor.stop();
         }
     }
 

@@ -60,6 +60,9 @@ export type PopupOverlayProps = {
 
   // Page navigation
   setCurrentPage: (page: PAGES) => void;
+
+  // Network recovery
+  imageVersion?: number;
 };
 
 export default function PopupOverlay(props: PopupOverlayProps) {
@@ -92,6 +95,7 @@ export default function PopupOverlay(props: PopupOverlayProps) {
     installGameFps,
     installs,
     setCurrentPage,
+    imageVersion = 0,
   } = props;
 
   // ESC to close and scroll lock while a popup is open
@@ -155,6 +159,7 @@ export default function PopupOverlay(props: PopupOverlayProps) {
           setCurrentInstall={setCurrentInstall}
           openAsExisting={openDownloadAsExisting}
           setCurrentPage={setCurrentPage}
+          imageVersion={imageVersion}
         />
       )}
 
@@ -169,6 +174,7 @@ export default function PopupOverlay(props: PopupOverlayProps) {
           installs={installs}
           setCurrentPage={setCurrentPage}
           gamesinfo={gamesinfo}
+          imageVersion={imageVersion}
         />
       )}
       {openPopup == POPUPS.INSTALLDELETECONFIRMATION && (

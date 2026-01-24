@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 
 export type DialogType = "error" | "warning" | "info" | "confirm";
 
@@ -29,6 +29,48 @@ interface DialogContextType {
 
 const DialogContext = createContext<DialogContextType | undefined>(undefined);
 
+// Global reference for showing dialogs from outside React components
+let globalShowDialog: ((options: DialogOptions) => void) | null = null;
+
+/**
+ * Check if the dialog provider is ready
+ */
+export function isDialogReady(): boolean {
+    return globalShowDialog !== null;
+}
+
+/**
+ * Wait for the dialog provider to be ready (with timeout)
+ */
+export async function waitForDialogReady(timeoutMs: number = 5000): Promise<boolean> {
+    const startTime = Date.now();
+    while (!globalShowDialog && Date.now() - startTime < timeoutMs) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    return globalShowDialog !== null;
+}
+
+/**
+ * Show a dialog and return a promise that resolves with the button index clicked.
+ * Can be called from anywhere (services, loaders, etc.)
+ * Will wait for dialog provider to be ready before showing.
+ */
+export async function showDialogAsync(options: Omit<DialogOptions, 'onClose'>): Promise<number> {
+    // Wait for dialog provider to be ready
+    const ready = await waitForDialogReady();
+    if (!ready) {
+        console.error("Dialog provider not ready after timeout");
+        return -1; // Return -1 to indicate failure (not a valid button index)
+    }
+
+    return new Promise((resolve) => {
+        globalShowDialog!({
+            ...options,
+            onClose: (buttonIndex) => resolve(buttonIndex),
+        });
+    });
+}
+
 export function DialogProvider({ children }: { children: React.ReactNode }) {
     const [dialog, setDialog] = useState<DialogState | null>(null);
 
@@ -48,6 +90,14 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
             isOpen: true,
         });
     }, []);
+
+    // Set global reference for use outside React components
+    useEffect(() => {
+        globalShowDialog = showDialog;
+        return () => {
+            globalShowDialog = null;
+        };
+    }, [showDialog]);
 
     const closeDialog = useCallback((buttonIndex: number = 0) => {
         setDialog((prev) => {

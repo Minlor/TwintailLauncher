@@ -9,9 +9,10 @@ interface SettingsLayoutProps {
     children: React.ReactNode;
     banner?: string;
     icon?: string;
+    imageVersion?: number; // Used to force image re-load after network recovery
 }
 
-export const SettingsLayout = ({ title, onClose, children, banner, icon }: SettingsLayoutProps) => {
+export const SettingsLayout = ({ title, onClose, children, banner, icon, imageVersion = 0 }: SettingsLayoutProps) => {
     // Defer content rendering to allow animation to start smoothly
     const [_isReady, setIsReady] = useState(false);
 
@@ -31,7 +32,7 @@ export const SettingsLayout = ({ title, onClose, children, banner, icon }: Setti
                 <div className="relative h-48 shrink-0 overflow-hidden">
                     {/* Banner Image */}
                     <div className="absolute inset-0">
-                        <CachedImage src={banner} className="w-full h-full object-cover object-center opacity-80" />
+                        <CachedImage key={`banner-v${imageVersion}`} src={banner} className="w-full h-full object-cover object-center opacity-80" />
                         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-[#09090b]" />
                     </div>
 
@@ -40,7 +41,7 @@ export const SettingsLayout = ({ title, onClose, children, banner, icon }: Setti
                         <div className="flex items-center gap-6">
                             {icon && (
                                 <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-black/80 transition-transform duration-500 hover:scale-105">
-                                    <CachedImage src={icon} className="w-full h-full object-cover" />
+                                    <CachedImage key={`icon-v${imageVersion}`} src={icon} className="w-full h-full object-cover" />
                                 </div>
                             )}
                             <div className="mb-1">

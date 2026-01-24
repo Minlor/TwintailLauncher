@@ -52,6 +52,9 @@ interface PageViewContainerProps {
     runners: RunnerManifest[];
     installedRunners: InstalledRunner[];
     fetchInstalledRunners: () => void;
+
+    // Network recovery
+    imageVersion?: number;
 }
 
 export default function PageViewContainer({
@@ -69,6 +72,7 @@ export default function PageViewContainer({
     runners,
     installedRunners,
     fetchInstalledRunners,
+    imageVersion = 0,
 }: PageViewContainerProps) {
     return (
         <div className="absolute inset-0 left-16 z-30 bg-black/50 flex flex-col overflow-hidden border-l border-white/10">
@@ -89,6 +93,7 @@ export default function PageViewContainer({
                     onSpeedSample={onSpeedSample}
                     onClearHistory={onClearHistory}
                     downloadSpeedLimitKiB={downloadSpeedLimitKiB}
+                    imageVersion={imageVersion}
                 />
             )}
             {currentPage === PAGES.RUNNERS && (

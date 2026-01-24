@@ -28,9 +28,10 @@ interface IProps {
     fetchDownloadSizes: (biz: any, version: any, lang: any, path: any, callback: (data: any) => void) => void;
     openAsExisting?: boolean;
     setCurrentPage: (page: PAGES) => void;
+    imageVersion?: number; // Used to force image re-load after network recovery
 }
 
-export default function DownloadGame({ disk, setOpenPopup, displayName, settings, biz, versions, background, icon, pushInstalls, runnerVersions, dxvkVersions, setCurrentInstall, fetchDownloadSizes, openAsExisting, setCurrentPage }: IProps) {
+export default function DownloadGame({ disk, setOpenPopup, displayName, settings, biz, versions, background, icon, pushInstalls, runnerVersions, dxvkVersions, setCurrentInstall, fetchDownloadSizes, openAsExisting, setCurrentPage, imageVersion = 0 }: IProps) {
     const [skipGameDownload] = useState<boolean>(!!openAsExisting);
     const [selectedGameVersion, setSelectedGameVersion] = useState(versions?.[0]?.value || "");
     const [isVersionOpen, setIsVersionOpen] = useState(false);
@@ -189,7 +190,7 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
             <div className="relative h-48 w-full flex-shrink-0">
                 {popupBanner && (
                     <div className="absolute inset-0">
-                        <CachedImage src={popupBanner} className="w-full h-full object-cover opacity-80" alt="Game Background" />
+                        <CachedImage key={`banner-v${imageVersion}`} src={popupBanner} className="w-full h-full object-cover opacity-80" alt="Game Background" />
                         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-[#0c0c0c]" />
                     </div>
                 )}
@@ -206,7 +207,7 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
                 <div className="absolute bottom-6 left-8 z-10 flex items-end gap-6">
                     {icon && (
                         <div className="w-24 h-24 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/10 bg-black/80 hidden sm:block">
-                            <CachedImage src={icon} className="w-full h-full object-cover" alt="Icon" />
+                            <CachedImage key={`icon-v${imageVersion}`} src={icon} className="w-full h-full object-cover" alt="Icon" />
                         </div>
                     )}
                     <div className="mb-1">

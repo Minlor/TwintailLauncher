@@ -6,6 +6,7 @@ interface GameInfoOverlayProps {
     version?: string;
     hasUpdate?: boolean;
     isVisible: boolean;
+    imageVersion?: number; // Used to force image re-load after network recovery
 }
 
 export default function GameInfoOverlay({
@@ -13,7 +14,8 @@ export default function GameInfoOverlay({
     gameIcon,
     version,
     hasUpdate,
-    isVisible
+    isVisible,
+    imageVersion = 0
 }: GameInfoOverlayProps) {
     if (!isVisible || !displayName) return null;
 
@@ -23,7 +25,7 @@ export default function GameInfoOverlay({
                 <div className="flex items-center gap-3">
                     {gameIcon && (
                         <div className="w-12 h-12 rounded-lg overflow-hidden border border-white/10 flex-shrink-0">
-                            <CachedImage src={gameIcon} className="w-full h-full object-cover" alt="Game Icon" />
+                            <CachedImage key={`icon-v${imageVersion}`} src={gameIcon} className="w-full h-full object-cover" alt="Game Icon" />
                         </div>
                     )}
                     <div className="min-w-0">

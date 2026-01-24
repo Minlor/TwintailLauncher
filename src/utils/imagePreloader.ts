@@ -24,8 +24,37 @@ const pendingPreloads: Map<string, Promise<void>> = new Map();
 // Track successfully loaded URLs (separate from element cache for quick lookup)
 const loadedUrls: Set<string> = new Set();
 
+// Track URLs that failed to load (for retry during recovery)
+const failedUrls: Set<string> = new Set();
+
 export function isImagePreloaded(url: string): boolean {
-  return loadedUrls.has(url);
+  return loadedUrls.has(url) && !failedUrls.has(url);
+}
+
+/**
+ * Check if a URL failed to load
+ */
+export function isImageFailed(url: string): boolean {
+  return failedUrls.has(url);
+}
+
+/**
+ * Clear failed URLs from cache so they can be retried.
+ * Call this during network recovery.
+ */
+export function clearFailedImages(): void {
+  for (const url of failedUrls) {
+    loadedUrls.delete(url);
+    imageElementCache.delete(url);
+  }
+  failedUrls.clear();
+}
+
+/**
+ * Get count of failed images that can be retried
+ */
+export function getFailedImageCount(): number {
+  return failedUrls.size;
 }
 
 /**
@@ -95,8 +124,9 @@ export function preloadImage(src: string): Promise<void> {
       video.onloadeddata = handleReady;
 
       video.onerror = () => {
-        // Mark as loaded to prevent retries, but it failed
+        // Mark as loaded but track as failed for potential retry
         loadedUrls.add(src);
+        failedUrls.add(src);
         imageElementCache.set(src, video);
         pendingPreloads.delete(src);
         resolve();
@@ -122,8 +152,9 @@ export function preloadImage(src: string): Promise<void> {
       };
 
       img.onerror = () => {
-        // Mark as loaded to prevent retries
+        // Mark as loaded but track as failed for potential retry
         loadedUrls.add(src);
+        failedUrls.add(src);
         imageElementCache.set(src, img);
         pendingPreloads.delete(src);
         resolve();

@@ -26,6 +26,7 @@ interface GameSettingsProps {
     installedRunners: any[];
     installs?: any[];
     gamesinfo?: any[]; // Game manifests to look up static backgrounds
+    imageVersion?: number; // Used to force image re-load after network recovery
 }
 
 export default function GameSettings({
@@ -37,7 +38,8 @@ export default function GameSettings({
     prefetchedFps: _prefetchedFps,
     installedRunners,
     installs,
-    gamesinfo
+    gamesinfo,
+    imageVersion = 0
 }: GameSettingsProps) {
     const [activeTab, setActiveTab] = useState("general");
 
@@ -149,6 +151,7 @@ export default function GameSettings({
             onClose={() => setOpenPopup(POPUPS.NONE)}
             banner={banner}
             icon={icon}
+            imageVersion={imageVersion}
         >
             <div className="flex h-full">
                 <SettingsSidebar tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />

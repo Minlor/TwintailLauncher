@@ -29,6 +29,7 @@ type DownloadsModalProps = {
   progressByJobId: Record<string, DownloadJobProgress>;
   installs: InstallView[];
   downloadSpeedLimitKiB: number;
+  imageVersion?: number; // Used to force image re-load after network recovery
 };
 
 type CompletedJobSnapshot = {
@@ -93,7 +94,7 @@ function clamp01(v: number): number {
 }
 
 export default function DownloadsModal(props: DownloadsModalProps) {
-  const { setOpenPopup, queue, progressByJobId, installs, downloadSpeedLimitKiB } = props;
+  const { setOpenPopup, queue, progressByJobId, installs, downloadSpeedLimitKiB, imageVersion = 0 } = props;
 
   const runningJobs = queue?.running ?? [];
   const queuedJobs = queue?.queued ?? [];
@@ -286,6 +287,7 @@ export default function DownloadsModal(props: DownloadsModalProps) {
                               }}
                             >
                               <CachedImage
+                                key={`bg-v${imageVersion}`}
                                 src={install.game_background}
                                 alt=""
                                 className="w-full h-full object-cover object-left"

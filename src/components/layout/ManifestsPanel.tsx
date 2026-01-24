@@ -26,6 +26,7 @@ interface ManifestsPanelProps {
   setCurrentInstall: (id: string) => void;
   setGameIcon: (src: string) => void;
   onRequestClose?: () => void;
+  imageVersion?: number; // Used to force image re-load after network recovery
 }
 
 const ManifestsPanel: React.FC<ManifestsPanelProps> = ({
@@ -42,6 +43,7 @@ const ManifestsPanel: React.FC<ManifestsPanelProps> = ({
   setCurrentInstall,
   setGameIcon,
   onRequestClose,
+  imageVersion = 0,
 }) => {
   // Close when clicking anywhere outside the manifests panel
   useEffect(() => {
@@ -87,7 +89,7 @@ const ManifestsPanel: React.FC<ManifestsPanelProps> = ({
                 : (opening ? (index * 60 + 50) : ((gamesinfo.length - index - 1) * 50));
               return (
                 <div
-                  key={game.biz}
+                  key={`${game.biz}-v${imageVersion}`}
                   className={manifestsInitialLoading ? 'animate-slideInLeft' : ''}
                   style={{
                     transition: 'transform 300ms ease, opacity 300ms ease',
