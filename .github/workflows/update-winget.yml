@@ -13,6 +13,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      deployments: write
     runs-on: windows-latest
     steps:
       - name: Set version
