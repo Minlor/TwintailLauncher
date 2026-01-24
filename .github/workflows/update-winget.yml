@@ -10,6 +10,9 @@ on:
 
 jobs:
   update-winget-package:
+    permissions:
+      contents: write
+      pull-requests: write
     runs-on: windows-latest
     steps:
       - name: Set version
