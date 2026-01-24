@@ -566,6 +566,10 @@ pub fn apply_xxmi_tweaks(package: PathBuf, mut data: Json<XXMISettings>) -> Json
             let f = ini.load(&cfg);
             match f {
                 Ok(_) => {
+                    // Why is ini parser fucking these lines?? Explicitly set them back...
+                    ini.set("Include", "exclude_recursive", Some("DISABLED*".to_string()));
+
+                    // Apply edits
                     ini.set("Hunting", "hunting", Some(data.hunting_mode.to_string()));
                     let actions = if data.dump_shaders { "clipboard hlsl asm regex" } else { "clipboard" };
                     ini.set("Hunting", "marking_actions", Some(actions.to_string()));
