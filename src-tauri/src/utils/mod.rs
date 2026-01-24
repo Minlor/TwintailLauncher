@@ -672,7 +672,7 @@ pub fn is_using_overriden_runner(installed_runner: String, override_runner: Stri
 
 #[allow(dead_code)]
 pub fn empty_dir<P: AsRef<Path>>(dir: P) -> io::Result<()> {
-    const EXCEPTIONS: &[&str] = &["Mods/", "ShaderCache/", "d3dx_user.ini"];
+    const EXCEPTIONS: &[&str] = &["Mods/", "ShaderCache/", "d3dx_user.ini", "gimi/", "srmi/", "zzmi/", "himi/", "wwmi/"];
     if dir.as_ref().exists() {
         for entry in fs::read_dir(dir.as_ref())? {
             let entry = entry?;
