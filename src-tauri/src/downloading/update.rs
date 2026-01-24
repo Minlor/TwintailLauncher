@@ -6,13 +6,10 @@ use fischl::download::game::{Game, Kuro, Sophon};
 use fischl::utils::free_space::available;
 use tauri::{AppHandle, Emitter, Listener, Manager};
 use crate::utils::db_manager::{get_install_info_by_id, get_manifest_info_by_id, update_install_after_update_by_id};
-use crate::utils::{empty_dir, prevent_exit, run_async_command, send_notification, PathResolve};
-use crate::utils::repo_manager::{get_manifest, DiffGameFile, GameVersion};
+use crate::utils::{empty_dir, prevent_exit, run_async_command, send_notification, models::{DiffGameFile, GameVersion}};
+use crate::utils::repo_manager::{get_manifest};
 use crate::downloading::DownloadGamePayload;
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
-
-#[cfg(target_os = "linux")]
-use fischl::utils::patch_aki;
 
 pub fn register_update_handler(app: &AppHandle) {
     let a = app.clone();
@@ -52,12 +49,12 @@ pub fn register_update_handler(app: &AppHandle) {
                     "DOWNLOAD_MODE_FILE" => {
                         let urls = picked.game.diff.iter().filter(|e| e.original_version.as_str() == install.version.clone().as_str()).collect::<Vec<&DiffGameFile>>();
                         if urls.is_empty() {
-                            h5.dialog().message(format!("Could not find update for {inn}!\nRedownload latest version by pressing \"Redownload\" button.", inn = install.name.clone()).as_str()).title("TwintailLauncher")
+                            h5.dialog().message(format!("Could not find update for {inn}!\nRedownload latest full game version by pressing \"Redownload\" button.", inn = install.name.clone()).as_str()).title("TwintailLauncher")
                                 .kind(MessageDialogKind::Info)
-                                .buttons(MessageDialogButtons::OkCancelCustom("Redownload".to_string(), "I will figure it out".to_string()))
+                                .buttons(MessageDialogButtons::OkCancelCustom("Redownload".to_string(), "Cancel".to_string()))
                                 .show(move |action| {
                                     if action {
-                                        let ip = Path::new(&install.directory).follow_symlink().unwrap();
+                                        let ip = Path::new(&install.directory);
                                         empty_dir(&ip).unwrap();
                                         let mut data = HashMap::new();
                                         data.insert("install", install.id.clone());
@@ -81,12 +78,12 @@ pub fn register_update_handler(app: &AppHandle) {
                     "DOWNLOAD_MODE_CHUNK" => {
                         let urls = picked.game.diff.iter().filter(|e| e.original_version.as_str() == install.version.clone().as_str()).collect::<Vec<&DiffGameFile>>();
                         if urls.is_empty() {
-                            h5.dialog().message(format!("Could not find update for {inn}!\nRedownload latest version by pressing \"Redownload\" button.", inn = install.name.clone()).as_str()).title("TwintailLauncher")
+                            h5.dialog().message(format!("Could not find update for {inn}!\nRedownload latest full game version by pressing \"Redownload\" button.", inn = install.name.clone()).as_str()).title("TwintailLauncher")
                                 .kind(MessageDialogKind::Info)
-                                .buttons(MessageDialogButtons::OkCancelCustom("Redownload".to_string(), "I will figure it out".to_string()))
+                                .buttons(MessageDialogButtons::OkCancelCustom("Redownload".to_string(), "Cancel".to_string()))
                                 .show(move |action| {
                                     if action {
-                                        let ip = Path::new(&install.directory).follow_symlink().unwrap();
+                                        let ip = Path::new(&install.directory);
                                         empty_dir(&ip).unwrap();
                                         let mut data = HashMap::new();
                                         data.insert("install", install.id.clone());
@@ -106,7 +103,7 @@ pub fn register_update_handler(app: &AppHandle) {
                             let available = available(install.directory.clone());
                             let has_space = if let Some(av) = available { av >= total_size } else { false };
                             if has_space {
-                                let is_preload = Path::new(&install.directory).join("patching").join(".preload").follow_symlink().unwrap().exists();
+                                let is_preload = Path::new(&install.directory).join("patching").join(".preload").exists();
                                 #[cfg(target_os = "linux")]
                                 let hpatchz = h5.path().app_data_dir().unwrap().join("hpatchz");
                                 #[cfg(target_os = "windows")]
@@ -129,7 +126,7 @@ pub fn register_update_handler(app: &AppHandle) {
                                     });
                                 });
                                 // We finished the loop emit complete
-                                if is_preload { let p = Path::new(&install.directory).join("patching").follow_symlink().unwrap(); fs::remove_dir_all(p).unwrap(); }
+                                if is_preload { let p = Path::new(&install.directory).join("patching"); fs::remove_dir_all(p).unwrap(); }
                                 h5.emit("update_complete", ()).unwrap();
                                 prevent_exit(&h5, false);
                                 send_notification(&h5, format!("Updating {inn} complete.", inn = install.name.clone()).as_str(), None);
@@ -145,12 +142,12 @@ pub fn register_update_handler(app: &AppHandle) {
                     "DOWNLOAD_MODE_RAW" => {
                         let urls = picked.game.diff.iter().filter(|e| e.original_version.as_str() == install.version.clone().as_str()).collect::<Vec<&DiffGameFile>>();
                         if urls.is_empty() {
-                            h5.dialog().message(format!("Could not find update for {inn}!\nRedownload latest version by pressing \"Redownload\" button.", inn = install.name.clone()).as_str()).title("TwintailLauncher")
+                            h5.dialog().message(format!("Could not find update for {inn}!\nRedownload latest full game version by pressing \"Redownload\" button.", inn = install.name.clone()).as_str()).title("TwintailLauncher")
                                 .kind(MessageDialogKind::Info)
-                                .buttons(MessageDialogButtons::OkCancelCustom("Redownload".to_string(), "I will figure it out".to_string()))
+                                .buttons(MessageDialogButtons::OkCancelCustom("Redownload".to_string(), "Cancel".to_string()))
                                 .show(move |action| {
                                     if action {
-                                        let ip = Path::new(&install.directory).follow_symlink().unwrap();
+                                        let ip = Path::new(&install.directory);
                                         empty_dir(&ip).unwrap();
                                         let mut data = HashMap::new();
                                         data.insert("install", install.id.clone());
@@ -171,7 +168,7 @@ pub fn register_update_handler(app: &AppHandle) {
                             let has_space = if let Some(av) = available { av >= total_size } else { false };
                             if has_space {
                                 let manifest = urls.get(0).unwrap();
-                                let is_preload = Path::new(&install.directory).join("patching").join(".preload").follow_symlink().unwrap().exists();
+                                let is_preload = Path::new(&install.directory).join("patching").join(".preload").exists();
                                 let rslt = run_async_command(async {
                                     <Game as Kuro>::patch(manifest.file_url.to_owned(), manifest.file_hash.clone(), picked.metadata.res_list_url.clone(), install.directory.clone(), is_preload, {
                                         let dlpayload = dlpayload.clone();
@@ -191,10 +188,17 @@ pub fn register_update_handler(app: &AppHandle) {
                                     send_notification(&h5, format!("Updating {inn} complete.", inn = install.name).as_str(), None);
                                     update_install_after_update_by_id(&h5, install.id, picked.metadata.versioned_name.clone(), picked.assets.game_icon.clone(), picked.assets.game_background.clone(), picked.metadata.version.clone());
                                     #[cfg(target_os = "linux")]
-                                    {
-                                        let target = Path::new(&install.directory.clone()).join("Client/Binaries/Win64/ThirdParty/KrPcSdk_Global/KRSDKRes/KRSDK.bin").follow_symlink().unwrap();
-                                        patch_aki(target.to_str().unwrap().to_string());
-                                    }
+                                    crate::utils::apply_patch(&h5, Path::new(&install.directory.clone()).to_str().unwrap().to_string(), "aki".to_string(), "add".to_string());
+                                } else {
+                                    h5.dialog().message(format!("Error occurred while trying to update {inn}\nPlease try again!", inn = install.name).as_str()).title("TwintailLauncher")
+                                        .kind(MessageDialogKind::Warning)
+                                        .buttons(MessageDialogButtons::OkCustom("Ok".to_string()))
+                                        .show(move |_action| {
+                                            let dir = Path::new(&install.directory).join("patching");
+                                            if dir.exists() { fs::remove_dir_all(dir).unwrap_or_default(); }
+                                            prevent_exit(&h5, false);
+                                            h5.emit("update_complete", ()).unwrap();
+                                        });
                                 }
                             } else {
                                 h5.dialog().message(format!("Unable to update {inn} as there is not enough free space, please make sure there is enough free space for the update!", inn = install.name).as_str()).title("TwintailLauncher")

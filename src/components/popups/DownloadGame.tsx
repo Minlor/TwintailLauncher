@@ -24,7 +24,7 @@ interface IProps {
     dxvkVersions: any[];
     setCurrentInstall: (installId: string) => void;
     setBackground: (background: string) => void;
-    fetchDownloadSizes: (biz: any, version: any, lang: any, path: any, callback: (data: any) => void) => void;
+    fetchDownloadSizes: (biz: any, version: any, lang: any, path: any, region_filter: any, callback: (data: any) => void) => void;
     openAsExisting?: boolean;
 }
 export default function DownloadGame({disk, setOpenPopup, displayName, settings, biz, versions, background, icon, pushInstalls, runnerVersions, dxvkVersions, setCurrentInstall, setBackground, fetchDownloadSizes, openAsExisting}: IProps) {
@@ -71,9 +71,7 @@ export default function DownloadGame({disk, setOpenPopup, displayName, settings,
     }
 
     return (
-        <div
-            className={`rounded-xl w-[92vw] max-w-5xl max-h-[85vh] bg-zinc-900 border border-white/20 flex flex-col p-6 overflow-hidden ${isClosing ? 'animate-bg-fade-out' : 'animate-bg-fade-in'} duration-100 ease-out`}
-        >
+        <div className={`rounded-xl w-[92vw] max-w-5xl max-h-[85vh] bg-zinc-900 border border-white/20 flex flex-col p-6 overflow-hidden ${isClosing ? 'animate-bg-fade-out' : 'animate-bg-fade-in'} duration-100 ease-out`}>
             <div className="flex flex-row items-center justify-between mb-2">
                 <h1 className="text-white font-bold text-3xl bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent">{skipGameDownload ? "Add" : "Install"} {displayName}</h1>
                 <X className="text-white/70 hover:text-white hover:bg-white/10 rounded-lg p-3 w-12 h-12 transition-all duration-200 cursor-pointer" onClick={() => setOpenPopup(POPUPS.NONE)}/>
@@ -81,15 +79,15 @@ export default function DownloadGame({disk, setOpenPopup, displayName, settings,
             <div className="w-full overflow-y-auto overflow-x-hidden hover-scrollbar pr-4 -mr-4 flex-1">
                 <div className="p-6 flex flex-col gap-2 w-full max-w-5xl mx-auto">
                     {/* @ts-ignore */}
-                    <div className="w-full"><FolderInput name={"Install location"} clearable={true} value={`${settings.default_game_path}/${biz}`} folder={true} id={"install_game_path"} biz={biz} fetchDownloadSizes={fetchDownloadSizes} version={() => selectedGameVersion} lang={() => selectedAudioLang} helpText={"Location where to download game files."} skipGameDownload={skipGameDownload}/></div>
+                    <div className="w-full"><FolderInput name={"Install location"} clearable={true} value={`${settings.default_game_path}/${biz}`} folder={true} id={"install_game_path"} biz={biz} fetchDownloadSizes={fetchDownloadSizes} version={() => selectedGameVersion} lang={() => selectedAudioLang} helpText={"Location where to download game files."} skipGameDownload={skipGameDownload} region_filter={() => selectedRegionCode}/></div>
                     {/* Existing install toggle is now internal; removed from UI */}
                     <div className="w-full"><CheckBox enabled={false} name={"Skip version update check"} id={"skip_version_updates"} helpText={"Skip checking for game updates."}/></div>
                     <div className="w-full"><CheckBox enabled={false} name={"Skip hash validation"} id={"skip_hash_validation"} helpText={"Skip validating files during game repair process, this will speed up the repair process significantly."}/></div>
                     <div className="w-full"><TextDisplay id={"game_disk_free"} name={"Available disk space"} value={`${disk.free_disk_space}`} style={"text-white px-3 w-full"}/></div>
                     <div className="w-full"><TextDisplay id={"game_disk_need"} name={"Required disk space (unpacked)"} value={`${disk.game_decompressed_size}`} style={"text-white px-3 w-full"}/></div>
-                    <div className="w-full"><SelectMenu id={"game_version"} name={"Game version"} options={versions} multiple={false} selected={selectedGameVersion} biz={biz} dir={formatDir} fetchDownloadSizes={fetchDownloadSizes} lang={() => selectedAudioLang} helpText={"Version of the game to install."} setOpenPopup={setOpenPopup} skipGameDownload={skipGameDownload} onSelect={setSelectedGameVersion}/></div>
+                    <div className="w-full"><SelectMenu id={"game_version"} name={"Game version"} options={versions} multiple={false} selected={selectedGameVersion} biz={biz} dir={formatDir} fetchDownloadSizes={fetchDownloadSizes} region_filter={() => selectedRegionCode} lang={() => selectedAudioLang} helpText={"Version of the game to install."} setOpenPopup={setOpenPopup} skipGameDownload={skipGameDownload} onSelect={setSelectedGameVersion}/></div>
                     {/*<div className="w-full"><SelectMenu id={"game_audio_langs"} name={"Voice pack"} options={[{name: "English (US)", value: "en-us"}, {name: "Japanese", value: "ja-jp"}, {name: "Korean", value: "ko-kr"}, {name: "Chinese", value: "zh-cn"}]} multiple={false} selected={selectedAudioLang} biz={biz} fetchDownloadSizes={fetchDownloadSizes} dir={formatDir} version={() => selectedGameVersion} helpText={"What audio package to install for the game."} setOpenPopup={setOpenPopup} skipGameDownload={skipGameDownload} onSelect={setSelectedAudioLang}/></div>*/}
-                    {(biz === "bh3_global") ? <div className="w-full"><SelectMenu id={"game_region_code"} name={"Game region"} multiple={false} options={[{name: "Europe & America", value: "glb_official"}, {name: "Japan", value: "jp_official"}, {name: "Korea", value: "kr_official"}, {name: "SEA", value: "overseas_official"}, {name: "Traditional Chinese", value: "asia_official"}]} selected={selectedRegionCode} helpText={"Region you want downloaded."} setOpenPopup={setOpenPopup} onSelect={setSelectedRegionCode}/></div> : null}
+                    {(biz === "bh3_global") ? <div className="w-full"><SelectMenu id={"game_region_code"} name={"Game region"} multiple={false} options={[{name: "Europe & America", value: "glb_official"}, {name: "Japan", value: "jp_official"}, {name: "Korea", value: "kr_official"}, {name: "SEA", value: "overseas_official"}, {name: "Traditional Chinese", value: "asia_official"}]} biz={biz} region_filter={() => selectedRegionCode} version={() => selectedGameVersion} dir={formatDir} lang={() => selectedAudioLang} selected={selectedRegionCode} skipGameDownload={skipGameDownload} helpText={"Region you want downloaded."} setOpenPopup={setOpenPopup} fetchDownloadSizes={fetchDownloadSizes} onSelect={setSelectedRegionCode}/></div> : null}
                     {(window.navigator.platform.includes("Linux")) ? <div className="w-full"><SelectMenu id={"runner_version"} name={"Runner version"} multiple={false} options={runnerVersions} selected={selectedRunnerVersion} helpText={"Wine/Proton version to use for this installation."} setOpenPopup={setOpenPopup} onSelect={setSelectedRunnerVersion}/></div> : null}
                     {(window.navigator.platform.includes("Linux")) ? null/*<div className="w-full"><SelectMenu id={"dxvk_version"} name={"DXVK version"} multiple={false} options={dxvkVersions} selected={selectedDxvkVersion} helpText={"What DXVK version to use for this installation."} setOpenPopup={setOpenPopup} onSelect={setSelectedDxvkVersion}/></div>*/ : null}
                     {(window.navigator.platform.includes("Linux")) ? <div className="w-full"><FolderInput name={"Runner prefix location"} clearable={true} value={`${settings.default_runner_prefix_path}/${biz}`} folder={true} id={"install_prefix_path"} helpText={"Location where to store Wine/Proton prefix."}/></div>: null}

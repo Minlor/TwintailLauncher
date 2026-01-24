@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 use tauri::{AppHandle};
 use crate::utils::db_manager::{get_installed_runner_info_by_id, get_installed_runner_info_by_version, get_installed_runners, get_installs, get_settings, update_install_runner_location_by_id, update_install_runner_version_by_id, update_installed_runner_is_installed_by_version};
-use crate::utils::{send_notification, PathResolve};
+use crate::utils::{send_notification};
 
 #[cfg(target_os = "linux")]
 use tauri::Emitter;
@@ -13,11 +13,7 @@ use fischl::compat::Compat;
 #[cfg(target_os = "linux")]
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 #[cfg(target_os = "linux")]
-use crate::utils::repo_manager::{get_compatibility, LauncherRunner};
-#[cfg(target_os = "linux")]
-use crate::utils::{runner_from_runner_version, prevent_exit, run_async_command};
-#[cfg(target_os = "linux")]
-use crate::utils::db_manager::{create_installed_runner};
+use crate::utils::{runner_from_runner_version, prevent_exit, run_async_command, models::LauncherRunner, repo_manager::{get_compatibility}, db_manager::{create_installed_runner}};
 
 #[allow(unused_variables)]
 #[tauri::command]
@@ -100,7 +96,7 @@ pub fn add_installed_runner(app: AppHandle, runner_url: String, runner_version: 
             let rm = get_compatibility(&app, &runner_from_runner_version(runner_version.as_str().to_string()).unwrap()).unwrap();
             let rv = rm.versions.into_iter().filter(|v| v.version.as_str() == runner_version.as_str()).collect::<Vec<_>>();
             let runnerp = rv.get(0).unwrap().to_owned();
-            let runner_path = Path::new(&gs.default_runner_path).follow_symlink().unwrap().join(runner_version.clone()).follow_symlink().unwrap();
+            let runner_path = Path::new(&gs.default_runner_path).join(runner_version.clone());
             if !runner_path.exists() { fs::create_dir_all(&runner_path).unwrap(); }
             let ir = get_installed_runner_info_by_version(&app, runner_version.clone());
 
@@ -151,12 +147,12 @@ pub fn add_installed_runner(app: AppHandle, runner_url: String, runner_version: 
                         true
                     } else {
                         app.dialog().message(format!("Error occurred while trying to download {runn} runner! Please retry later.", runn = runv.clone().as_str().to_string()).as_str()).title("TwintailLauncher")
-                            .kind(MessageDialogKind::Warning)
+                            .kind(MessageDialogKind::Error)
                             .buttons(MessageDialogButtons::OkCustom("Ok".to_string()))
                             .show(move |_action| {
                                 prevent_exit(&app, false);
                                 app.emit("download_complete", ()).unwrap();
-                                if runpc.exists() { fs::remove_dir_all(&runpc).unwrap(); }
+                                if runpc.exists() { fs::remove_dir_all(&runpc).unwrap(); update_installed_runner_is_installed_by_version(&app, runv.clone(), false); }
                             });
                         false
                     }
@@ -181,7 +177,7 @@ pub fn remove_installed_runner(app: AppHandle, runner_version: String) -> Option
         None
     } else {
         let gs = get_settings(&app).unwrap();
-        let runner_path = Path::new(&gs.default_runner_path).follow_symlink().unwrap().join(runner_version.clone()).follow_symlink().unwrap();
+        let runner_path = Path::new(&gs.default_runner_path).join(runner_version.clone());
         if !runner_path.exists() { fs::create_dir_all(&runner_path).unwrap(); }
 
         if fs::read_dir(runner_path.as_path()).unwrap().next().is_some() {

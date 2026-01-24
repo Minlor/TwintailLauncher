@@ -2,15 +2,14 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use fischl::download::game::{Game, Kuro, Sophon};
 use tauri::{AppHandle, Emitter, Listener};
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use crate::utils::db_manager::{get_install_info_by_id, get_manifest_info_by_id};
-use crate::utils::{prevent_exit, run_async_command, send_notification};
-use crate::utils::repo_manager::{get_manifest, FullGameFile, GameVersion};
+use crate::utils::{prevent_exit, run_async_command, send_notification, models::{FullGameFile, GameVersion}};
+use crate::utils::repo_manager::{get_manifest};
 use crate::downloading::DownloadGamePayload;
 
 #[cfg(target_os = "linux")]
-use crate::utils::PathResolve;
-#[cfg(target_os = "linux")]
-use fischl::utils::patch_aki;
+use crate::utils::{empty_dir};
 
 pub fn register_repair_handler(app: &AppHandle) {
     let a = app.clone();
@@ -39,6 +38,13 @@ pub fn register_repair_handler(app: &AppHandle) {
                 h5.emit("repair_progress", dlp.clone()).unwrap();
                 drop(dlp);
                 prevent_exit(&h5, true);
+
+                #[cfg(target_os = "linux")]
+                {
+                    // Set prefix in repair state by emptying the directory
+                    let prefix_path = std::path::Path::new(&i.runner_prefix);
+                    if prefix_path.exists() && !gm.extra.compat_overrides.install_to_prefix { empty_dir(prefix_path).unwrap(); }
+                }
 
                 match picked.metadata.download_mode.as_str() {
                     // Generic zipped mode, Variety per game
@@ -95,10 +101,17 @@ pub fn register_repair_handler(app: &AppHandle) {
                             prevent_exit(&h5, false);
                             send_notification(&h5, format!("Repair of {inn} complete.", inn = i.name).as_str(), None);
                             #[cfg(target_os = "linux")]
-                            {
-                                let target = std::path::Path::new(&i.directory.clone()).join("Client/Binaries/Win64/ThirdParty/KrPcSdk_Global/KRSDKRes/KRSDK.bin").follow_symlink().unwrap();
-                                patch_aki(target.to_str().unwrap().to_string());
-                            }
+                            crate::utils::apply_patch(&h5, std::path::Path::new(&i.directory.clone()).to_str().unwrap().to_string(), "aki".to_string(), "add".to_string());
+                        } else {
+                            h5.dialog().message(format!("Error occurred while trying to repair {inn}\nPlease try again!", inn = i.name).as_str()).title("TwintailLauncher")
+                                .kind(MessageDialogKind::Warning)
+                                .buttons(MessageDialogButtons::OkCustom("Ok".to_string()))
+                                .show(move |_action| {
+                                    let dir = std::path::Path::new(&i.directory).join("repairing");
+                                    if dir.exists() { std::fs::remove_dir_all(dir).unwrap_or_default(); }
+                                    prevent_exit(&h5, false);
+                                    h5.emit("repair_complete", ()).unwrap();
+                                });
                         }
                     }
                     // Fallback mode

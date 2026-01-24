@@ -5,7 +5,7 @@ import HelpTooltip from "./HelpTooltip.tsx";
 import {POPUPS} from "../popups/POPUPS.ts";
 
 
-export default function SelectMenu({ id, name, options, selected, install, biz, lang, version, dir, fetchInstallSettings, fetchSettings, fetchDownloadSizes, helpText, setOpenPopup, skipGameDownload, onSelect}: { id: string, name: string, options: any, selected: any, multiple: boolean, install?: string, biz?: string, lang?: () => string, version?: () => any, dir?: () => string, helpText: string, fetchInstallSettings?: (id: string) => void, fetchSettings?: () => void, fetchDownloadSizes?: (biz: any, version: any, lang: any, dir: any, callback: (data: any) => void) => void, setOpenPopup: (popup: POPUPS) => void, skipGameDownload?: boolean, onSelect?: (value: string) => void }) {
+export default function SelectMenu({ id, name, options, selected, install, biz, lang, version, dir, region_filter, fetchInstallSettings, fetchSettings, fetchDownloadSizes, helpText, setOpenPopup, skipGameDownload, onSelect}: { id: string, name: string, options: any, selected: any, multiple: boolean, install?: string, biz?: string, lang?: () => string, version?: () => any, dir?: () => string, region_filter?: () => string, helpText: string, fetchInstallSettings?: (id: string) => void, fetchSettings?: () => void, fetchDownloadSizes?: (biz: any, version: any, lang: any, dir: any, region_filter: any, callback: (data: any) => void) => void, setOpenPopup: (popup: POPUPS) => void, skipGameDownload?: boolean, onSelect?: (value: string) => void }) {
     // Animation state for closing
     const [animateOut, setAnimateOut] = React.useState(false);
     // Animation state for portal dropdown
@@ -81,8 +81,8 @@ export default function SelectMenu({ id, name, options, selected, install, biz, 
             }
             switch (id) {
                 case "game_version": {
-                    if (fetchDownloadSizes !== undefined && dir !== undefined && lang !== undefined) {
-                        fetchDownloadSizes(biz, `${option.value}`, lang(), dir(), (disk: any) => {
+                    if (fetchDownloadSizes !== undefined && dir !== undefined && lang !== undefined && region_filter !== undefined) {
+                        fetchDownloadSizes(biz, `${option.value}`, lang(), dir(), region_filter(), (disk: any) => {
                             let btn = document.getElementById("game_dl_btn");
                             let freedisk = document.getElementById("game_disk_free");
                             if (skipGameDownload || disk.game_decompressed_size_raw <= disk.free_disk_space_raw) {
@@ -102,11 +102,11 @@ export default function SelectMenu({ id, name, options, selected, install, biz, 
                             }
                         });
                     }
-                    break;
                 }
+                break;
                 case "game_audio_langs": {
-                    if (fetchDownloadSizes !== undefined && dir !== undefined && version !== undefined) {
-                        fetchDownloadSizes(biz, version(), `${option.value}`, dir(), (disk: any) => {
+                    if (fetchDownloadSizes !== undefined && dir !== undefined && version !== undefined && region_filter !== undefined) {
+                        fetchDownloadSizes(biz, version(), `${option.value}`, dir(), region_filter(), (disk: any) => {
                             let btn = document.getElementById("game_dl_btn");
                             let freedisk = document.getElementById("game_disk_free");
                             if (skipGameDownload || disk.game_decompressed_size_raw <= disk.free_disk_space_raw) {
@@ -126,24 +126,48 @@ export default function SelectMenu({ id, name, options, selected, install, biz, 
                             }
                         });
                     }
-                    break;
                 }
+                break;
+                case "game_region_code": {
+                    if (fetchDownloadSizes !== undefined && dir !== undefined && version !== undefined && lang !== undefined && region_filter !== undefined) {
+                        fetchDownloadSizes(biz, version(), lang(), dir(), `${option.value}`, (disk: any) => {
+                            let btn = document.getElementById("game_dl_btn");
+                            let freedisk = document.getElementById("game_disk_free");
+                            if (skipGameDownload || disk.game_decompressed_size_raw <= disk.free_disk_space_raw) {
+                                if (btn) btn.removeAttribute("disabled");
+                                if (freedisk) {
+                                    freedisk.classList.remove("text-red-600");
+                                    freedisk.classList.add("text-white");
+                                    freedisk.classList.remove("font-bold");
+                                }
+                            } else {
+                                if (btn) btn.setAttribute("disabled", "");
+                                if (freedisk) {
+                                    freedisk.classList.add("text-red-600");
+                                    freedisk.classList.remove("text-white");
+                                    freedisk.classList.add("font-bold");
+                                }
+                            }
+                        });
+                    }
+                }
+                break;
                 case "launcher_action": {
                     if (fetchSettings !== undefined) {
                         invoke("update_settings_launcher_action", {action: `${option.value}`}).then(() => {
                             fetchSettings();
                         });
                     }
-                    break;
                 }
+                break;
                 case "install_fps_value": {
                     if (fetchInstallSettings !== undefined) {
                         invoke("update_install_fps_value", {fps: `${option.value}`, id: install}).then(() => {
                             fetchInstallSettings(install as string);
                         });
                     }
-                    break;
                 }
+                break;
                 case "install_runner_version": {
                     if (fetchInstallSettings !== undefined) {
                         invoke("update_install_runner_version", {version: `${option.value}`, id: install}).then(() => {
@@ -151,8 +175,8 @@ export default function SelectMenu({ id, name, options, selected, install, biz, 
                             setOpenPopup(POPUPS.NONE);
                         });
                     }
-                    break;
                 }
+                break;
                 case "install_dxvk_version": {
                     if (fetchInstallSettings !== undefined) {
                         invoke("update_install_dxvk_version", {version: `${option.value}`, id: install}).then(() => {
@@ -160,8 +184,16 @@ export default function SelectMenu({ id, name, options, selected, install, biz, 
                             setOpenPopup(POPUPS.NONE);
                         });
                     }
-                    break;
                 }
+                break;
+                case "tweak_xxmi_hunting": {
+                    if (fetchInstallSettings !== undefined) {
+                        invoke("update_install_xxmi_config", {xxmiHunting: option.value, id: install}).then(() => {
+                            fetchInstallSettings(install as string);
+                        });
+                    }
+                }
+                break;
                 default:
                     break;
             }
@@ -236,10 +268,9 @@ export default function SelectMenu({ id, name, options, selected, install, biz, 
                             }
                             // Animation classes
                             const show = animateIn && !animateOut;
-                            const hide = animateOut;
                             return (
                                 <div
-                                    className={`bg-zinc-800 border border-white/30 rounded-xl shadow-lg z-[9999] overflow-hidden transition-all duration-200 ${show ? 'opacity-100 scale-y-100' : ''}${hide ? ' opacity-0 scale-y-95 pointer-events-none' : ''}`}
+                                    className={`bg-zinc-800 border border-white/30 rounded-xl shadow-lg z-[9999] overflow-hidden transition-all duration-200 ${show ? 'opacity-100 scale-y-100' : ''}${animateOut ? ' opacity-0 scale-y-95 pointer-events-none' : ''}`}
                                     style={{
                                         position: 'fixed',
                                         left: rect.left,

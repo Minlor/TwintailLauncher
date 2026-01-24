@@ -1,4 +1,4 @@
-name: update-winget.yml
+name: update-copr.yml
 on:
   release:
     types: [published]
@@ -9,11 +9,11 @@ on:
         required: true
 
 jobs:
-  update-winget-package:
-    runs-on: windows-latest
+  update-rpm-repo:
+    runs-on: ubuntu-latest
     steps:
       - name: Set version
-        shell: "bash"
+        shell: bash
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             RAW_VERSION=${{ github.event.inputs.version }}
@@ -23,15 +23,15 @@ jobs:
           CLEAN_VERSION="${RAW_VERSION#ttl-v}"
           echo "RAW_VERSION=$RAW_VERSION" >> "$GITHUB_ENV"
           echo "VERSION=$CLEAN_VERSION" >> $GITHUB_ENV
-      - name: Update winget package
-        uses: vedantmgoyal9/winget-releaser@main
-        env:
-          VERSION: ${{ env.VERSION }}
-          RAW_VERSION: ${{ env.RAW_VERSION }}
+      - name: Dispatch to RPM repo
+        uses: peter-evans/repository-dispatch@v4
         with:
-          identifier: TwintailTeam.TTL
-          max-versions-to-keep: 3
-          version: '${{ env.VERSION }}'
-          release-tag: '${{ env.RAW_VERSION }}'
-          installers-regex: '\.exe$'
           token: ${{ secrets.WINGET_TOKEN }}
+          repository: TwintailTeam/copr-pkgs
+          event-type: upstream-release
+          client-payload: >-
+            {
+              "release_tag": "${{ env.RAW_VERSION }}",
+              "release_name": "${{ env.VERSION }}",
+              "url": "${{ github.event.release.html_url || 'manual' }}"
+            }
