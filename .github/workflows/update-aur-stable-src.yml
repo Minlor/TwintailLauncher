@@ -26,6 +26,7 @@ jobs:
           VERSION: ${{ env.VERSION }}
         run: |
           echo "VERSION is: $VERSION"
+          PKGV="${VERSION#ttl-v}"
 
           cat > PKGBUILD << EOF
           pkgname=twintaillauncher
@@ -38,7 +39,7 @@ jobs:
           url=https://github.com/TwintailTeam/TwintailLauncher
           depends=('cairo' 'desktop-file-utils' 'gdk-pixbuf2' 'glib2' 'gtk3' 'hicolor-icon-theme' 'pango' 'webkit2gtk-4.1' 'libappindicator-gtk3' 'libayatana-appindicator' 'mangohud' 'gamemode')
           makedepends=('git' 'openssl' 'appmenu-gtk-module' 'libappindicator-gtk3' 'librsvg' 'cargo' 'pnpm' 'nodejs')
-          provides=("${pkgname}")
+          provides=("twintaillauncher")
           conflicts=("twintaillauncher-git" "twintaillauncher-bin")
           source=("${pkgname}.tar.gz::${url}/archive/refs/tags/ttl-v${pkgver}.tar.gz")
           sha256sums=('SKIP')
