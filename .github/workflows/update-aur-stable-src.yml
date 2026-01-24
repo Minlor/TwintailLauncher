@@ -21,6 +21,20 @@ jobs:
           else
             echo "VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
           fi
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+      - name: install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - name: install dependencies (ubuntu only)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - name: Generate PKGBUILD
         env:
           VERSION: ${{ env.VERSION }}
@@ -56,15 +70,15 @@ jobs:
           }
   
           package() {
-            install -Dm644 $_dirname/LICENSE -t $pkgdir/usr/share/licenses/$pkgname
-            install -Dm755 $_dirname/src-tauri/target/release/resources/hpatchz -t $pkgdir/usr/lib/twintaillauncher/resources/
-            install -Dm755 $_dirname/src-tauri/target/release/resources/reaper -t $pkgdir/usr/lib/twintaillauncher/resources/
-            install -Dm644 $_dirname/src-tauri/target/release/resources/hkrpg_patch.dll -t $pkgdir/usr/lib/twintaillauncher/resources/
-            install -Dm755 $_dirname/src-tauri/target/release/twintaillauncher -t $pkgdir/usr/bin
-            install -Dm644 $_dirname/twintaillauncher.desktop -t $pkgdir/usr/share/applications
-            install -Dm644 $_dirname/src-tauri/icons/32x32.png $pkgdir/usr/share/icons/hicolor/32x32/apps/$pkgname.png
-            install -Dm644 $_dirname/src-tauri/icons/128x128.png $pkgdir/usr/share/icons/hicolor/128x128/apps/$pkgname.png
-            install -Dm644 $_dirname/src-tauri/icons/128x128@2x.png $pkgdir/usr/share/icons/hicolor/256x256@2/apps/$pkgname.png
+            install -Dm644 $_dirname/LICENSE -t "\$pkgdir/usr/share/licenses/$pkgname"
+            install -Dm755 $_dirname/src-tauri/target/release/resources/hpatchz -t "\$pkgdir/usr/lib/twintaillauncher/resources/"
+            install -Dm755 $_dirname/src-tauri/target/release/resources/reaper -t "\$pkgdir/usr/lib/twintaillauncher/resources/"
+            install -Dm644 $_dirname/src-tauri/target/release/resources/hkrpg_patch.dll -t "\$pkgdir/usr/lib/twintaillauncher/resources/"
+            install -Dm755 $_dirname/src-tauri/target/release/twintaillauncher -t "\$pkgdir/usr/bin"
+            install -Dm644 $_dirname/twintaillauncher.desktop -t "\$pkgdir/usr/share/applications"
+            install -Dm644 $_dirname/src-tauri/icons/32x32.png "\$pkgdir/usr/share/icons/hicolor/32x32/apps/\$pkgname.png"
+            install -Dm644 $_dirname/src-tauri/icons/128x128.png "\$pkgdir/usr/share/icons/hicolor/128x128/apps/\$pkgname.png"
+            install -Dm644 $_dirname/src-tauri/icons/128x128@2x.png "\$pkgdir/usr/share/icons/hicolor/266x256@2/apps/\$pkgname.png"
           }
           EOF
       - name: Test PKGBUILD
