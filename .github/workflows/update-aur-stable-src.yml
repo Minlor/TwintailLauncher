@@ -67,18 +67,6 @@ jobs:
             install -Dm644 $_dirname/src-tauri/icons/128x128@2x.png "\$pkgdir/usr/share/icons/hicolor/266x256@2/apps/\$pkgname.png"
           }
           EOF
-      - name: Test PKGBUILD
-        uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
-        with:
-          pkgname: twintaillauncher
-          pkgbuild: ./PKGBUILD
-          test: true
-          test_flags: '--clean --cleanbuild'
-          commit_username: ${{ secrets.GIT_USER }}
-          commit_email: ${{ secrets.GIT_EMAIL }}
-          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          commit_message: "Update to version ${{ env.VERSION }}"
-          ssh_keyscan_types: rsa,ecdsa,ed25519
       - name: Publish AUR package
         if: success()
         uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
