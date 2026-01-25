@@ -1381,7 +1381,7 @@ checksum = "8591b0bcc8a98a64310a2fae1bb3e9b8564dd10e381e6e28010fde8e8e8568db"
 [[package]]
 name = "fischl"
 version = "0.1.0"
-source = "git+https://github.com/TwintailTeam/fischl-rs.git?branch=master#456e836b9bd6dd41fabe8302684053081f497fc9"
+source = "git+https://github.com/TwintailTeam/fischl-rs.git?branch=master#56cbe16798b5749fe0cc739bcec96b0b52c4e3aa"
 dependencies = [
  "chksum-md5",
  "crossbeam-deque",
@@ -6659,7 +6659,7 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "twintaillauncher"
-version = "1.1.14"
+version = "1.1.15"
 dependencies = [
  "configparser",
  "cuid2",
