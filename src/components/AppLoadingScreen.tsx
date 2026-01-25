@@ -1,25 +1,53 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 interface AppLoadingScreenProps {
     progress: number;
     message: string;
     // When true, the overlay will fade out (opacity 0) before unmounting
     fadingOut?: boolean;
+    // Callback when user clicks skip during preload phase
+    onSkip?: () => void;
 }
 
-const AppLoadingScreen: React.FC<AppLoadingScreenProps> = ({ progress, message, fadingOut }) => {
+// Time in ms before showing skip button during preload phase
+const SKIP_BUTTON_DELAY_MS = 10000;
+
+const AppLoadingScreen: React.FC<AppLoadingScreenProps> = ({ progress, message, fadingOut, onSkip }) => {
+    const [showSkipButton, setShowSkipButton] = useState(false);
+    const [preloadStartTime, setPreloadStartTime] = useState<number | null>(null);
+
+    // Track when preload phase starts (progress >= 75)
+    const isPreloading = progress >= 75 && progress < 100;
+
+    useEffect(() => {
+        if (isPreloading && preloadStartTime === null) {
+            setPreloadStartTime(Date.now());
+        } else if (!isPreloading) {
+            setPreloadStartTime(null);
+            setShowSkipButton(false);
+        }
+    }, [isPreloading, preloadStartTime]);
+
+    // Show skip button after delay during preload phase
+    useEffect(() => {
+        if (!isPreloading || preloadStartTime === null) return;
+
+        const timer = setTimeout(() => {
+            setShowSkipButton(true);
+        }, SKIP_BUTTON_DELAY_MS);
+
+        return () => clearTimeout(timer);
+    }, [isPreloading, preloadStartTime]);
+
+    const isPreloadPhase = progress >= 75;
+
     return (
         <main
-            className={`fixed inset-0 z-50 w-full h-screen flex flex-col items-center justify-center bg-black transition-opacity duration-500 ease-in-out ${fadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+            className={`fixed inset-0 z-50 w-full h-screen flex flex-col items-center justify-center transition-opacity duration-500 ease-in-out ${fadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+            style={{
+                backgroundImage: 'radial-gradient(circle at 20% 20%, rgba(90,70,140,0.35), rgba(20,15,30,0.9) 60%), radial-gradient(circle at 80% 80%, rgba(60,100,160,0.25), rgba(10,10,20,0.95) 55%)'
+            }}
         >
-            {/* Subtle background ambient glow for depth */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-900/10 blur-[120px]" />
-                <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-purple-900/10 blur-[120px]" />
-
-
-            </div>
-
             <div className="relative z-10 flex flex-col items-center max-w-md w-full px-12 animate-fadeIn">
                 {/* Logo & Title Section */}
                 <div className="flex flex-col items-center mb-14 space-y-6">
@@ -71,8 +99,19 @@ const AppLoadingScreen: React.FC<AppLoadingScreenProps> = ({ progress, message, 
             </div>
 
             {/* Footer / Copyright */}
-            <div className="absolute bottom-10 text-white/[0.15] text-[10px] uppercase tracking-[0.2em] font-medium">
-                Initializing Environment
+            <div className="absolute bottom-10 flex flex-col items-center gap-3">
+                {/* Skip button - shown after delay during preload phase */}
+                {showSkipButton && onSkip && (
+                    <button
+                        onClick={onSkip}
+                        className="px-4 py-1.5 text-xs font-medium text-white/70 hover:text-white bg-white/[0.08] hover:bg-white/[0.15] rounded-full border border-white/[0.1] hover:border-white/[0.2] transition-all duration-200 animate-fadeIn"
+                    >
+                        Skip &amp; Continue
+                    </button>
+                )}
+                <div className="text-white/[0.15] text-[10px] uppercase tracking-[0.2em] font-medium">
+                    {isPreloadPhase ? "Preloading Assets" : "Initializing Environment"}
+                </div>
             </div>
         </main>
     );

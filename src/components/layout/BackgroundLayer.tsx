@@ -263,7 +263,7 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
       {/* Loading spinner */}
       {bgLoading ? (
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="h-10 w-10 rounded-full border-4 border-white/20 border-t-white/80 animate-spin" />
+          <div className="h-10 w-10 rounded-full border-4 border-purple-500/20 border-t-purple-400/80 animate-spin" />
         </div>
       ) : null}
     </div>

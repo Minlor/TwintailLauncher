@@ -553,6 +553,7 @@ export default class App extends React.Component<any, any> {
                         progress={this.state.loadingProgress}
                         message={this.state.loadingMessage}
                         fadingOut={this.state.overlayFadingOut}
+                        onSkip={() => this.completeInitialLoading()}
                     />
                 )}
             </>
