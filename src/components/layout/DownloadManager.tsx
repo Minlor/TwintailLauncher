@@ -53,11 +53,39 @@ const formatTime = (seconds: number): string => {
   return `${hours}h ${minutes % 60}m`;
 };
 
-/* Calculate ETA */
-const calculateETA = (totalBytes: number, progressBytes: number, currentSpeed: number): string => {
+/* Calculate ETA using weighted moving average of recent speeds for stability */
+const calculateETA = (
+  totalBytes: number,
+  progressBytes: number,
+  currentSpeed: number,
+  speedHistory: TelemetrySample[]
+): string => {
   const remaining = Math.max(totalBytes - progressBytes, 0);
-  if (!currentSpeed || remaining === 0) return '—';
-  const seconds = Math.ceil(remaining / currentSpeed);
+  if (remaining === 0) return '—';
+
+  // Use weighted average of recent samples (more recent = higher weight)
+  // Take the last 10 samples for smoothing
+  const recentSamples = speedHistory.slice(-10);
+
+  let avgSpeed = currentSpeed;
+  if (recentSamples.length >= 3) {
+    // Calculate weighted average: newer samples have higher weights
+    let weightedSum = 0;
+    let totalWeight = 0;
+    recentSamples.forEach((sample, index) => {
+      // Weight increases linearly: 1, 2, 3, ..., n
+      const weight = index + 1;
+      weightedSum += sample.net * weight;
+      totalWeight += weight;
+    });
+
+    if (totalWeight > 0 && weightedSum > 0) {
+      avgSpeed = weightedSum / totalWeight;
+    }
+  }
+
+  if (!avgSpeed || avgSpeed <= 0) return '—';
+  const seconds = Math.ceil(remaining / avgSpeed);
   return formatTime(seconds);
 };
 
@@ -706,7 +734,7 @@ export default function DownloadManager({
                               <div>
                                 <span className="uppercase tracking-wider">Estimate:</span>
                                 <span className="ml-2 text-white font-medium">
-                                  {calculateETA(totalBytes, progressBytes, currentSpeed)}
+                                  {calculateETA(totalBytes, progressBytes, currentSpeed, speedHistory)}
                                 </span>
                               </div>
                             ) : null}

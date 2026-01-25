@@ -10,6 +10,7 @@ use crate::utils::db_manager::{
     update_install_use_fps_unlock_by_id, update_install_use_gamemode_by_id,
     update_install_use_jadeite_by_id, update_install_use_mangohud_by_id,
     update_install_use_xxmi_by_id, update_install_xxmi_config_by_id,
+    update_installs_order,
 };
 use crate::utils::game_launch_manager::launch;
 use crate::utils::repo_manager::get_manifest;
@@ -82,6 +83,11 @@ pub fn list_installs_by_manifest_id(app: AppHandle, manifest_id: String) -> Opti
     } else {
         None
     }
+}
+
+#[tauri::command]
+pub fn set_installs_order(app: AppHandle, order: Vec<(String, i32)>) {
+    update_installs_order(&app, order);
 }
 
 #[tauri::command]

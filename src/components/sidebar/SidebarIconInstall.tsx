@@ -34,9 +34,17 @@ type SidebarIconProps = {
     installSettings?: any,
     onOpenInstallSettings?: () => void,
     onRefreshSettings?: () => void,
+    // Drag and drop props
+    index?: number,
+    onDragStart?: (index: number) => void,
+    onDragEnd?: () => void,
+    onDragOver?: (index: number) => void,
+    onDrop?: (index: number) => void,
+    isDragging?: boolean,
+    isDragTarget?: boolean,
 }
 
-export default function SidebarIconInstall({ icon, name, id, setCurrentInstall, setGameIcon, setOpenPopup, popup, currentPage, setCurrentPage, setDisplayName, setBackground, background, enabled, hasUpdate, installSettings, onOpenInstallSettings, onRefreshSettings }: SidebarIconProps) {
+export default function SidebarIconInstall({ icon, name, id, setCurrentInstall, setGameIcon, setOpenPopup, popup, currentPage, setCurrentPage, setDisplayName, setBackground, background, enabled, hasUpdate, installSettings, onOpenInstallSettings, onRefreshSettings, index, onDragStart, onDragEnd, onDragOver, onDrop, isDragging, isDragTarget }: SidebarIconProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
@@ -63,45 +71,94 @@ export default function SidebarIconInstall({ icon, name, id, setCurrentInstall, 
     return (
         <React.Fragment>
             {enabled ? (
-                <div className="relative inline-block w-12 h-12 overflow-visible" ref={refs.setReference} {...getReferenceProps()}>
-                    <img
-                        id={`${id}`}
-                        className={`block w-full h-full rounded-lg cursor-pointer hover:border-purple-600 hover:border-2 focus:border-2 focus:border-purple-600 outline-none disabled:cursor-not-allowed disabled:border-0`}
-                        srcSet={undefined}
-                        loading={"lazy"}
-                        decoding={"async"}
-                        src={icon}
-                        tabIndex={0}
-
-                        onContextMenu={handleContextMenu}
-                        onClick={() => {
-                            let elem = document.getElementById(id);
-                            // @ts-ignore
-                            if (elem.hasAttribute("disabled")) { }
-                            else {
-                                setOpenPopup(POPUPS.NONE)
-                                if (setCurrentPage) setCurrentPage(PAGES.NONE)
-                                // Only set background if switching to a different install
-                                // This prevents overriding the dynamic background with static when clicking the same game
-                                const isAlreadySelected = installSettings?.id === id;
-                                if (!isAlreadySelected) {
-                                    setBackground(background)
-                                }
-                                setCurrentInstall(id)
-                                setDisplayName(name)
-                                setGameIcon(icon)
-                                // @ts-ignore
-                                elem.focus();
+                <div
+                    className="relative flex flex-col items-center"
+                    style={{ width: 48, minWidth: 48 }} // Fixed width to prevent layout shifts
+                >
+                    {/* Drop indicator - animated placeholder that appears above */}
+                    <div
+                        className={`w-12 flex items-center justify-center transition-all duration-200 ease-out overflow-hidden ${isDragTarget ? 'h-14 mb-1' : 'h-0'}`}
+                        onDragOver={(e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = 'move';
+                            if (index !== undefined && onDragOver) onDragOver(index);
+                        }}
+                        onDrop={(e) => {
+                            e.preventDefault();
+                            if (index !== undefined && onDrop) onDrop(index);
+                        }}
+                    >
+                        {isDragTarget && (
+                            <div className="w-12 h-12 rounded-lg border-2 border-dashed border-purple-500/70 bg-purple-500/10 flex items-center justify-center animate-pulse">
+                                <div className="w-6 h-0.5 rounded-full bg-purple-500/50" />
+                            </div>
+                        )}
+                    </div>
+                    <div
+                        className={`relative w-12 h-12 flex-shrink-0 transition-opacity duration-150 ${isDragging ? 'opacity-25' : 'opacity-100'}`}
+                        ref={refs.setReference}
+                        {...getReferenceProps()}
+                        draggable={index !== undefined && onDragStart !== undefined}
+                        onDragStart={(e) => {
+                            if (index !== undefined && onDragStart) {
+                                e.dataTransfer.effectAllowed = 'move';
+                                e.dataTransfer.setData('text/plain', index.toString());
+                                // Small delay to capture drag image before opacity change
+                                setTimeout(() => onDragStart(index), 0);
                             }
                         }}
-                        alt={"?"}
-                    />
-                    {hasUpdate ? (
-                        <span className="pointer-events-none absolute top-0.5 right-0.5 z-20 flex h-3 w-3">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-500 opacity-90"></span>
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-purple-500 shadow-[inset_0_0_0_1.5px_rgba(233,213,255,0.95),0_0_10px_rgba(168,85,247,1),0_0_20px_rgba(168,85,247,0.8)]"></span>
-                        </span>
-                    ) : null}
+                        onDragEnd={() => {
+                            if (onDragEnd) onDragEnd();
+                        }}
+                        onDragOver={(e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = 'move';
+                            if (index !== undefined && onDragOver) onDragOver(index);
+                        }}
+                        onDrop={(e) => {
+                            e.preventDefault();
+                            if (index !== undefined && onDrop) onDrop(index);
+                        }}
+                    >
+                        <img
+                            id={`${id}`}
+                            className={`block w-full h-full rounded-lg cursor-pointer hover:border-purple-600 hover:border-2 focus:border-2 focus:border-purple-600 outline-none disabled:cursor-not-allowed disabled:border-0 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+                            srcSet={undefined}
+                            loading={"lazy"}
+                            decoding={"async"}
+                            src={icon}
+                            tabIndex={0}
+                            draggable={false}
+                            onContextMenu={handleContextMenu}
+                            onClick={() => {
+                                let elem = document.getElementById(id);
+                                // @ts-ignore
+                                if (elem.hasAttribute("disabled")) { }
+                                else {
+                                    setOpenPopup(POPUPS.NONE)
+                                    if (setCurrentPage) setCurrentPage(PAGES.NONE)
+                                    // Only set background if switching to a different install
+                                    // This prevents overriding the dynamic background with static when clicking the same game
+                                    const isAlreadySelected = installSettings?.id === id;
+                                    if (!isAlreadySelected) {
+                                        setBackground(background)
+                                    }
+                                    setCurrentInstall(id)
+                                    setDisplayName(name)
+                                    setGameIcon(icon)
+                                    // @ts-ignore
+                                    elem.focus();
+                                }
+                            }}
+                            alt={"?"}
+                        />
+                        {hasUpdate ? (
+                            <span className="pointer-events-none absolute top-0.5 right-0.5 z-20 flex h-3 w-3">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-500 opacity-90"></span>
+                                <span className="relative inline-flex rounded-full h-3 w-3 bg-purple-500 shadow-[inset_0_0_0_1.5px_rgba(233,213,255,0.95),0_0_10px_rgba(168,85,247,1),0_0_20px_rgba(168,85,247,0.8)]"></span>
+                            </span>
+                        ) : null}
+                    </div>
                 </div>
             ) : null}
             {(enabled && isOpen && popup == POPUPS.NONE && currentPage === PAGES.NONE) ?

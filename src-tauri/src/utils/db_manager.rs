@@ -158,6 +158,12 @@ pub async fn init_db(app: &AppHandle) {
             sql: r#"ALTER TABLE install ADD COLUMN preferred_background TEXT default null;"#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 22,
+            description: "alter_install_table_sort_order",
+            sql: r#"ALTER TABLE install ADD COLUMN sort_order INTEGER DEFAULT 0 NOT NULL;"#,
+            kind: MigrationKind::Up,
+        },
     ];
 
     let mut migrations = add_migrations("db", migrationsl);
@@ -913,6 +919,7 @@ pub fn get_install_info_by_id(app: &AppHandle, id: String) -> Option<LauncherIns
             region_code: rslt.get(0).unwrap().get("region_code"),
             xxmi_config: rslt.get(0).unwrap().get("xxmi_config"),
             preferred_background: rslt.get(0).unwrap().get("preferred_background"),
+            sort_order: rslt.get(0).unwrap().get("sort_order"),
         };
 
         Some(rsltt)
@@ -976,6 +983,7 @@ pub fn get_installs_by_manifest_id(
                 region_code: r.get("region_code"),
                 xxmi_config: r.get("xxmi_config"),
                 preferred_background: r.get("preferred_background"),
+                sort_order: r.get("sort_order"),
             })
         }
 
@@ -998,7 +1006,7 @@ pub fn get_installs(app: &AppHandle) -> Option<Vec<LauncherInstall>> {
             .unwrap()
             .clone();
 
-        let query = query("SELECT * FROM install");
+        let query = query("SELECT * FROM install ORDER BY sort_order ASC");
         rslt = query.fetch_all(&db).await.unwrap();
     });
 
@@ -1037,6 +1045,7 @@ pub fn get_installs(app: &AppHandle) -> Option<Vec<LauncherInstall>> {
                 region_code: r.get("region_code"),
                 xxmi_config: r.get("xxmi_config"),
                 preferred_background: r.get("preferred_background"),
+                sort_order: r.get("sort_order"),
             })
         }
 
@@ -1044,6 +1053,27 @@ pub fn get_installs(app: &AppHandle) -> Option<Vec<LauncherInstall>> {
     } else {
         None
     }
+}
+
+pub fn update_installs_order(app: &AppHandle, order_updates: Vec<(String, i32)>) {
+    run_async_command(async {
+        let db = app
+            .state::<DbInstances>()
+            .0
+            .lock()
+            .await
+            .get("db")
+            .unwrap()
+            .clone();
+
+        for (id, sort_order) in order_updates {
+            let _ = query("UPDATE install SET sort_order = $1 WHERE id = $2")
+                .bind(sort_order)
+                .bind(id)
+                .execute(&db)
+                .await;
+        }
+    });
 }
 
 pub fn update_install_game_location_by_id(app: &AppHandle, id: String, location: String) {

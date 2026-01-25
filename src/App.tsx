@@ -127,7 +127,12 @@ export default class App extends React.Component<any, any> {
             limitedMode: false,
             networkStatus: "online" as "online" | "slow" | "offline",
             recoveryProgress: null as RecoveryProgress | null,
-            imageVersion: 0 // Increments on recovery to force image re-loads
+            imageVersion: 0, // Increments on recovery to force image re-loads
+            // Drag and drop state for sidebar installs
+            dragIndex: null as number | null,
+            dragTargetIndex: null as number | null,
+            dropCompleted: false, // Flag to prevent handleDragEnd from resetting after successful drop
+            droppedItemId: null as string | null, // Track which item was just dropped for pop animation
         }
     }
 
@@ -318,8 +323,11 @@ export default class App extends React.Component<any, any> {
                                     const game = (this.state.gamesinfo || []).find((g: any) => g.manifest_id === install.manifest_id);
                                     const latest = game?.latest_version ?? null;
                                     const hasUpdate = !!(latest && install?.version && latest !== install.version && !install?.ignore_updates);
+                                    // Only apply slideInLeft animation during initial loading, not during drag reorder
+                                    const isInitialAnim = this.state.isInitialLoading || this.state.showLoadingOverlay;
+                                    const isJustDropped = this.state.droppedItemId === install.id;
                                     return (
-                                        <div key={`${install.id}-v${this.state.imageVersion}`} className="animate-slideInLeft" style={{ animationDelay: `${index * 100 + 600}ms` }}>
+                                        <div key={`${install.id}-v${this.state.imageVersion}`} className={`w-12 ${isInitialAnim ? 'animate-slideInLeft' : ''} ${isJustDropped ? 'animate-drop-pop' : ''}`} style={isInitialAnim ? { animationDelay: `${index * 100 + 600}ms` } : undefined}>
                                             <SidebarIconInstall
                                                 popup={this.state.openPopup}
                                                 icon={install.game_icon}
@@ -336,6 +344,14 @@ export default class App extends React.Component<any, any> {
                                                 setBackground={this.setBackground}
                                                 setGameIcon={this.setGameIcon}
                                                 installSettings={this.state.installSettings}
+                                                // Drag and drop props
+                                                index={index}
+                                                onDragStart={this.handleDragStart}
+                                                onDragEnd={this.handleDragEnd}
+                                                onDragOver={this.handleDragOver}
+                                                onDrop={this.handleDrop}
+                                                isDragging={this.state.dragIndex === index}
+                                                isDragTarget={this.state.dragTargetIndex === index}
                                                 onOpenInstallSettings={async () => {
                                                     this.setCurrentInstall(install.id);
                                                     this.setDisplayName(install.name);
@@ -362,6 +378,35 @@ export default class App extends React.Component<any, any> {
                                         </div>
                                     )
                                 })}
+                                {/* Drop zone for last position */}
+                                {this.state.dragIndex !== null && (
+                                    <div
+                                        className="w-12 flex flex-col items-center"
+                                        onDragOver={(e) => {
+                                            e.preventDefault();
+                                            e.dataTransfer.dropEffect = 'move';
+                                            // Set target to length (after all items)
+                                            const lastIndex = this.state.installs.length;
+                                            if (this.state.dragIndex !== lastIndex - 1) {
+                                                this.setState({ dragTargetIndex: lastIndex });
+                                            }
+                                        }}
+                                        onDrop={(e) => {
+                                            e.preventDefault();
+                                            this.handleDropAtEnd();
+                                        }}
+                                    >
+                                        <div
+                                            className={`w-12 flex items-center justify-center transition-all duration-200 ease-out overflow-hidden ${this.state.dragTargetIndex === this.state.installs.length ? 'h-14' : 'h-6'}`}
+                                        >
+                                            {this.state.dragTargetIndex === this.state.installs.length && (
+                                                <div className="w-12 h-12 rounded-lg border-2 border-dashed border-purple-500/70 bg-purple-500/10 flex items-center justify-center animate-pulse">
+                                                    <div className="w-6 h-0.5 rounded-full bg-purple-500/50" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <div className="flex flex-col gap-4 flex-shrink overflow-visible scrollbar-none animate-slideInLeft mt-auto items-center" style={{ animationDelay: '900ms' }}>
@@ -1069,4 +1114,96 @@ export default class App extends React.Component<any, any> {
     setGameIcon(file: string) { this.setState({ gameIcon: file }); }
     setReposList(reposList: any) { this.setState({ reposList: reposList }); }
     setCurrentInstall(game: string) { this.setState({ currentInstall: game }); }
+
+    // Drag and drop handlers for sidebar install reordering
+    handleDragStart = (index: number) => {
+        this.setState({ dragIndex: index, dragTargetIndex: null, dropCompleted: false });
+    };
+
+    handleDragEnd = () => {
+        // Only reset if drop wasn't completed (i.e., drag was cancelled)
+        if (!this.state.dropCompleted) {
+            this.setState({ dragIndex: null, dragTargetIndex: null });
+        }
+        // Reset the flag for next drag operation
+        this.setState({ dropCompleted: false });
+    };
+
+    handleDragOver = (index: number) => {
+        const { dragIndex } = this.state;
+        if (dragIndex === null || dragIndex === index) return;
+
+        // Don't show indicator if the drop would result in the same position
+        // When dragging down to the immediately next item, the result is the same position
+        if (dragIndex < index && index === dragIndex + 1) {
+            this.setState({ dragTargetIndex: null });
+            return;
+        }
+
+        this.setState({ dragTargetIndex: index });
+    };
+
+    handleDrop = (targetIndex: number) => {
+        const { dragIndex, installs } = this.state;
+        if (dragIndex === null || dragIndex === targetIndex) {
+            this.setState({ dragIndex: null, dragTargetIndex: null });
+            return;
+        }
+
+        // When dragging down to immediately next item, it's a no-op
+        if (dragIndex < targetIndex && targetIndex === dragIndex + 1) {
+            this.setState({ dragIndex: null, dragTargetIndex: null });
+            return;
+        }
+
+        // Reorder the installs array
+        const newInstalls = [...installs];
+        const [draggedItem] = newInstalls.splice(dragIndex, 1);
+
+        // When dragging down, the target index shifts after removal
+        // Adjust insertion index so item lands where the indicator showed
+        const insertIndex = dragIndex < targetIndex ? targetIndex - 1 : targetIndex;
+        newInstalls.splice(insertIndex, 0, draggedItem);
+
+        // Update state immediately for responsive UI with pop animation
+        this.setState({ installs: newInstalls, dragIndex: null, dragTargetIndex: null, dropCompleted: true, droppedItemId: draggedItem.id });
+        // Clear the dropped item ID after animation completes
+        setTimeout(() => this.setState({ droppedItemId: null }), 250);
+
+        // Persist the new order to backend
+        const orderUpdates: [string, number][] = newInstalls.map((install: any, idx: number) => [install.id, idx]);
+        invoke("set_installs_order", { order: orderUpdates }).catch((e) => {
+            console.error("Failed to persist install order:", e);
+        });
+    };
+
+    handleDropAtEnd = () => {
+        const { dragIndex, installs } = this.state;
+        if (dragIndex === null) {
+            this.setState({ dragIndex: null, dragTargetIndex: null, dropCompleted: true });
+            return;
+        }
+
+        // If already at the end, no-op
+        if (dragIndex === installs.length - 1) {
+            this.setState({ dragIndex: null, dragTargetIndex: null, dropCompleted: true });
+            return;
+        }
+
+        // Move item to end
+        const newInstalls = [...installs];
+        const [draggedItem] = newInstalls.splice(dragIndex, 1);
+        newInstalls.push(draggedItem);
+
+        // Update state immediately for responsive UI with pop animation
+        this.setState({ installs: newInstalls, dragIndex: null, dragTargetIndex: null, dropCompleted: true, droppedItemId: draggedItem.id });
+        // Clear the dropped item ID after animation completes
+        setTimeout(() => this.setState({ droppedItemId: null }), 250);
+
+        // Persist the new order to backend
+        const orderUpdates: [string, number][] = newInstalls.map((install: any, idx: number) => [install.id, idx]);
+        invoke("set_installs_order", { order: orderUpdates }).catch((e) => {
+            console.error("Failed to persist install order:", e);
+        });
+    };
 }

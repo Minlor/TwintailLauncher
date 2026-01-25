@@ -85,6 +85,7 @@ pub struct LauncherInstall {
     pub region_code: String,
     pub xxmi_config: Json<XXMISettings>,
     pub preferred_background: Option<String>,
+    pub sort_order: i32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
