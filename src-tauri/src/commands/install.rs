@@ -9,15 +9,13 @@ use crate::utils::db_manager::{
     update_install_shortcut_location_by_id, update_install_skip_hash_check_by_id,
     update_install_use_fps_unlock_by_id, update_install_use_gamemode_by_id,
     update_install_use_jadeite_by_id, update_install_use_mangohud_by_id,
-    update_install_use_xxmi_by_id, update_install_xxmi_config_by_id,
-    update_installs_order,
+    update_install_use_xxmi_by_id, update_install_xxmi_config_by_id, update_installs_order,
 };
 use crate::utils::game_launch_manager::launch;
 use crate::utils::repo_manager::get_manifest;
 use crate::utils::shortcuts::remove_desktop_shortcut;
 use crate::utils::{
-    AddInstallRsp, DownloadSizesRsp, PathResolve, ResumeStatesRsp, apply_xxmi_tweaks, copy_dir_all,
-    download_or_update_fps_unlock, download_or_update_jadeite, download_or_update_xxmi,
+    AddInstallRsp, DownloadSizesRsp, ResumeStatesRsp, apply_xxmi_tweaks, copy_dir_all,
     generate_cuid, get_mi_path_from_game, models::GameVersion, prevent_exit, send_notification,
 };
 use fischl::utils::free_space::available;
@@ -26,26 +24,26 @@ use fischl::utils::prettify_bytes;
 use std::collections::HashMap;
 use std::fs;
 use std::ops::Add;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::DownloadState;
 #[cfg(target_os = "linux")]
+use crate::downloading::queue::QueueJobKind;
+#[cfg(target_os = "linux")]
+use crate::downloading::{QueueJobPayload, RunnerDownloadPayload};
+#[cfg(target_os = "linux")]
 use crate::utils::db_manager::{
     create_installed_runner, get_installed_runner_info_by_version,
     update_install_shortcut_is_steam_by_id, update_installed_runner_is_installed_by_version,
 };
-#[cfg(target_os = "linux")]
-use crate::downloading::queue::QueueJobKind;
-#[cfg(target_os = "linux")]
-use crate::downloading::{QueueJobPayload, RunnerDownloadPayload};
 use crate::utils::models::XXMISettings;
 #[cfg(target_os = "linux")]
 use crate::utils::repo_manager::get_compatibility;
 #[cfg(target_os = "linux")]
 use crate::utils::{
-    is_flatpak, patch_aki, run_async_command, runner_from_runner_version,
+    is_flatpak, run_async_command, runner_from_runner_version,
     shortcuts::{add_desktop_shortcut, add_steam_shortcut, remove_steam_shortcut},
 };
 #[cfg(target_os = "linux")]
@@ -155,16 +153,9 @@ pub fn add_install(
             .unwrap();
 
         let mut install_location = if skip_game_dl {
-            Path::new(directory.as_str())
-                .follow_symlink()
-                .unwrap()
-                .to_path_buf()
+            Path::new(directory.as_str()).to_path_buf()
         } else {
-            Path::new(directory.as_str())
-                .join(cuid.clone())
-                .follow_symlink()
-                .unwrap()
-                .to_path_buf()
+            Path::new(directory.as_str()).join(cuid.clone())
         };
         directory = install_location.to_str().unwrap().to_string();
 
@@ -184,16 +175,9 @@ pub fn add_install(
 
         #[cfg(target_os = "linux")]
         {
-            let wine = Path::new(gs.default_runner_path.as_str())
-                .follow_symlink()
-                .unwrap();
-            let dxvk = Path::new(gs.default_dxvk_path.as_str())
-                .follow_symlink()
-                .unwrap();
-            let prefix_loc = Path::new(&runner_prefix)
-                .join(cuid.clone())
-                .follow_symlink()
-                .unwrap();
+            let wine = Path::new(gs.default_runner_path.as_str());
+            let dxvk = Path::new(gs.default_dxvk_path.as_str());
+            let prefix_loc = Path::new(&runner_prefix).join(cuid.clone());
             runner_prefix = prefix_loc.to_str().unwrap().to_string();
 
             // Remove prefix just in case
@@ -203,15 +187,11 @@ pub fn add_install(
 
             runner_path = wine
                 .join(runner_version.clone())
-                .follow_symlink()
-                .unwrap()
                 .to_str()
                 .unwrap()
                 .to_string();
             dxvk_path = dxvk
                 .join(dxvk_version.clone())
-                .follow_symlink()
-                .unwrap()
                 .to_str()
                 .unwrap()
                 .to_string();
@@ -241,9 +221,7 @@ pub fn add_install(
                     .join("pfx")
                     .join("drive_c")
                     .join("Program Files")
-                    .join(cuid.clone())
-                    .follow_symlink()
-                    .unwrap();
+                    .join(cuid.clone());
                 if !install_location.exists() {
                     fs::create_dir_all(&install_location).unwrap();
                 }
@@ -252,8 +230,6 @@ pub fn add_install(
             if co.override_runner.linux.enabled {
                 runner_path = wine
                     .join(co.override_runner.linux.runner_version.clone())
-                    .follow_symlink()
-                    .unwrap()
                     .to_str()
                     .unwrap()
                     .to_string();
@@ -273,10 +249,7 @@ pub fn add_install(
                     .filter(|v| v.version.as_str() == runv.as_str())
                     .collect::<Vec<_>>();
                 if let Some(runnerp) = rv.get(0) {
-                    let rp = Path::new(runpp.as_str())
-                        .follow_symlink()
-                        .unwrap()
-                        .to_path_buf();
+                    let rp = Path::new(runpp.as_str()).to_path_buf();
 
                     // Only download if directory is empty
                     if fs::read_dir(rp.as_path())
@@ -341,20 +314,24 @@ pub fn add_install(
 
             // Patch wuwa if existing install
             if gm.biz == "wuwa_global" && skip_game_dl {
-                let target = Path::new(&directory.clone())
-                    .join("Client/Binaries/Win64/ThirdParty/KrPcSdk_Global/KRSDKRes/KRSDK.bin")
-                    .follow_symlink()
-                    .unwrap();
-                patch_aki(target.to_str().unwrap().to_string());
+                crate::utils::apply_patch(
+                    &app,
+                    Path::new(&directory.clone()).to_str().unwrap().to_string(),
+                    "aki".to_string(),
+                    "add".to_string(),
+                );
             }
             // Download and enable jadeite automatically for these games
             if gm.biz == "bh3_global" {
                 use_jadeite = true;
-                let jadeite = Path::new(&gs.jadeite_path)
-                    .follow_symlink()
-                    .unwrap()
-                    .to_path_buf();
-                download_or_update_jadeite(jadeite, false);
+                let jadeite = Path::new(&gs.jadeite_path).to_path_buf();
+                crate::downloading::misc::download_or_update_extra(
+                    &app,
+                    jadeite.clone(),
+                    "jadeite".to_string(),
+                    "v5.0.1-hotfix".to_string(),
+                    false,
+                );
             }
         }
         let gbg = g.assets.game_background.clone(); /*if g.assets.game_live_background.is_some() {
@@ -489,7 +466,7 @@ pub fn update_install_game_path(app: AppHandle, id: String, path: String) -> Opt
             {
                 let op = oldpath.clone();
                 std::thread::spawn(move || {
-                    let ap = Path::new(op.as_ref()).follow_symlink().unwrap();
+                    let ap = Path::new(op.as_ref()).to_path_buf();
                     copy_dir_all(
                         &app1,
                         ap,
@@ -549,7 +526,7 @@ pub fn update_install_runner_path(app: AppHandle, id: String, path: String) -> O
             {
                 let op = oldpath.clone();
                 std::thread::spawn(move || {
-                    let ap = Path::new(op.as_ref()).follow_symlink().unwrap();
+                    let ap = Path::new(op.as_ref()).to_path_buf();
                     copy_dir_all(
                         &app1,
                         ap,
@@ -609,7 +586,7 @@ pub fn update_install_dxvk_path(app: AppHandle, id: String, path: String) -> Opt
             {
                 let op = oldpath.clone();
                 std::thread::spawn(move || {
-                    let ap = Path::new(op.as_ref()).follow_symlink().unwrap();
+                    let ap = Path::new(op.as_ref()).to_path_buf();
                     copy_dir_all(
                         &app1,
                         ap,
@@ -684,14 +661,16 @@ pub fn update_install_use_jadeite(app: AppHandle, id: String, enabled: bool) -> 
 
     if manifest.is_some() {
         let m = manifest.unwrap();
-        let p = Path::new(&settings.jadeite_path)
-            .follow_symlink()
-            .unwrap()
-            .to_path_buf();
-
+        let p = Path::new(&settings.jadeite_path).to_path_buf();
         update_install_use_jadeite_by_id(&app, m.id, enabled);
         if enabled {
-            download_or_update_jadeite(p, false);
+            crate::downloading::misc::download_or_update_extra(
+                &app,
+                p.clone(),
+                "jadeite".to_string(),
+                "v5.0.1-hotfix".to_string(),
+                false,
+            );
         }
         Some(true)
     } else {
@@ -706,34 +685,51 @@ pub fn update_install_use_xxmi(app: AppHandle, id: String, enabled: bool) -> Opt
 
     if manifest.is_some() {
         let m = manifest.unwrap();
-        let p = Path::new(&settings.xxmi_path)
-            .follow_symlink()
-            .unwrap()
-            .to_path_buf();
-
+        let p = Path::new(&settings.xxmi_path).to_path_buf();
         update_install_use_xxmi_by_id(&app, m.id.clone(), enabled);
         if enabled {
-            download_or_update_xxmi(&app, p.clone(), Some(m.id.clone()), false);
-            // Attempt to apply XXMI config for any install if we can not download function will handle this
-            #[cfg(target_os = "linux")]
-            {
-                let repm = get_manifest_info_by_id(&app, m.manifest_id).unwrap();
-                let gm = get_manifest(&app, repm.filename).unwrap();
-                let exe = gm
-                    .paths
-                    .exe_filename
-                    .clone()
-                    .split('/')
-                    .last()
-                    .unwrap()
-                    .to_string();
-                let mi = get_mi_path_from_game(exe).unwrap();
-                let package_path = p.join(mi);
-                if package_path.exists() {
-                    let data = apply_xxmi_tweaks(package_path, m.xxmi_config);
-                    update_install_xxmi_config_by_id(&app, m.id, data);
-                }
-            }
+            crate::downloading::misc::download_or_update_extra(
+                &app,
+                p.clone(),
+                "xxmi".to_string(),
+                "xxmi".to_string(),
+                false,
+            );
+            crate::downloading::misc::download_or_update_extra(
+                &app,
+                p.clone(),
+                "xxmi".to_string(),
+                "gimi".to_string(),
+                false,
+            );
+            crate::downloading::misc::download_or_update_extra(
+                &app,
+                p.clone(),
+                "xxmi".to_string(),
+                "srmi".to_string(),
+                false,
+            );
+            crate::downloading::misc::download_or_update_extra(
+                &app,
+                p.clone(),
+                "xxmi".to_string(),
+                "zzmi".to_string(),
+                false,
+            );
+            crate::downloading::misc::download_or_update_extra(
+                &app,
+                p.clone(),
+                "xxmi".to_string(),
+                "himi".to_string(),
+                false,
+            );
+            crate::downloading::misc::download_or_update_extra(
+                &app,
+                p.clone(),
+                "xxmi".to_string(),
+                "wwmi".to_string(),
+                false,
+            );
         }
         Some(true)
     } else {
@@ -748,14 +744,16 @@ pub fn update_install_use_fps_unlock(app: AppHandle, id: String, enabled: bool) 
 
     if manifest.is_some() {
         let m = manifest.unwrap();
-        let p = Path::new(&settings.fps_unlock_path)
-            .follow_symlink()
-            .unwrap()
-            .to_path_buf();
-
+        let p = Path::new(&settings.fps_unlock_path).to_path_buf();
         update_install_use_fps_unlock_by_id(&app, m.id, enabled);
         if enabled {
-            download_or_update_fps_unlock(p, false);
+            crate::downloading::misc::download_or_update_extra(
+                &app,
+                p.clone(),
+                "keqingunlock".to_string(),
+                "keqing_unlock".to_string(),
+                false,
+            );
         }
         Some(true)
     } else {
@@ -770,14 +768,16 @@ pub fn update_install_fps_value(app: AppHandle, id: String, fps: String) -> Opti
 
     if install.is_some() {
         let m = install.unwrap();
-        let p = Path::new(&settings.fps_unlock_path)
-            .follow_symlink()
-            .unwrap()
-            .to_path_buf();
-
+        let p = Path::new(&settings.fps_unlock_path).to_path_buf();
         update_install_fps_value_by_id(&app, m.id, fps);
         if m.use_fps_unlock {
-            download_or_update_fps_unlock(p, false);
+            crate::downloading::misc::download_or_update_extra(
+                &app,
+                p.clone(),
+                "keqingunlock".to_string(),
+                "keqing_unlock".to_string(),
+                false,
+            );
         }
         Some(true)
     } else {
@@ -872,7 +872,7 @@ pub fn update_install_xxmi_config(
                     .unwrap()
                     .to_string();
                 let mi = get_mi_path_from_game(exe).unwrap();
-                let package = Path::new(&gs.xxmi_path).join(mi).follow_symlink().unwrap();
+                let package = Path::new(&gs.xxmi_path).join(mi);
                 data = apply_xxmi_tweaks(package, data.clone());
             }
         }
@@ -961,7 +961,7 @@ pub fn update_install_prefix_path(app: AppHandle, id: String, path: String) -> O
             {
                 let op = oldpath.clone();
                 std::thread::spawn(move || {
-                    let ap = Path::new(op.as_ref()).follow_symlink().unwrap();
+                    let ap = Path::new(op.as_ref());
                     copy_dir_all(
                         &app1,
                         ap,
@@ -1032,10 +1032,7 @@ pub fn update_install_runner_version(app: AppHandle, id: String, version: String
 
         if fs::read_dir(rpn.as_str()).unwrap().next().is_none() {
             // Download runner via queue system (shows in downloads UI)
-            let rm = get_compatibility(
-                &app,
-                &runner_from_runner_version(version.clone()).unwrap(),
-            );
+            let rm = get_compatibility(&app, &runner_from_runner_version(version.clone()).unwrap());
             if let Some(rm) = rm {
                 let rv = rm
                     .versions
@@ -1043,10 +1040,7 @@ pub fn update_install_runner_version(app: AppHandle, id: String, version: String
                     .filter(|v| v.version.as_str() == version.as_str())
                     .collect::<Vec<_>>();
                 if let Some(runnerp) = rv.get(0) {
-                    let rp = Path::new(rpn.as_str())
-                        .follow_symlink()
-                        .unwrap()
-                        .to_path_buf();
+                    let rp = Path::new(rpn.as_str()).to_path_buf();
 
                     // Determine the download URL based on architecture
                     let mut dl_url = runnerp.url.clone();
@@ -1104,10 +1098,7 @@ pub fn update_install_runner_version(app: AppHandle, id: String, version: String
                     &runner_from_runner_version(runv.to_string()).unwrap(),
                 )
                 .unwrap();
-                let rp = Path::new(runpp.as_str())
-                    .follow_symlink()
-                    .unwrap()
-                    .to_path_buf();
+                let rp = Path::new(runpp.as_str()).to_path_buf();
 
                 let wine64 = if rm.paths.wine64.is_empty() {
                     rm.paths.wine32
@@ -1180,14 +1171,8 @@ pub fn update_install_dxvk_version(app: AppHandle, id: String, version: String) 
                     .filter(|v| v.version.as_str() == dxvkv.as_str())
                     .collect::<Vec<_>>();
                 let dxp = dv.get(0).unwrap().to_owned();
-                let dxpp = Path::new(dxpp.as_str())
-                    .follow_symlink()
-                    .unwrap()
-                    .to_path_buf();
-                let rp = Path::new(runp.as_str())
-                    .follow_symlink()
-                    .unwrap()
-                    .to_path_buf();
+                let dxpp = Path::new(dxpp.as_str()).to_path_buf();
+                let rp = Path::new(runp.as_str()).to_path_buf();
 
                 let mut dlpayload = HashMap::new();
                 let is_proton = rm.display_name.to_ascii_lowercase().contains("proton")
@@ -1284,14 +1269,8 @@ pub fn update_install_dxvk_version(app: AppHandle, id: String, version: String) 
                     &runner_from_runner_version(runv.as_str().to_string()).unwrap(),
                 )
                 .unwrap();
-                let dxpp = Path::new(dxpp.as_str())
-                    .follow_symlink()
-                    .unwrap()
-                    .to_path_buf();
-                let rp = Path::new(runp.as_str())
-                    .follow_symlink()
-                    .unwrap()
-                    .to_path_buf();
+                let dxpp = Path::new(dxpp.as_str()).to_path_buf();
+                let rp = Path::new(runp.as_str()).to_path_buf();
 
                 let is_proton = rm.display_name.to_ascii_lowercase().contains("proton")
                     && !rm.display_name.to_ascii_lowercase().contains("wine");
@@ -1384,6 +1363,7 @@ pub fn get_download_sizes(
     version: String,
     lang: String,
     path: String,
+    region: Option<String>,
 ) -> Option<String> {
     let manifest = get_manifest(&app, biz + ".json");
 
@@ -1396,12 +1376,21 @@ pub fn get_download_sizes(
             .filter(|e| e.metadata.version == version)
             .collect::<Vec<GameVersion>>();
         let g = entry.get(0).unwrap();
-        let gs = g
-            .game
-            .full
-            .iter()
-            .map(|x| x.decompressed_size.parse::<u64>().unwrap())
-            .sum::<u64>();
+        let gs = if m.biz == "bh3_global" {
+            g.game
+                .full
+                .iter()
+                .filter(|e| e.region_code.clone().unwrap() == region.clone().unwrap())
+                .into_iter()
+                .map(|x| x.decompressed_size.parse::<u64>().unwrap())
+                .sum::<u64>()
+        } else {
+            g.game
+                .full
+                .iter()
+                .map(|x| x.decompressed_size.parse::<u64>().unwrap())
+                .sum::<u64>()
+        };
         let mut fss = gs;
         if !g.audio.full.is_empty() {
             let audios: Vec<_> = g.audio.full.iter().filter(|x| x.language == lang).collect();
@@ -1414,7 +1403,8 @@ pub fn get_download_sizes(
             fss = gs.add(audio);
         }
 
-        let p = Path::new(&path).follow_symlink().unwrap();
+        let p = PathBuf::from(&path);
+        //let ap = if cfg!(target_os = "linux") { match p.canonicalize() { Ok(resolved) => resolved, Err(_) => match p.parent() { Some(parent) => parent.canonicalize().unwrap_or(p.clone()), None => p.clone(), } } } else { p };
         let a = available(p);
         let stringified;
 
@@ -1449,7 +1439,7 @@ pub fn get_resume_states(app: AppHandle, install: String) -> Option<String> {
     if install.is_some() {
         let i = install.unwrap();
 
-        let ip = Path::new(&i.directory).follow_symlink().unwrap();
+        let ip = Path::new(&i.directory);
         let dp = ip.join("downloading");
         let up = ip.join("patching");
         let pup = ip.join("patching").join(".preload");
@@ -1512,10 +1502,7 @@ pub fn add_shortcut(app: AppHandle, install_id: String, shortcut_type: String) {
                     .home_dir()
                     .unwrap()
                     .join(".local/share/applications");
-                let file = base
-                    .join(format!("{}.desktop", install.name.as_str()))
-                    .follow_symlink()
-                    .unwrap();
+                let file = base.join(format!("{}.desktop", install.name.as_str()));
                 let bin_name = if is_flatpak() {
                     "flatpak run app.twintaillauncher.ttl"
                 } else {
@@ -1568,14 +1555,10 @@ Type=Application
                     .path()
                     .home_dir()
                     .unwrap()
-                    .follow_symlink()
-                    .unwrap()
                     .join(".var/app/com.valvesoftware.Steam/data/Steam/userdata");
                 let normal_steam = app
                     .path()
                     .home_dir()
-                    .unwrap()
-                    .follow_symlink()
                     .unwrap()
                     .join(".local/share/Steam/userdata");
 
@@ -1705,10 +1688,7 @@ pub fn remove_shortcut(app: AppHandle, install_id: String, shortcut_type: String
                     .home_dir()
                     .unwrap()
                     .join(".local/share/applications");
-                let file = base
-                    .join(format!("{}.desktop", install.name.as_str()))
-                    .follow_symlink()
-                    .unwrap();
+                let file = base.join(format!("{}.desktop", install.name.as_str()));
 
                 let status = remove_desktop_shortcut(file.clone());
                 if status {
@@ -1743,16 +1723,8 @@ pub fn remove_shortcut(app: AppHandle, install_id: String, shortcut_type: String
                     .path()
                     .home_dir()
                     .unwrap()
-                    .follow_symlink()
-                    .unwrap()
                     .join(".var/app/com.valvesoftware.Steam/data/Steam/userdata");
-                let normal_steam = app
-                    .path()
-                    .data_dir()
-                    .unwrap()
-                    .follow_symlink()
-                    .unwrap()
-                    .join("Steam/userdata");
+                let normal_steam = app.path().data_dir().unwrap().join("Steam/userdata");
 
                 if flatpak_steam.exists() {
                     let status = remove_steam_shortcut(flatpak_steam, install.name.as_str());

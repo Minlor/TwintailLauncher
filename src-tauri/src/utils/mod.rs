@@ -1,17 +1,23 @@
 use crate::utils::db_manager::{
-    get_installs, get_manifest_info_by_id, get_settings, update_install_after_update_by_id,
-    update_settings_default_fps_unlock_location, update_settings_default_game_location,
+    get_installs, get_manifest_info_by_id, get_settings,
+    update_install_after_update_by_id, update_settings_default_fps_unlock_location,
+    update_settings_default_game_location,
     update_settings_default_xxmi_location,
+};
+#[cfg(target_os = "linux")]
+use crate::utils::db_manager::{
+    create_installed_runner, get_installed_runner_info_by_version, get_installed_runners,
+    update_install_use_jadeite_by_id, update_installed_runner_is_installed_by_version,
+    update_settings_default_dxvk_location, update_settings_default_jadeite_location,
+    update_settings_default_prefix_location, update_settings_default_runner_location,
 };
 use crate::utils::models::{GameVersion, XXMISettings};
 use crate::utils::repo_manager::get_manifest;
-#[cfg(target_os = "linux")]
-use crate::utils::repo_manager::{get_compatibilities, get_manifests};
-use fischl::download::Extras;
-use fischl::utils::{extract_archive, get_github_release};
+use fischl::utils::get_github_release;
 use serde::{Deserialize, Serialize};
 use sqlx::types::Json;
 use std::collections::HashMap;
+use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -20,25 +26,15 @@ use tauri::{AppHandle, Emitter, Listener, Manager};
 use tauri_plugin_notification::NotificationExt;
 
 #[cfg(target_os = "linux")]
-use crate::utils::db_manager::{
-    create_installed_runner, get_install_info_by_id, get_installed_runner_info_by_version,
-    get_installed_runners, update_install_use_jadeite_by_id, update_install_xxmi_config_by_id,
-    update_installed_runner_is_installed_by_version, update_settings_default_dxvk_location,
-    update_settings_default_jadeite_location, update_settings_default_prefix_location,
-    update_settings_default_runner_location,
-};
-#[cfg(target_os = "linux")]
-use fischl::compat::check_steamrt_update;
+use crate::downloading::queue::QueueJobKind;
 #[cfg(target_os = "linux")]
 use crate::downloading::{QueueJobPayload, SteamrtDownloadPayload};
 #[cfg(target_os = "linux")]
-use crate::downloading::queue::QueueJobKind;
+use crate::utils::repo_manager::{get_compatibilities, get_manifests};
 #[cfg(target_os = "linux")]
 use crate::DownloadState;
 #[cfg(target_os = "linux")]
-use libc::{RLIMIT_NOFILE, getrlimit, rlim_t, rlimit, setrlimit};
-#[cfg(target_os = "linux")]
-use std::io::BufRead;
+use fischl::compat::check_steamrt_update;
 
 pub mod args;
 pub mod db_manager;
@@ -241,6 +237,7 @@ pub fn register_listeners(app: &AppHandle) {
         let state = blocks.lock().unwrap();
         if state.action_exit {
             h1.get_window("main").unwrap().hide().unwrap();
+            h1.emit("sync_tray_toggle", "Show").unwrap();
         } else {
             h1.get_window("main").unwrap().hide().unwrap();
             h1.cleanup_before_exit();
@@ -248,7 +245,6 @@ pub fn register_listeners(app: &AppHandle) {
             std::process::exit(0);
         }
     });
-
     let h2 = app.clone();
     app.listen("launcher_action_minimize", move |_event| {
         h2.get_window("main").unwrap().minimize().unwrap();
@@ -280,12 +276,27 @@ pub fn send_notification(app: &AppHandle, body: &str, icon: Option<&str>) {
 
 /// Emits a dialog event to the React frontend for custom-styled dialogs
 /// instead of using native OS dialogs.
+/// If callback_id is provided, React will emit a "dialog_response" event
+/// with the callback_id and button_index when the user clicks a button.
 pub fn show_dialog(
     app: &AppHandle,
     dialog_type: &str,
     title: &str,
     message: &str,
     buttons: Option<Vec<&str>>,
+) {
+    show_dialog_with_callback(app, dialog_type, title, message, buttons, None);
+}
+
+/// Shows a dialog with a callback_id that will be returned when the user clicks a button.
+/// Listen for "dialog_response" event to handle the user's choice.
+pub fn show_dialog_with_callback(
+    app: &AppHandle,
+    dialog_type: &str,
+    title: &str,
+    message: &str,
+    buttons: Option<Vec<&str>>,
+    callback_id: Option<&str>,
 ) {
     let mut payload = HashMap::new();
     payload.insert("dialog_type", dialog_type.to_string());
@@ -294,6 +305,9 @@ pub fn show_dialog(
     if let Some(btns) = buttons {
         let btns_str = serde_json::to_string(&btns).unwrap_or_else(|_| "[\"OK\"]".to_string());
         payload.insert("buttons", btns_str);
+    }
+    if let Some(cb_id) = callback_id {
+        payload.insert("callback_id", cb_id.to_string());
     }
     let _ = app.emit("show_dialog", payload);
 }
@@ -406,29 +420,10 @@ fn dir_size(path: &Path) -> io::Result<u64> {
     Ok(size)
 }
 
-#[allow(unused_mut)]
-pub fn setup_or_fix_default_paths(app: &AppHandle, mut path: PathBuf, fix_mode: bool) {
-    #[cfg(target_os = "linux")]
-    {
-        let os = get_os_release();
-        if os.is_some() {
-            let v = os.unwrap();
-            if v.to_ascii_lowercase() == "bazzite".to_string()
-                || v.to_ascii_lowercase() == "kinoite".to_string()
-            {
-                let tmp = path.to_str().unwrap().replace("/home", "/var/home");
-                path = PathBuf::from(tmp).follow_symlink().unwrap();
-            }
-        }
-    }
-
-    let defgpath = path.join("games").follow_symlink().unwrap();
-    let xxmipath = path.join("extras").join("xxmi").follow_symlink().unwrap();
-    let fpsunlockpath = path
-        .join("extras")
-        .join("fps_unlock")
-        .follow_symlink()
-        .unwrap();
+pub fn setup_or_fix_default_paths(app: &AppHandle, path: PathBuf, fix_mode: bool) {
+    let defgpath = path.join("games");
+    let xxmipath = path.join("extras").join("xxmi");
+    let fpsunlockpath = path.join("extras").join("fps_unlock");
 
     if fix_mode {
         // Fix empty db entries and remake dirs
@@ -453,25 +448,19 @@ pub fn setup_or_fix_default_paths(app: &AppHandle, mut path: PathBuf, fix_mode: 
 
             #[cfg(target_os = "linux")]
             {
-                let comppath = path.join("compatibility").follow_symlink().unwrap();
-                let wine = comppath.join("runners").follow_symlink().unwrap();
-                let dxvk = comppath.join("dxvk").follow_symlink().unwrap();
-                let prefixes = comppath.join("prefixes").follow_symlink().unwrap();
-                let jadeitepath = path
-                    .join("extras")
-                    .join("jadeite")
-                    .follow_symlink()
-                    .unwrap();
+                let comppath = path.join("compatibility");
+                let wine = comppath.join("runners");
+                let dxvk = comppath.join("dxvk");
+                let prefixes = comppath.join("prefixes");
+                let jadeitepath = path.join("extras").join("jadeite");
                 let mangohudcfg = app
                     .path()
                     .home_dir()
                     .unwrap()
-                    .follow_symlink()
-                    .unwrap()
                     .join(".config/MangoHud/MangoHud.conf");
 
                 // steamrt setup
-                let steamrtpath = wine.join("steamrt").follow_symlink().unwrap();
+                let steamrtpath = wine.join("steamrt");
                 if !steamrtpath.exists() {
                     fs::create_dir_all(&steamrtpath).unwrap();
                 }
@@ -527,25 +516,19 @@ pub fn setup_or_fix_default_paths(app: &AppHandle, mut path: PathBuf, fix_mode: 
         }
         #[cfg(target_os = "linux")]
         {
-            let comppath = path.join("compatibility").follow_symlink().unwrap();
-            let wine = comppath.join("runners").follow_symlink().unwrap();
-            let dxvk = comppath.join("dxvk").follow_symlink().unwrap();
-            let prefixes = comppath.join("prefixes").follow_symlink().unwrap();
-            let jadeitepath = path
-                .join("extras")
-                .join("jadeite")
-                .follow_symlink()
-                .unwrap();
+            let comppath = path.join("compatibility");
+            let wine = comppath.join("runners");
+            let dxvk = comppath.join("dxvk");
+            let prefixes = comppath.join("prefixes");
+            let jadeitepath = path.join("extras").join("jadeite");
             let mangohudcfg = app
                 .path()
                 .home_dir()
                 .unwrap()
-                .follow_symlink()
-                .unwrap()
                 .join(".config/MangoHud/MangoHud.conf");
 
             // steamrt setup
-            let steamrtpath = wine.join("steamrt").follow_symlink().unwrap();
+            let steamrtpath = wine.join("steamrt");
             if !steamrtpath.exists() {
                 fs::create_dir_all(&steamrtpath).unwrap();
             }
@@ -584,134 +567,12 @@ pub fn setup_or_fix_default_paths(app: &AppHandle, mut path: PathBuf, fix_mode: 
     }
 }
 
-pub fn download_or_update_jadeite(path: PathBuf, update_mode: bool) {
-    if update_mode {
-        if fs::read_dir(&path).unwrap().next().is_some() {
-            std::thread::spawn(move || {
-                empty_dir(&path).unwrap();
-                let dl = run_async_command(async {
-                    Extras::download_jadeite(
-                        "MrLGamer/jadeite".parse().unwrap(),
-                        path.as_path().to_str().unwrap().parse().unwrap(),
-                        |_current, _total, _net_speed, _disk_speed| {},
-                    )
-                    .await
-                });
-                if dl {
-                    extract_archive(
-                        path.join("jadeite.zip")
-                            .as_path()
-                            .to_str()
-                            .unwrap()
-                            .parse()
-                            .unwrap(),
-                        path.as_path().to_str().unwrap().parse().unwrap(),
-                        false,
-                    );
-                }
-            });
-        }
-    } else {
-        if fs::read_dir(&path).unwrap().next().is_none() {
-            std::thread::spawn(move || {
-                let dl = run_async_command(async {
-                    Extras::download_jadeite(
-                        "MrLGamer/jadeite".parse().unwrap(),
-                        path.as_path().to_str().unwrap().parse().unwrap(),
-                        |_current, _total, _net_speed, _disk_speed| {},
-                    )
-                    .await
-                });
-                if dl {
-                    extract_archive(
-                        path.join("jadeite.zip")
-                            .as_path()
-                            .to_str()
-                            .unwrap()
-                            .parse()
-                            .unwrap(),
-                        path.as_path().to_str().unwrap().parse().unwrap(),
-                        false,
-                    );
-                }
-            });
-        }
-    }
-}
-
-pub fn download_or_update_fps_unlock(path: PathBuf, update_mode: bool) {
-    if update_mode {
-        if fs::read_dir(&path).unwrap().next().is_some() {
-            std::thread::spawn(move || {
-                empty_dir(&path).unwrap();
-                run_async_command(async {
-                    Extras::download_fps_unlock(
-                        "TwintailTeam/KeqingUnlock".parse().unwrap(),
-                        path.as_path().to_str().unwrap().parse().unwrap(),
-                        |_current, _total, _net_speed, _disk_speed| {},
-                    )
-                    .await
-                });
-            });
-        }
-    } else {
-        if fs::read_dir(&path).unwrap().next().is_none() {
-            std::thread::spawn(move || {
-                run_async_command(async {
-                    Extras::download_fps_unlock(
-                        "TwintailTeam/KeqingUnlock".parse().unwrap(),
-                        path.as_path().to_str().unwrap().parse().unwrap(),
-                        |_current, _total, _net_speed, _disk_speed| {},
-                    )
-                    .await
-                });
-            });
-        }
-    }
-}
-
-/// Downloads or updates XXMI modding tool via the queue system
-#[allow(unused_variables)]
-pub fn download_or_update_xxmi(
-    app: &AppHandle,
-    path: PathBuf,
-    install_id: Option<String>,
-    update_mode: bool,
-) {
-    use crate::downloading::queue::QueueJobKind;
-    use crate::downloading::{QueueJobPayload, XXMIDownloadPayload};
-    use crate::DownloadState;
-
-    let should_download = if update_mode {
-        // Update mode: only download if directory has content
-        fs::read_dir(&path).map(|mut d| d.next().is_some()).unwrap_or(false)
-    } else {
-        // Fresh install mode: only download if directory is empty
-        fs::read_dir(&path).map(|mut d| d.next().is_none()).unwrap_or(true)
-    };
-
-    if should_download {
-        let state = app.state::<DownloadState>();
-        let q = state.queue.lock().unwrap().clone();
-        if let Some(queue) = q {
-            queue.enqueue(
-                QueueJobKind::XxmiDownload,
-                QueueJobPayload::XXMI(XXMIDownloadPayload {
-                    xxmi_path: path.to_str().unwrap().to_string(),
-                    install_id,
-                    is_update: update_mode,
-                }),
-            );
-        }
-    }
-}
-
 #[cfg(target_os = "linux")]
 pub fn sync_installed_runners(app: &AppHandle) {
     let gs = get_settings(app);
     if gs.is_some() {
         let s = gs.unwrap();
-        let runners = Path::new(&s.default_runner_path).follow_symlink().unwrap();
+        let runners = Path::new(&s.default_runner_path).to_path_buf();
         if !runners.exists() {
             return;
         }
@@ -721,7 +582,7 @@ pub fn sync_installed_runners(app: &AppHandle) {
         if all_runners.is_some() {
             let ar = all_runners.unwrap();
             for r in ar {
-                let dir_path = runners.join(&r.version).follow_symlink().unwrap();
+                let dir_path = runners.join(&r.version).to_path_buf();
                 if !dir_path.exists() && dir_path.to_str().unwrap().to_string() != "steamrt" {
                     update_installed_runner_is_installed_by_version(app, r.version.clone(), false);
                 }
@@ -834,79 +695,19 @@ pub fn deprecate_jadeite(app: &AppHandle) {
 }
 
 #[cfg(target_os = "linux")]
-pub fn download_or_update_steamrt(app: &AppHandle) {
-    let gs = get_settings(app);
-
-    if gs.is_some() {
-        let s = gs.unwrap();
-        let rp = Path::new(&s.default_runner_path).follow_symlink().unwrap();
-        let steamrt = rp.join("steamrt");
-        if !steamrt.exists() {
-            let r = fs::create_dir_all(&steamrt);
-            match r {
-                Ok(_) => {}
-                Err(e) => {
-                    send_notification(&app, format!("Failed to prepare SteamLinuxRuntime directory. {} - Please fix the error and restart the app!", e.to_string()).as_str(), None);
-                    return;
-                }
-            }
-        }
-
-        let steamrt_path = steamrt.to_str().unwrap().to_string();
-
-        if fs::read_dir(&steamrt).unwrap().next().is_none() {
-            // SteamRT not installed - enqueue download
-            let state = app.state::<DownloadState>();
-            let q = state.queue.lock().unwrap().clone();
-            if let Some(queue) = q {
-                queue.enqueue(
-                    QueueJobKind::SteamrtDownload,
-                    QueueJobPayload::Steamrt(SteamrtDownloadPayload {
-                        steamrt_path,
-                        is_update: false,
-                    }),
-                );
-            }
-        } else {
-            // Check for updates
-            let vp = steamrt.join("VERSIONS.txt");
-            if !vp.exists() {
-                return;
-            }
-            let cur_ver = find_steamrt_version(vp).unwrap();
-            if cur_ver.is_empty() {
-                return;
-            }
-            let remote_ver =
-                check_steamrt_update("steamrt3".to_string(), "latest-public-beta".to_string());
-            if remote_ver.is_some() {
-                let rv = remote_ver.unwrap();
-                if compare_steamrt_versions(&rv, &cur_ver) {
-                    // Clear the old version before update
-                    empty_dir(steamrt.as_path()).unwrap();
-
-                    // Enqueue update job
-                    let state = app.state::<DownloadState>();
-                    let q = state.queue.lock().unwrap().clone();
-                    if let Some(queue) = q {
-                        queue.enqueue(
-                            QueueJobKind::SteamrtDownload,
-                            QueueJobPayload::Steamrt(SteamrtDownloadPayload {
-                                steamrt_path,
-                                is_update: true,
-                            }),
-                        );
-                    }
-                } else {
-                    println!("SteamLinuxRuntime is up to date!");
-                }
-            }
-        }
-    }
-}
-
-#[cfg(target_os = "linux")]
+#[allow(non_camel_case_types)]
 pub fn raise_fd_limit(new_limit: i32) {
+    type rlim_t = u64;
+    #[repr(C)]
+    struct rlimit {
+        rlim_cur: rlim_t,
+        rlim_max: rlim_t,
+    }
+    const RLIMIT_NOFILE: i32 = 7;
+    unsafe extern "C" {
+        fn getrlimit(resource: i32, rlp: *mut rlimit) -> i32;
+        fn setrlimit(resource: i32, rlp: *const rlimit) -> i32;
+    }
     let mut cur = rlimit {
         rlim_cur: 0,
         rlim_max: 0,
@@ -914,7 +715,6 @@ pub fn raise_fd_limit(new_limit: i32) {
     unsafe {
         getrlimit(RLIMIT_NOFILE, &mut cur);
     };
-
     if cur.rlim_cur >= cur.rlim_max {
         return;
     }
@@ -937,13 +737,7 @@ pub fn notify_update(app: &AppHandle) {
     if ttl.is_some() {
         let r = ttl.unwrap();
         let v = r.tag_name.unwrap().replace("ttl-v", "");
-        let suppressed = app
-            .path()
-            .app_data_dir()
-            .unwrap()
-            .join(".updatenaghide")
-            .follow_symlink()
-            .unwrap();
+        let suppressed = app.path().app_data_dir().unwrap().join(".updatenaghide");
         if !suppressed.exists() {
             let cfg = app.config();
             match compare_version(cfg.version.clone().unwrap().as_str(), v.as_str()) {
@@ -973,63 +767,19 @@ pub fn is_flatpak() -> bool {
 }
 
 #[cfg(target_os = "linux")]
-#[allow(dead_code)]
-pub fn is_gamescope() -> bool {
-    std::env::var("XDG_SESSION_DESKTOP")
-        .unwrap()
-        .to_ascii_lowercase()
-        == "gamescope"
-}
-
-#[cfg(target_os = "linux")]
-pub fn get_os_release() -> Option<String> {
-    let p = if is_flatpak() {
-        "/run/host/os-release"
-    } else {
-        "/usr/lib/os-release"
-    };
-    let pp = PathBuf::from(p);
-
-    if pp.exists() {
-        let file = fs::File::open(pp).unwrap();
-        let reader = io::BufReader::new(file);
-        let mut map = HashMap::new();
-
-        for line in reader.lines() {
-            let line = line.unwrap();
-            if let Some((key, value)) = line.split_once('=') {
-                let value = value.trim_matches('"');
-                map.insert(key.to_owned(), value.to_owned());
-            }
-        }
-        let vendor = map.get("VARIANT_ID").or_else(|| map.get("ID"));
-        if vendor.is_some() {
-            Some(vendor.unwrap().to_lowercase().to_owned())
-        } else {
-            None
-        }
-    } else {
-        None
-    }
-}
-
-#[cfg(target_os = "linux")]
 pub fn update_steam_compat_config(append_items: Vec<&str>) -> String {
     let existing = std::env::var("STEAM_COMPAT_CONFIG").unwrap_or_default();
     let mut compat_flags: Vec<String> = Vec::new();
     let mut cmdline_appends: Vec<String> = Vec::new();
-
     let mut config = existing.as_str();
     while !config.is_empty() {
         let (cur, remainder) = match config.split_once(',') {
             Some((c, r)) => (c, r),
             None => (config, ""),
         };
-
         if cur.starts_with("cmdlineappend:") {
             let mut full_arg = cur.to_string();
             let mut remaining = remainder;
-
             while full_arg.ends_with('\\') && !remaining.is_empty() {
                 let (next_part, new_remainder) = match remaining.split_once(',') {
                     Some((n, r)) => (n, r),
@@ -1038,7 +788,6 @@ pub fn update_steam_compat_config(append_items: Vec<&str>) -> String {
                 full_arg = format!("{}{}", &full_arg[..full_arg.len() - 1], next_part);
                 remaining = new_remainder;
             }
-
             let arg = full_arg[14..].replace("\\\\", "\\");
             cmdline_appends.push(arg);
         } else if !cur.trim().is_empty() {
@@ -1046,7 +795,6 @@ pub fn update_steam_compat_config(append_items: Vec<&str>) -> String {
         }
         config = remainder;
     }
-
     for item in append_items.iter() {
         if item.starts_with("cmdlineappend:") {
             let arg = item[14..].replace("\\\\", "\\");
@@ -1055,7 +803,6 @@ pub fn update_steam_compat_config(append_items: Vec<&str>) -> String {
             compat_flags.push(item.to_string());
         }
     }
-
     let mut new_parts: Vec<String> = Vec::new();
     for flag in &compat_flags {
         new_parts.push(flag.clone());
@@ -1070,54 +817,62 @@ pub fn update_steam_compat_config(append_items: Vec<&str>) -> String {
 }
 
 #[cfg(target_os = "linux")]
-pub fn patch_sparkle(app: &AppHandle, dir: String, mode: String) {
+pub fn apply_patch(app: &AppHandle, dir: String, patch_type: String, mode: String) {
     let dir = Path::new(&dir);
     if dir.exists() {
-        let target_old = dir.join("dbghelp.dll");
-        if target_old.exists() {
-            fs::remove_file(&target_old).unwrap();
-        }
-        match mode.as_str() {
-            "add" => {
-                let patch = app
-                    .path()
-                    .resource_dir()
-                    .unwrap()
-                    .join("resources")
-                    .join("hkrpg_patch.dll");
-                let target = dir.join("jsproxy.dll");
-                if patch.exists() {
-                    fs::copy(&patch, &target).unwrap();
+        match patch_type.as_str() {
+            "aki" => match mode.as_str() {
+                "add" => {
+                    let f = dir
+                        .join("Client/Binaries/Win64/ThirdParty/KrPcSdk_Global/KRSDKRes/KRSDK.bin");
+                    if f.exists() {
+                        let fp = fs::read_to_string(f.clone()).unwrap();
+                        let patched = fp
+                            .lines()
+                            .map(|line| {
+                                if line.starts_with("KR_ChannelID=") {
+                                    "KR_ChannelID=205"
+                                } else {
+                                    line
+                                }
+                            })
+                            .collect::<Vec<_>>()
+                            .join("\n");
+                        fs::write(f, patched).unwrap();
+                    }
                 }
-            }
-            "remove" => {
-                let target = dir.join("jsproxy.dll");
-                if target.exists() {
-                    fs::remove_file(&target).unwrap();
+                "remove" => {}
+                _ => {}
+            },
+            "sparkle" => {
+                let target_old = dir.join("dbghelp.dll");
+                if target_old.exists() {
+                    fs::remove_file(&target_old).unwrap();
+                }
+                match mode.as_str() {
+                    "add" => {
+                        let patch = app
+                            .path()
+                            .resource_dir()
+                            .unwrap()
+                            .join("resources")
+                            .join("hkrpg_patch.dll");
+                        let target = dir.join("jsproxy.dll");
+                        if patch.exists() {
+                            fs::copy(&patch, &target).unwrap();
+                        }
+                    }
+                    "remove" => {
+                        let target = dir.join("jsproxy.dll");
+                        if target.exists() {
+                            fs::remove_file(&target).unwrap();
+                        }
+                    }
+                    _ => {}
                 }
             }
             _ => {}
         }
-    }
-}
-
-#[cfg(target_os = "linux")]
-pub fn patch_aki(file: String) {
-    let p = Path::new(&file);
-    if p.exists() {
-        let fp = fs::read_to_string(p).unwrap();
-        let patched = fp
-            .lines()
-            .map(|line| {
-                if line.starts_with("KR_ChannelID=") {
-                    "KR_ChannelID=205"
-                } else {
-                    line
-                }
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
-        fs::write(p, patched).unwrap();
     }
 }
 
@@ -1198,12 +953,20 @@ pub fn edit_wuwa_configs_xxmi(engine_ini: String) {
 #[allow(unused_mut)]
 pub fn apply_xxmi_tweaks(package: PathBuf, mut data: Json<XXMISettings>) -> Json<XXMISettings> {
     if package.exists() {
-        let cfg = package.join("d3dx.ini").follow_symlink().unwrap();
+        let cfg = package.join("d3dx.ini");
         if cfg.exists() {
             let mut ini = configparser::ini::Ini::new_cs();
             let f = ini.load(&cfg);
             match f {
                 Ok(_) => {
+                    // Why is ini parser fucking these lines?? Explicitly set them back...
+                    ini.set(
+                        "Include",
+                        "exclude_recursive",
+                        Some("DISABLED*".to_string()),
+                    );
+
+                    // Apply edits
                     ini.set("Hunting", "hunting", Some(data.hunting_mode.to_string()));
                     let actions = if data.dump_shaders {
                         "clipboard hlsl asm regex"
@@ -1255,7 +1018,7 @@ pub fn apply_xxmi_tweaks(package: PathBuf, mut data: Json<XXMISettings>) -> Json
 }
 
 #[cfg(target_os = "linux")]
-fn find_steamrt_version(file_path: PathBuf) -> io::Result<String> {
+pub fn find_steamrt_version(file_path: PathBuf) -> io::Result<String> {
     let file = fs::File::open(file_path);
     match file {
         Ok(file) => {
@@ -1280,7 +1043,7 @@ fn find_steamrt_version(file_path: PathBuf) -> io::Result<String> {
 }
 
 #[cfg(target_os = "linux")]
-fn compare_steamrt_versions(v1: &str, v2: &str) -> bool {
+pub fn compare_steamrt_versions(v1: &str, v2: &str) -> bool {
     let parts1: Vec<u64> = v1.split('.').map(|v| v.parse().unwrap_or(0)).collect();
     let parts2: Vec<u64> = v2.split('.').map(|v| v.parse().unwrap_or(0)).collect();
     for (a, b) in parts1.iter().zip(parts2.iter()) {
@@ -1293,9 +1056,10 @@ fn compare_steamrt_versions(v1: &str, v2: &str) -> bool {
     parts1.len() > parts2.len()
 }
 
-fn compare_version(a: &str, b: &str) -> std::cmp::Ordering {
+pub fn compare_version(a: &str, b: &str) -> std::cmp::Ordering {
     fn parse(s: &str) -> (u64, u64, u64) {
-        let mut it = s.split('.');
+        let ss = s.replace("-", ".");
+        let mut it = ss.split('.');
         let major = it.next().unwrap_or("1").parse().unwrap_or(1);
         let minor = it.next().unwrap_or("0").parse().unwrap_or(0);
         let patch = it.next().unwrap_or("0").parse().unwrap_or(0);
@@ -1304,6 +1068,19 @@ fn compare_version(a: &str, b: &str) -> std::cmp::Ordering {
     let va = parse(a);
     let vb = parse(b);
     va.cmp(&vb)
+}
+
+pub fn find_package_version(file_path: PathBuf, package_name: &str) -> Option<String> {
+    let file = fs::File::open(file_path).ok()?;
+    let reader = io::BufReader::new(file);
+    for line in reader.lines().flatten() {
+        if let Some((key, value)) = line.split_once('=') {
+            if key.trim().to_ascii_uppercase() == package_name.to_ascii_uppercase() {
+                return Some(value.trim().to_string());
+            }
+        }
+    }
+    None
 }
 
 #[cfg(target_os = "linux")]
@@ -1329,16 +1106,56 @@ pub fn is_runner_lower(min_runner_versions: Vec<String>, runner_version: String)
     false
 }
 
+#[cfg(target_os = "linux")]
+pub fn is_using_overriden_runner(installed_runner: String, override_runner: String) -> bool {
+    fn family_suffix(s: &str) -> Option<&str> {
+        let idx = s.rfind("proton-")?;
+        Some(&s[idx..])
+    }
+    let override_family = match family_suffix(&override_runner) {
+        Some(f) => f,
+        None => return false,
+    };
+    let installed_family = match family_suffix(&installed_runner) {
+        Some(f) => f,
+        None => return false,
+    };
+    installed_family == override_family
+}
+
 #[allow(dead_code)]
 pub fn empty_dir<P: AsRef<Path>>(dir: P) -> io::Result<()> {
+    const EXCEPTIONS: &[&str] = &[
+        "Mods/",
+        "ShaderCache/",
+        "d3dx_user.ini",
+        "gimi/",
+        "srmi/",
+        "zzmi/",
+        "himi/",
+        "wwmi/",
+    ];
     if dir.as_ref().exists() {
         for entry in fs::read_dir(dir.as_ref())? {
             let entry = entry?;
             let path = entry.path();
-            if path.is_dir() {
-                fs::remove_dir_all(&path)?;
-            } else {
-                fs::remove_file(&path)?;
+            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                let is_dir = path.is_dir();
+                let should_skip = EXCEPTIONS.iter().any(|&ex| {
+                    if ex.ends_with('/') {
+                        is_dir && name.contains(&ex[..ex.len() - 1])
+                    } else {
+                        !is_dir && name == ex
+                    }
+                });
+                if should_skip {
+                    continue;
+                }
+                if is_dir {
+                    fs::remove_dir_all(&path)?;
+                } else {
+                    fs::remove_file(&path)?;
+                }
             }
         }
     }
@@ -1420,21 +1237,4 @@ pub struct ResumeStatesRsp {
     pub updating: bool,
     pub preloading: bool,
     pub repairing: bool,
-}
-
-pub trait PathResolve {
-    fn follow_symlink(&self) -> io::Result<PathBuf>;
-}
-
-impl PathResolve for Path {
-    fn follow_symlink(&self) -> io::Result<PathBuf> {
-        #[cfg(target_os = "linux")]
-        return if self.is_symlink() {
-            self.read_link()
-        } else {
-            Ok(self.to_path_buf())
-        };
-        #[cfg(target_os = "windows")]
-        return Ok(self.to_path_buf());
-    }
 }

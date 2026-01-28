@@ -1,15 +1,11 @@
 use serde::{Deserialize, Serialize};
 
 pub mod download;
+pub mod misc;
 pub mod preload;
 pub mod queue;
 pub mod repair;
-#[cfg(target_os = "linux")]
-pub mod runner;
-#[cfg(target_os = "linux")]
-pub mod steamrt;
 pub mod update;
-pub mod xxmi;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DownloadGamePayload {

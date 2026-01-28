@@ -1,12 +1,11 @@
 use crate::DownloadState;
-use crate::downloading::{DownloadGamePayload, QueueJobPayload};
 use crate::downloading::queue::{QueueJobKind, QueueJobOutcome};
+use crate::downloading::{DownloadGamePayload, QueueJobPayload};
 use crate::utils::db_manager::{get_install_info_by_id, get_manifest_info_by_id};
 use crate::utils::repo_manager::get_manifest;
 use crate::utils::{
-    PathResolve,
     models::{FullGameFile, GameVersion},
-    prevent_exit, run_async_command, send_notification,
+    prevent_exit, run_async_command, send_notification, show_dialog,
 };
 use fischl::download::game::{Game, Kuro, Sophon, Zipped};
 use fischl::utils::{assemble_multipart_archive, extract_archive_with_progress};
@@ -15,9 +14,6 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Listener, Manager};
-
-#[cfg(target_os = "linux")]
-use crate::utils::patch_aki;
 
 pub fn register_download_handler(app: &AppHandle) {
     let a = app.clone();
@@ -167,7 +163,7 @@ pub fn run_game_download(
                     let first = urls.get(0).unwrap();
                     let tmpf = first.split('/').collect::<Vec<&str>>();
                     let fnn = tmpf.last().unwrap().to_string();
-                    let ap = Path::new(&install.directory).follow_symlink().unwrap();
+                    let ap = Path::new(&install.directory).to_path_buf();
                     let aps = ap.to_str().unwrap().to_string();
                     let parts = urls
                         .into_iter()
@@ -225,11 +221,8 @@ pub fn run_game_download(
                         let far = ap.join(fnn.clone()).to_str().unwrap().to_string();
 
                         // Extraction stage (Steam-like "Installing files")
-                        let ext = extract_archive_with_progress(
-                            far,
-                            install.directory.clone(),
-                            false,
-                            {
+                        let ext =
+                            extract_archive_with_progress(far, install.directory.clone(), false, {
                                 let dlpayload = dlpayload.clone();
                                 let h4 = h4.clone();
                                 let instn = instn.clone();
@@ -242,8 +235,7 @@ pub fn run_game_download(
                                     dlp.insert("total", total.to_string());
                                     h4.emit("download_installing", dlp.clone()).unwrap();
                                 }
-                            },
-                        );
+                            });
                         if ext {
                             if downloading_marker.exists() {
                                 std::fs::remove_dir(&downloading_marker).unwrap_or_default();
@@ -299,7 +291,13 @@ pub fn run_game_download(
                                 let dlpayload = dlpayload.clone();
                                 let instn = instn.clone();
                                 let job_id = job_id.clone();
-                                move |download_current, download_total, install_current, install_total, net_speed, disk_speed, phase| {
+                                move |download_current,
+                                      download_total,
+                                      install_current,
+                                      install_total,
+                                      net_speed,
+                                      disk_speed,
+                                      phase| {
                                     let mut dlp = dlpayload.lock().unwrap();
                                     let instn = instn.to_string();
                                     dlp.insert("job_id", job_id.to_string());
@@ -385,13 +383,33 @@ pub fn run_game_download(
                     );
                     success = true;
                     #[cfg(target_os = "linux")]
-                    {
-                        let target = Path::new(&install.directory.clone())
-                            .join("Client/Binaries/Win64/ThirdParty/KrPcSdk_Global/KRSDKRes/KRSDK.bin")
-                            .follow_symlink()
-                            .unwrap();
-                        patch_aki(target.to_str().unwrap().to_string());
+                    crate::utils::apply_patch(
+                        &h4,
+                        Path::new(&install.directory.clone())
+                            .to_str()
+                            .unwrap()
+                            .to_string(),
+                        "aki".to_string(),
+                        "add".to_string(),
+                    );
+                } else {
+                    // Show error dialog using React dialog system
+                    show_dialog(
+                        &h4,
+                        "warning",
+                        "TwintailLauncher",
+                        &format!(
+                            "Error occurred while trying to download {}\nPlease try again!",
+                            install.name
+                        ),
+                        Some(vec!["Ok"]),
+                    );
+                    let dir = Path::new(&install.directory).join("downloading");
+                    if dir.exists() {
+                        std::fs::remove_dir_all(dir).unwrap_or_default();
                     }
+                    prevent_exit(&h4, false);
+                    h4.emit("download_complete", ()).unwrap();
                 }
             }
             _ => {}

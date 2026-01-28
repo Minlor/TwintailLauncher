@@ -3,6 +3,7 @@ import { useDialog, DialogType } from "../../context/DialogContext";
 import {
     registerDialogListener,
     DialogPayload,
+    emitDialogResponse,
 } from "../../services/dialogEvents";
 
 const DIALOG_TYPES: DialogType[] = ["info", "warning", "error", "confirm"];
@@ -20,6 +21,8 @@ export default function DialogEventHandler() {
 
         const register = async () => {
             unlisten = await registerDialogListener((payload: DialogPayload) => {
+                const callbackId = payload.callback_id;
+
                 // Map Rust payload to React dialog options
                 const buttons = payload.buttons?.map((label: string, index: number) => ({
                     label,
@@ -27,13 +30,25 @@ export default function DialogEventHandler() {
                         index === (payload.buttons?.length || 1) - 1
                             ? ("primary" as const)
                             : ("secondary" as const),
-                })) || [{ label: "OK", variant: "primary" as const }];
+                    onClick: callbackId
+                        ? () => emitDialogResponse(callbackId, index)
+                        : undefined,
+                })) || [{
+                    label: "OK",
+                    variant: "primary" as const,
+                    onClick: callbackId
+                        ? () => emitDialogResponse(callbackId, 0)
+                        : undefined,
+                }];
 
                 showDialog({
                     type: payload.dialog_type,
                     title: payload.title,
                     message: payload.message,
                     buttons,
+                    onClose: callbackId
+                        ? (buttonIndex) => emitDialogResponse(callbackId, buttonIndex)
+                        : undefined,
                 });
             });
         };

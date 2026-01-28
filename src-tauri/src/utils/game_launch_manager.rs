@@ -1,5 +1,7 @@
 use crate::utils::models::{GameManifest, GlobalSettings, LauncherInstall};
-use crate::utils::{PathResolve, edit_wuwa_configs_xxmi, get_mi_path_from_game, send_notification};
+use crate::utils::{
+    apply_xxmi_tweaks, edit_wuwa_configs_xxmi, get_mi_path_from_game, send_notification,
+};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -7,16 +9,18 @@ use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Error};
+#[cfg(target_os = "linux")]
+use tauri::Listener;
 
 #[cfg(target_os = "linux")]
 use crate::utils::repo_manager::get_compatibility;
 #[cfg(target_os = "linux")]
-use crate::utils::show_dialog;
-#[cfg(target_os = "linux")]
 use crate::utils::{
-    get_steam_appid, is_runner_lower, patch_sparkle, runner_from_runner_version,
-    update_steam_compat_config,
+    empty_dir, get_steam_appid, is_runner_lower, is_using_overriden_runner,
+    runner_from_runner_version, update_steam_compat_config,
 };
+#[cfg(target_os = "linux")]
+use crate::utils::{show_dialog, show_dialog_with_callback};
 #[cfg(target_os = "linux")]
 use std::os::unix::process::CommandExt;
 #[cfg(target_os = "linux")]
@@ -39,16 +43,14 @@ pub fn launch(
     let mut compat_config = update_steam_compat_config(vec![]);
     let cpo = gm.extra.compat_overrides;
 
-    let dirp = Path::new(install.directory.as_str()).follow_symlink()?;
+    let dirp = Path::new(install.directory.as_str());
     let dir = dirp.to_str().unwrap().to_string();
     let prefix = Path::new(install.runner_prefix.as_str())
-        .follow_symlink()?
         .to_str()
         .unwrap()
         .to_string();
-    let runnerp = Path::new(gs.default_runner_path.as_str()).follow_symlink()?;
+    let runnerp = Path::new(gs.default_runner_path.as_str()).to_path_buf();
     let runner = Path::new(install.runner_path.as_str())
-        .follow_symlink()?
         .to_str()
         .unwrap()
         .to_string();
@@ -61,26 +63,15 @@ pub fn launch(
         .last()
         .unwrap()
         .to_string();
-    let steamrt_path = runnerp
-        .join("steamrt/")
-        .follow_symlink()?
-        .to_str()
-        .unwrap()
-        .to_string();
-    let steamrt = runnerp
-        .join("steamrt/_v2-entry-point")
-        .follow_symlink()?
-        .to_str()
-        .unwrap()
-        .to_string();
-
+    let steamrtpp = runnerp.join("steamrt/");
+    let steamrt_path = steamrtpp.to_str().unwrap().to_string();
+    let steamrtp = runnerp.join("steamrt/_v2-entry-point");
+    let steamrt = steamrtp.to_str().unwrap().to_string();
     #[cfg(not(debug_assertions))]
     let reaper = if crate::utils::is_flatpak() {
         app.path()
             .resource_dir()?
-            .follow_symlink()?
             .join("resources/reaper")
-            .follow_symlink()?
             .to_str()
             .unwrap()
             .to_string()
@@ -88,9 +79,7 @@ pub fn launch(
     } else {
         app.path()
             .resource_dir()?
-            .follow_symlink()?
             .join("resources/reaper")
-            .follow_symlink()?
             .to_str()
             .unwrap()
             .to_string()
@@ -100,13 +89,51 @@ pub fn launch(
     let reaper = app
         .path()
         .resource_dir()?
-        .follow_symlink()?
         .join("resources/reaper")
-        .follow_symlink()?
         .to_str()
         .unwrap()
         .to_string();
     let appid = get_steam_appid();
+
+    if !steamrtp.exists() {
+        let appc = app.clone();
+        let steamrtpp_clone = steamrtpp.clone();
+        let callback_id = format!(
+            "steamrt_redownload_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis()
+        );
+        let callback_id_clone = callback_id.clone();
+
+        app.listen("dialog_response", move |event: tauri::Event| {
+            #[derive(serde::Deserialize)]
+            struct DialogResponse {
+                callback_id: String,
+                button_index: usize,
+            }
+            if let Ok(response) = serde_json::from_str::<DialogResponse>(event.payload()) {
+                if response.callback_id == callback_id_clone {
+                    if response.button_index == 0 {
+                        // "Redownload" clicked
+                        let _ = empty_dir(&steamrtpp_clone);
+                        crate::downloading::misc::download_or_update_steamrt(&appc);
+                    }
+                }
+            }
+        });
+
+        show_dialog_with_callback(
+            app,
+            "warning",
+            "TwintailLauncher",
+            "SteamLinuxRuntime is corrupted! Pressing \"Redownload\" button will redownload SteamLinuxRuntime.",
+            Some(vec!["Redownload", "Cancel"]),
+            Some(&callback_id),
+        );
+        return Ok(false);
+    }
 
     if is_runner_lower(
         cpo.min_runner_versions.clone(),
@@ -114,20 +141,41 @@ pub fn launch(
     ) && !cpo.min_runner_versions.is_empty()
     {
         show_dialog(
-            &app,
+            app,
             "warning",
             "TwintailLauncher",
             &format!(
                 "Launching {} with {} could lead to various unexpected behaviors.\nPlease download one of the supported minimum runner versions or higher!\nSupported minimum runner version(s): {}",
-                install.name.clone(),
-                install.runner_version.clone(),
-                cpo.min_runner_versions.clone().join(", ").as_str()
+                install.name,
+                install.runner_version,
+                cpo.min_runner_versions.join(", ")
             ),
             Some(vec!["I understand"]),
         );
         return Ok(false);
     }
 
+    if cpo.override_runner.linux.enabled
+        && !cpo.override_runner.linux.runner_version.is_empty()
+        && is_using_overriden_runner(
+            install.runner_version.clone(),
+            cpo.override_runner.linux.runner_version.clone(),
+        )
+    {
+        show_dialog(
+            app,
+            "warning",
+            "TwintailLauncher",
+            &format!(
+                "Launching {} without using {} could lead to various issues.\nPlease change your runner to at minimum {} and try again!",
+                install.name,
+                cpo.override_runner.linux.runner_version,
+                cpo.override_runner.linux.runner_version
+            ),
+            Some(vec!["I understand"]),
+        );
+        return Ok(false);
+    }
     let pre_launch = install.pre_launch_command.clone();
     let wine64 = if rm.paths.wine64.is_empty() {
         rm.paths.wine32
@@ -188,7 +236,7 @@ pub fn launch(
                 Ok(None) => {
                     write_log(
                         app,
-                        Path::new(&dir).follow_symlink()?.to_path_buf(),
+                        Path::new(&dir).to_path_buf(),
                         child,
                         "pre_launch.log".parse().unwrap(),
                     );
@@ -312,9 +360,19 @@ pub fn launch(
                 "WINEDLLOVERRIDES",
                 "lsteamclient=d;KRSDKExternal.exe=d;jsproxy=n,b",
             );
-            patch_sparkle(app, dir.clone(), "add".to_string());
+            crate::utils::apply_patch(
+                app,
+                Path::new(&dir.clone()).to_str().unwrap().to_string(),
+                "sparkle".to_string(),
+                "add".to_string(),
+            );
         } else if !cpo.stub_wintrust && !cpo.block_first_req {
-            patch_sparkle(app, dir.clone(), "remove".to_string());
+            crate::utils::apply_patch(
+                app,
+                Path::new(&dir.clone()).to_str().unwrap().to_string(),
+                "sparkle".to_string(),
+                "remove".to_string(),
+            );
         }
         cmd.env("STEAM_COMPAT_CONFIG", compat_config);
         if install.use_mangohud {
@@ -400,7 +458,7 @@ pub fn launch(
                 Ok(None) => {
                     write_log(
                         app,
-                        Path::new(&dir).follow_symlink()?.to_path_buf(),
+                        Path::new(&dir).to_path_buf(),
                         child,
                         "game.log".parse().unwrap(),
                     );
@@ -499,9 +557,19 @@ pub fn launch(
                 "WINEDLLOVERRIDES",
                 "lsteamclient=d;KRSDKExternal.exe=d;jsproxy=n,b",
             );
-            patch_sparkle(app, dir.clone(), "add".to_string());
+            crate::utils::apply_patch(
+                app,
+                Path::new(&dir.clone()).to_str().unwrap().to_string(),
+                "sparkle".to_string(),
+                "add".to_string(),
+            );
         } else if !cpo.stub_wintrust && !cpo.block_first_req {
-            patch_sparkle(app, dir.clone(), "remove".to_string());
+            crate::utils::apply_patch(
+                app,
+                Path::new(&dir.clone()).to_str().unwrap().to_string(),
+                "sparkle".to_string(),
+                "remove".to_string(),
+            );
         }
         cmd.env("STEAM_COMPAT_CONFIG", compat_config);
         if install.use_mangohud {
@@ -587,7 +655,7 @@ pub fn launch(
                 Ok(None) => {
                     write_log(
                         app,
-                        Path::new(&dir).follow_symlink()?.to_path_buf(),
+                        Path::new(&dir).to_path_buf(),
                         child,
                         "game.log".parse().unwrap(),
                     );
@@ -631,11 +699,16 @@ fn load_xxmi(
             let app = appc.clone();
             let xxmi_path = xxmi_path.clone();
             let mipath = get_mi_path_from_game(game.clone()).unwrap();
+            let mi_pathbuf = Path::new(&xxmi_path).join(&mipath);
             let command = if is_proton {
                 format!("'{runner}/{wine64}' run 'z:\\{xxmi_path}/3dmloader.exe' {mipath}")
             } else {
                 format!("'{runner}/{wine64}' 'z:\\{xxmi_path}/3dmloader.exe' {mipath}")
             };
+
+            // Apply the installation tweaks
+            let data = apply_xxmi_tweaks(mi_pathbuf, install.xxmi_config);
+            crate::utils::db_manager::update_install_xxmi_config_by_id(&app, install.id, data);
 
             let mut cmd = Command::new("bash");
             cmd.arg("-c");
@@ -670,10 +743,7 @@ fn load_xxmi(
                     Ok(None) => {
                         write_log(
                             &app,
-                            Path::new(&xxmi_path)
-                                .follow_symlink()
-                                .unwrap()
-                                .to_path_buf(),
+                            Path::new(&xxmi_path).to_path_buf(),
                             child,
                             "xxmi.log".parse().unwrap(),
                         );
@@ -719,11 +789,11 @@ fn load_fps_unlock(
             let fpsv = install.fps_value.clone();
             let command = if is_proton {
                 format!(
-                    "'{runner}/{wine64}' run 'z:\\{fpsunlock_path}/fpsunlock.exe' run {biz} {fpsv} 3000 600 '{game_path}'"
+                    "'{runner}/{wine64}' run 'z:\\{fpsunlock_path}/keqing_unlock.exe' run {biz} {fpsv} 2000 600 '{game_path}'"
                 )
             } else {
                 format!(
-                    "'{runner}/{wine64}' 'z:\\{fpsunlock_path}/fpsunlock.exe' run {biz} {fpsv} 3000 600 '{game_path}'"
+                    "'{runner}/{wine64}' 'z:\\{fpsunlock_path}/keqing_unlock.exe' run {biz} {fpsv} 2000 600 '{game_path}'"
                 )
             };
 
@@ -760,10 +830,7 @@ fn load_fps_unlock(
                     Ok(None) => {
                         write_log(
                             &app,
-                            Path::new(&fpsunlock_path.clone())
-                                .follow_symlink()
-                                .unwrap()
-                                .to_path_buf(),
+                            Path::new(&fpsunlock_path).to_path_buf(),
                             child,
                             "fps_unlocker.log".parse().unwrap(),
                         );
@@ -795,7 +862,7 @@ pub fn launch(
     gm: GameManifest,
     gs: GlobalSettings,
 ) -> Result<bool, Error> {
-    let dirp = Path::new(&install.directory.clone()).follow_symlink()?;
+    let dirp = Path::new(&install.directory.clone()).to_path_buf();
     let dir = dirp.to_str().unwrap().to_string();
     let game = gm.paths.exe_filename.clone();
     let exe = gm
@@ -835,7 +902,7 @@ pub fn launch(
                 Ok(None) => {
                     write_log(
                         app,
-                        Path::new(&dir).follow_symlink()?.to_path_buf(),
+                        Path::new(&dir).to_path_buf(),
                         child,
                         "pre_launch.log".parse().unwrap(),
                     );
@@ -941,7 +1008,7 @@ pub fn launch(
                 Ok(None) => {
                     write_log(
                         app,
-                        Path::new(&dir).follow_symlink()?.to_path_buf(),
+                        Path::new(&dir).to_path_buf(),
                         child,
                         "game.log".parse().unwrap(),
                     );
@@ -1024,7 +1091,7 @@ pub fn launch(
                 Ok(None) => {
                     write_log(
                         app,
-                        Path::new(&dir).follow_symlink()?.to_path_buf(),
+                        Path::new(&dir).to_path_buf(),
                         child,
                         "game.log".parse().unwrap(),
                     );
@@ -1055,12 +1122,17 @@ fn load_xxmi(app: &AppHandle, install: LauncherInstall, xxmi_path: String, game:
     if install.use_xxmi {
         let xxmi_path = xxmi_path.trim_matches('\\');
         let mipath = get_mi_path_from_game(game.clone()).unwrap();
+        let mi_pathbuf = Path::new(&xxmi_path).join(&mipath);
         let loader_path = Path::new(xxmi_path).join("3dmloader.exe");
         let loader_path_str = loader_path.to_str().unwrap().replace("/", "\\");
         let command = format!(
             "Start-Process -FilePath '{}' -ArgumentList '{}' -WorkingDirectory '{}' -Verb RunAs",
             loader_path_str, mipath, xxmi_path
         );
+
+        // Apply the installation tweaks
+        let data = apply_xxmi_tweaks(mi_pathbuf, install.xxmi_config);
+        crate::utils::db_manager::update_install_xxmi_config_by_id(&app, install.id, data);
 
         let mut cmd = Command::new("powershell");
         cmd.arg("-Command");
@@ -1093,10 +1165,10 @@ fn load_fps_unlock(
 ) {
     if install.use_fps_unlock {
         let fpsunlock_path = fpsunlock_path.trim_matches('\\');
-        let loader_path = Path::new(fpsunlock_path).join("fpsunlock.exe");
+        let loader_path = Path::new(fpsunlock_path).join("keqing_unlock.exe");
         let loader_path_str = loader_path.to_str().unwrap().replace("/", "\\");
         let fpsv = install.fps_value.clone();
-        let args = format!("run {} {} 3000 0 \"{}\"", biz, fpsv, game_path);
+        let args = format!("run {} {} 2000 0 \"{}\"", biz, fpsv, game_path);
         let command = format!(
             "Start-Process -FilePath '{}' -ArgumentList '{}' -WorkingDirectory '{}' -Verb RunAs",
             loader_path_str, args, fpsunlock_path

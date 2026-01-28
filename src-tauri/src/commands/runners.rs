@@ -3,11 +3,13 @@ use crate::utils::db_manager::{
     get_installs, get_settings, update_install_runner_location_by_id,
     update_install_runner_version_by_id, update_installed_runner_is_installed_by_version,
 };
-use crate::utils::{PathResolve, send_notification};
+use crate::utils::send_notification;
 use std::fs;
 use std::path::Path;
 use tauri::AppHandle;
 
+#[cfg(target_os = "linux")]
+use crate::DownloadState;
 #[cfg(target_os = "linux")]
 use crate::downloading::queue::QueueJobKind;
 #[cfg(target_os = "linux")]
@@ -20,8 +22,6 @@ use crate::utils::models::LauncherRunner;
 use crate::utils::repo_manager::get_compatibility;
 #[cfg(target_os = "linux")]
 use crate::utils::runner_from_runner_version;
-#[cfg(target_os = "linux")]
-use crate::DownloadState;
 #[cfg(target_os = "linux")]
 use tauri::Manager;
 
@@ -125,12 +125,7 @@ pub fn add_installed_runner(
                 .filter(|v| v.version.as_str() == runner_version.as_str())
                 .collect::<Vec<_>>();
             let runnerp = rv.get(0).unwrap().to_owned();
-            let runner_path = Path::new(&gs.default_runner_path)
-                .follow_symlink()
-                .unwrap()
-                .join(runner_version.clone())
-                .follow_symlink()
-                .unwrap();
+            let runner_path = Path::new(&gs.default_runner_path).join(runner_version.clone());
             if !runner_path.exists() {
                 fs::create_dir_all(&runner_path).unwrap();
             }
@@ -216,12 +211,7 @@ pub fn remove_installed_runner(app: AppHandle, runner_version: String) -> Option
         None
     } else {
         let gs = get_settings(&app).unwrap();
-        let runner_path = Path::new(&gs.default_runner_path)
-            .follow_symlink()
-            .unwrap()
-            .join(runner_version.clone())
-            .follow_symlink()
-            .unwrap();
+        let runner_path = Path::new(&gs.default_runner_path).join(runner_version.clone());
         if !runner_path.exists() {
             fs::create_dir_all(&runner_path).unwrap();
         }
@@ -296,10 +286,7 @@ pub fn is_steamrt_installed(app: AppHandle) -> bool {
             Some(s) => s,
             None => return false,
         };
-        let steamrt_path = Path::new(&gs.default_runner_path)
-            .follow_symlink()
-            .unwrap_or_else(|_| Path::new(&gs.default_runner_path).to_path_buf())
-            .join("steamrt");
+        let steamrt_path = Path::new(&gs.default_runner_path).join("steamrt");
 
         if !steamrt_path.exists() {
             return false;

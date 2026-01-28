@@ -1,5 +1,5 @@
-import { DownloadCloudIcon, HardDriveDownloadIcon, X, HardDrive, ChevronDown, Check, Folder } from "lucide-react";
-import { POPUPS } from "./POPUPS.ts";
+import {Check, ChevronDown, DownloadCloudIcon, Folder, HardDrive, HardDriveDownloadIcon, X} from "lucide-react";
+import {POPUPS} from "./POPUPS.ts";
 import { PAGES } from "../pages/PAGES.ts";
 import FolderInput from "../common/FolderInput.tsx";
 import CheckBox from "../common/CheckBox.tsx";
@@ -17,7 +17,7 @@ interface IProps {
     displayName: string;
     settings: any;
     biz: string;
-    versions: { value: string; name: string; background?: string; liveBackground?: string }[];
+    versions: { value: string; name: string; background?: string; liveBackground? : string }[];
     background: string;
     icon: string;
     pushInstalls: () => void;
@@ -25,7 +25,7 @@ interface IProps {
     dxvkVersions: any[];
     setCurrentInstall: (installId: string) => void;
     setBackground: (background: string) => void;
-    fetchDownloadSizes: (biz: any, version: any, lang: any, path: any, callback: (data: any) => void) => void;
+    fetchDownloadSizes: (biz: any, version: any, lang: any, path: any, region_filter: any, callback: (data: any) => void) => void;
     openAsExisting?: boolean;
     setCurrentPage: (page: PAGES) => void;
     imageVersion?: number; // Used to force image re-load after network recovery
@@ -72,9 +72,9 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
     // Update path effect to fetch sizes
     useEffect(() => {
         if (installPath && selectedGameVersion && fetchDownloadSizes) {
-            fetchDownloadSizes(biz, selectedGameVersion, selectedAudioLang, installPath, () => { });
+            fetchDownloadSizes(biz, selectedGameVersion, selectedAudioLang, installPath, selectedRegionCode, () => { });
         }
-    }, [installPath, selectedGameVersion]);
+    }, [installPath, selectedGameVersion, selectedAudioLang, selectedRegionCode]);
 
     // Animation state
     const [isClosing, setIsClosing] = useState(false);
@@ -165,7 +165,7 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
                 if (r.success) {
                     pushInstalls();
                     setCurrentInstall(r.install_id as string);
-                    // Don't call setBackground here - updateAvailableBackgrounds in App.tsx 
+                    // Don't call setBackground here - updateAvailableBackgrounds in App.tsx
                     // will be triggered by setCurrentInstall and will select the best background
                     // (dynamic if available). Calling setBackground here would override it with static.
                     setTimeout(() => {

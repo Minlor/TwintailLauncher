@@ -7,29 +7,27 @@ use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
 use crate::commands::install::{add_install, check_game_running, game_launch, get_download_sizes, get_resume_states, get_install_by_id, list_installs, list_installs_by_manifest_id, remove_install, set_installs_order, update_install_dxvk_path, update_install_dxvk_version, update_install_env_vars, update_install_fps_value, update_install_game_path, update_install_launch_args, update_install_launch_cmd, update_install_pre_launch_cmd, update_install_preferred_background, update_install_prefix_path, update_install_runner_path, update_install_runner_version, update_install_skip_hash_valid, update_install_skip_version_updates, update_install_use_fps_unlock, update_install_use_jadeite, update_install_use_xxmi, update_install_use_gamemode, update_install_use_mangohud, update_install_mangohud_config_path, add_shortcut, remove_shortcut, update_install_xxmi_config, pause_game_download, queue_move_up, queue_move_down, queue_remove, queue_set_paused, queue_activate_job, queue_reorder, queue_resume_job, get_download_queue_state, queue_clear_completed};
 use crate::commands::manifest::{get_manifest_by_filename, get_manifest_by_id, list_game_manifests, get_game_manifest_by_filename, list_manifests_by_repository_id, update_manifest_enabled, get_game_manifest_by_manifest_id, list_compatibility_manifests, get_compatibility_manifest_by_manifest_id};
 use crate::commands::repository::{list_repositories, remove_repository, add_repository, get_repository};
-use crate::commands::settings::{block_telemetry_cmd, list_settings, open_folder, open_uri, update_extras, update_settings_default_dxvk_path, update_settings_default_fps_unlock_path, update_settings_default_game_path, update_settings_default_jadeite_path, update_settings_default_mangohud_config_path, update_settings_default_prefix_path, update_settings_default_runner_path, update_settings_default_xxmi_path, update_settings_download_speed_limit_cmd, update_settings_launcher_action, update_settings_manifests_hide, update_settings_third_party_repo_updates};
+use crate::commands::settings::{block_telemetry_cmd, list_settings, open_folder, open_uri, update_settings_default_dxvk_path, update_settings_default_fps_unlock_path, update_settings_default_game_path, update_settings_default_jadeite_path, update_settings_default_mangohud_config_path, update_settings_default_prefix_path, update_settings_default_runner_path, update_settings_default_xxmi_path, update_settings_download_speed_limit_cmd, update_settings_launcher_action, update_settings_manifests_hide, update_settings_third_party_repo_updates};
 use crate::downloading::download::register_download_handler;
 use crate::downloading::preload::register_preload_handler;
 use crate::downloading::repair::register_repair_handler;
 use crate::downloading::update::register_update_handler;
 use crate::downloading::queue::{start_download_queue_worker, QueueJob, QueueJobKind, QueueJobOutcome};
 use crate::downloading::QueueJobPayload;
-#[cfg(target_os = "linux")]
-use crate::downloading::runner::register_runner_download_handler;
-#[cfg(target_os = "linux")]
-use crate::downloading::steamrt::register_steamrt_download_handler;
-use crate::downloading::xxmi::register_xxmi_download_handler;
+use crate::downloading::misc::check_extras_update;
 use crate::utils::db_manager::{init_db, DbInstances};
 use crate::utils::repo_manager::{load_manifests, ManifestLoader, ManifestLoaders};
-use crate::utils::{args, notify_update, register_listeners, run_async_command, setup_or_fix_default_paths, sync_install_backgrounds, ActionBlocks, PathResolve};
+use crate::utils::{args, notify_update, register_listeners, run_async_command, setup_or_fix_default_paths, sync_install_backgrounds, ActionBlocks};
 use crate::utils::system_tray::init_tray;
 use crate::commands::runners::{add_installed_runner, get_installed_runner_by_id, get_installed_runner_by_version, is_steamrt_installed, list_installed_runners, remove_installed_runner, update_installed_runner_install_status};
 use crate::commands::network::check_network_connectivity;
 
 #[cfg(target_os = "linux")]
-use crate::utils::repo_manager::RunnerLoader;
+use crate::downloading::runner::register_runner_download_handler;
 #[cfg(target_os = "linux")]
-use crate::utils::{download_or_update_steamrt, deprecate_jadeite, sync_installed_runners, is_flatpak, block_telemetry};
+use crate::utils::{deprecate_jadeite, sync_installed_runners, is_flatpak, block_telemetry};
+#[cfg(target_os = "linux")]
+use crate::downloading::misc::{download_or_update_steamrt};
 
 mod utils;
 mod commands;
@@ -39,12 +37,6 @@ pub struct DownloadState {
     pub tokens: Mutex<HashMap<String, Arc<AtomicBool>>>,
     pub queue: Mutex<Option<crate::downloading::queue::DownloadQueueHandle>>,
     pub verified_files: Mutex<HashMap<String, Arc<Mutex<std::collections::HashSet<String>>>>>,
-}
-
-#[derive(Clone, serde::Serialize)]
-struct Payload {
-    args: Vec<String>,
-    cwd: String,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -57,9 +49,9 @@ pub fn run() {
             utils::raise_fd_limit(999999);
             tauri::Builder::default()
                 .manage(Mutex::new(ActionBlocks { action_exit: false, prevent_exit_count: 0 }))
-                .manage(ManifestLoaders {game: ManifestLoader::default(), runner: RunnerLoader::default()})
+                .manage(ManifestLoaders {game: ManifestLoader::default(), runner: utils::repo_manager::RunnerLoader::default()})
                 .manage(DownloadState { tokens: Mutex::new(HashMap::new()), queue: Mutex::new(None), verified_files: Mutex::new(HashMap::new()) })
-                .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| { app.emit("single-instance", Payload { args: argv, cwd }).unwrap(); }))
+                .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| { let _ = app.get_window("main").expect("no main window").show(); let _ = app.get_window("main").expect("no main window").set_focus(); }))
                 .plugin(tauri_plugin_notification::init())
                 .plugin(tauri_plugin_dialog::init())
                 .plugin(tauri_plugin_opener::init())
@@ -70,7 +62,7 @@ pub fn run() {
                 .manage(Mutex::new(ActionBlocks { action_exit: false, prevent_exit_count: 0 }))
                 .manage(DownloadState { tokens: Mutex::new(HashMap::new()), queue: Mutex::new(None), verified_files: Mutex::new(HashMap::new()) })
                 .manage(ManifestLoaders {game: ManifestLoader::default()})
-                .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| { app.emit("single-instance", Payload { args: argv, cwd }).unwrap(); }))
+                .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| { let _ = app.get_window("main").expect("no main window").show(); let _ = app.get_window("main").expect("no main window").set_focus(); }))
                 .plugin(tauri_plugin_notification::init())
                 .plugin(tauri_plugin_dialog::init())
                 .plugin(tauri_plugin_opener::init())
@@ -79,9 +71,41 @@ pub fn run() {
             let handle = app.handle();
             #[cfg(target_arch = "aarch64")]
             {
-                use tauri_plugin_dialog::DialogExt;
+                use crate::utils::show_dialog_with_callback;
+                use tauri::Listener;
                 let h = handle.clone();
-                handle.dialog().message("TwintailLauncher does not support ARM based architectures. Flatpak required ARM builds to be provided but they are not supported!").kind(tauri_plugin_dialog::MessageDialogKind::Warning).title("Unsupported Architecture").show(move |_| { let h = h.clone();h.cleanup_before_exit();h.exit(0);std::process::exit(0); });
+                let h2 = handle.clone();
+                let callback_id = format!("unsupported_arch_{}", std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis());
+                let callback_id_clone = callback_id.clone();
+                
+                handle.listen("dialog_response", move |event| {
+                    #[derive(serde::Deserialize)]
+                    struct DialogResponse {
+                        callback_id: String,
+                        #[allow(dead_code)]
+                        button_index: usize,
+                    }
+                    if let Ok(response) = serde_json::from_str::<DialogResponse>(event.payload()) {
+                        if response.callback_id == callback_id_clone {
+                            // Exit the application when dialog is acknowledged
+                            h.cleanup_before_exit();
+                            h.exit(0);
+                            std::process::exit(0);
+                        }
+                    }
+                });
+                
+                show_dialog_with_callback(
+                    &h2,
+                    "warning",
+                    "Unsupported Architecture",
+                    "TwintailLauncher does not support ARM based architectures. Flatpak required ARM builds to be provided but they are not supported!",
+                    Some(vec!["Exit"]),
+                    Some(&callback_id),
+                );
             }
 
             #[cfg(target_arch = "x86_64")]
@@ -98,9 +122,6 @@ pub fn run() {
                         (QueueJobKind::GameRepair, QueueJobPayload::Game(p)) => crate::downloading::repair::run_game_repair(app, p, job.id),
                         #[cfg(target_os = "linux")]
                         (QueueJobKind::RunnerDownload, QueueJobPayload::Runner(p)) => crate::downloading::runner::run_runner_download(app, p, job.id),
-                        #[cfg(target_os = "linux")]
-                        (QueueJobKind::SteamrtDownload, QueueJobPayload::Steamrt(p)) => crate::downloading::steamrt::run_steamrt_download(app, p, job.id),
-                        (QueueJobKind::XxmiDownload, QueueJobPayload::XXMI(p)) => crate::downloading::xxmi::run_xxmi_download(app, p, job.id),
                         // Mismatch between kind and payload - should never happen
                         _ => QueueJobOutcome::Failed,
                     }
@@ -122,13 +143,12 @@ pub fn run() {
                 register_update_handler(handle);
                 register_repair_handler(handle);
                 register_preload_handler(handle);
-                register_xxmi_download_handler(handle);
                 #[cfg(target_os = "linux")]
                 {
                     register_runner_download_handler(handle);
                     register_steamrt_download_handler(handle);
                 }
-                
+
                 if args::get_launch_install().is_some() {
                     let id = args::get_launch_install().unwrap();
                     game_launch(handle.clone(), id);
@@ -139,10 +159,15 @@ pub fn run() {
                     std::process::exit(0);
                 }
 
-                let res_dir = app.path().resource_dir().unwrap().follow_symlink().unwrap();
-                let data_dir = app.path().app_data_dir().unwrap().follow_symlink().unwrap();
+                let res_dir = app.path().resource_dir().unwrap();
+                let data_dir = app.path().app_data_dir().unwrap();
                 setup_or_fix_default_paths(handle, data_dir.clone(), true);
                 sync_install_backgrounds(handle);
+                check_extras_update(handle);
+
+                // https://github.com/tauri-apps/tauri/issues/14596
+                #[cfg(target_os = "windows")]
+                if let Ok(icon) = tauri::image::Image::from_bytes(include_bytes!("../icons/128x128@2x.png")) { let _ = app.get_window("main").unwrap().set_icon(icon); }
 
                 #[cfg(target_os = "linux")]
                 {
@@ -163,7 +188,7 @@ pub fn run() {
                         Err(_e) => {},
                     }
                     // cleanup steam.exe jank
-                    let tmphome = data_dir.join("tmp_home/").follow_symlink().unwrap();
+                    let tmphome = data_dir.join("tmp_home/");
                     if tmphome.exists() { std::fs::remove_dir_all(&tmphome).unwrap(); }
 
                     deprecate_jadeite(handle);
@@ -193,7 +218,7 @@ pub fn run() {
                 }
             }
             Ok(())
-        }).invoke_handler(tauri::generate_handler![open_uri, open_folder, update_extras, block_telemetry_cmd, list_settings, update_settings_third_party_repo_updates, update_settings_default_game_path, update_settings_default_xxmi_path, update_settings_default_fps_unlock_path, update_settings_default_jadeite_path, update_settings_default_prefix_path, update_settings_default_runner_path, update_settings_default_dxvk_path, update_settings_default_mangohud_config_path, update_settings_download_speed_limit_cmd, update_settings_launcher_action, update_settings_manifests_hide,
+        }).invoke_handler(tauri::generate_handler![open_uri, open_folder, block_telemetry_cmd, list_settings, update_settings_third_party_repo_updates, update_settings_default_game_path, update_settings_default_xxmi_path, update_settings_default_fps_unlock_path, update_settings_default_jadeite_path, update_settings_default_prefix_path, update_settings_default_runner_path, update_settings_default_dxvk_path, update_settings_default_mangohud_config_path, update_settings_download_speed_limit_cmd, update_settings_launcher_action, update_settings_manifests_hide,
             remove_repository, add_repository, get_repository, list_repositories,
             get_manifest_by_id, get_manifest_by_filename, list_manifests_by_repository_id, update_manifest_enabled,
             get_game_manifest_by_filename, list_game_manifests, get_game_manifest_by_manifest_id,
@@ -215,6 +240,7 @@ pub fn run() {
                         if state.action_exit {
                             app.get_window("main").unwrap().hide().unwrap();
                             api.prevent_close();
+                            app.emit("sync_tray_toggle", "Show").unwrap();
                         }
                     }
                     _ => {}

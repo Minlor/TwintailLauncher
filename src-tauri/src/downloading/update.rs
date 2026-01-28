@@ -1,14 +1,14 @@
 use crate::DownloadState;
-use crate::downloading::{DownloadGamePayload, QueueJobPayload};
 use crate::downloading::queue::{QueueJobKind, QueueJobOutcome};
+use crate::downloading::{DownloadGamePayload, QueueJobPayload};
 use crate::utils::db_manager::{
     get_install_info_by_id, get_manifest_info_by_id, update_install_after_update_by_id,
 };
 use crate::utils::repo_manager::get_manifest;
 use crate::utils::{
-    PathResolve, empty_dir,
+    empty_dir,
     models::{DiffGameFile, GameVersion},
-    prevent_exit, run_async_command, send_notification,
+    prevent_exit, run_async_command, send_notification, show_dialog, show_dialog_with_callback,
 };
 use fischl::download::game::{Game, Kuro, Sophon};
 use fischl::utils::free_space::available;
@@ -17,10 +17,6 @@ use std::fs;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Listener, Manager};
-use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
-
-#[cfg(target_os = "linux")]
-use crate::utils::patch_aki;
 
 pub fn register_update_handler(app: &AppHandle) {
     let a = app.clone();
@@ -56,7 +52,7 @@ pub fn run_game_update(
         Some(v) => v,
         None => return QueueJobOutcome::Failed,
     };
-    let gid = match get_manifest_info_by_id(&h5, install.manifest_id) {
+    let gid = match get_manifest_info_by_id(&h5, install.manifest_id.clone()) {
         Some(v) => v,
         None => return QueueJobOutcome::Failed,
     };
@@ -103,26 +99,74 @@ pub fn run_game_update(
                     .filter(|e| e.original_version.as_str() == install.version.clone().as_str())
                     .collect::<Vec<&DiffGameFile>>();
                 if urls.is_empty() {
-                    h5.dialog().message(format!("Could not find update for {inn}!\nRedownload latest version by pressing \"Redownload\" button.", inn = install.name.clone()).as_str()).title("TwintailLauncher")
-                                .kind(MessageDialogKind::Info)
-                                .buttons(MessageDialogButtons::OkCancelCustom("Redownload".to_string(), "Cancel".to_string()))
-                                .show(move |action| {
-                                    if action {
-                                        let ip = Path::new(&install.directory).follow_symlink().unwrap();
-                                        empty_dir(&ip).unwrap();
-                                        let mut data = HashMap::new();
-                                        data.insert("install", install.id.clone());
-                                        data.insert("biz", gbiz);
-                                        data.insert("lang", payload.lang);
-                                        data.insert("region", install.region_code);
-                                        data.insert("is_latest", "1".to_string());
-                                        h5.emit("start_game_download", data).unwrap();
-                                        update_install_after_update_by_id(&h5, install.id, vn, ig, gb, vc);
-                                    } else {
-                                        prevent_exit(&h5, false);
-                                        h5.emit("update_complete", ()).unwrap();
-                                    }
-                                });
+                    // Show dialog with Redownload/Cancel options
+                    let callback_id = format!(
+                        "update_redownload_file_{}",
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_millis()
+                    );
+
+                    let install_clone = install.clone();
+                    let h5_clone = h5.clone();
+                    let gbiz_clone = gbiz.clone();
+                    let payload_lang = payload.lang.clone();
+                    let vn_clone = vn.clone();
+                    let ig_clone = ig.clone();
+                    let gb_clone = gb.clone();
+                    let vc_clone = vc.clone();
+                    let callback_id_clone = callback_id.clone();
+
+                    h5.listen("dialog_response", move |event| {
+                        #[derive(serde::Deserialize)]
+                        struct DialogResponse {
+                            callback_id: String,
+                            button_index: usize,
+                        }
+                        if let Ok(response) =
+                            serde_json::from_str::<DialogResponse>(event.payload())
+                        {
+                            if response.callback_id == callback_id_clone {
+                                if response.button_index == 0 {
+                                    // "Redownload" clicked
+                                    let ip = Path::new(&install_clone.directory);
+                                    empty_dir(&ip).unwrap_or_default();
+                                    let mut data = HashMap::new();
+                                    data.insert("install", install_clone.id.clone());
+                                    data.insert("biz", gbiz_clone.clone());
+                                    data.insert("lang", payload_lang.clone());
+                                    data.insert("region", install_clone.region_code.clone());
+                                    data.insert("is_latest", "1".to_string());
+                                    h5_clone.emit("start_game_download", data).unwrap();
+                                    update_install_after_update_by_id(
+                                        &h5_clone,
+                                        install_clone.id.clone(),
+                                        vn_clone.clone(),
+                                        ig_clone.clone(),
+                                        gb_clone.clone(),
+                                        vc_clone.clone(),
+                                    );
+                                } else {
+                                    // "Cancel" clicked
+                                    prevent_exit(&h5_clone, false);
+                                    h5_clone.emit("update_complete", ()).unwrap();
+                                }
+                            }
+                        }
+                    });
+
+                    show_dialog_with_callback(
+                        &h5,
+                        "info",
+                        "TwintailLauncher",
+                        &format!(
+                            "Could not find update for {}!\nRedownload latest full game version by pressing \"Redownload\" button.",
+                            install.name
+                        ),
+                        Some(vec!["Redownload", "Cancel"]),
+                        Some(&callback_id),
+                    );
                 } else {
                     prevent_exit(&h5, false);
                     h5.emit("update_complete", ()).unwrap();
@@ -137,26 +181,74 @@ pub fn run_game_update(
                     .filter(|e| e.original_version.as_str() == install.version.clone().as_str())
                     .collect::<Vec<&DiffGameFile>>();
                 if urls.is_empty() {
-                    h5.dialog().message(format!("Could not find update for {inn}!\nRedownload latest version by pressing \"Redownload\" button.", inn = install.name.clone()).as_str()).title("TwintailLauncher")
-                                .kind(MessageDialogKind::Info)
-                                .buttons(MessageDialogButtons::OkCancelCustom("Redownload".to_string(), "Cancel".to_string()))
-                                .show(move |action| {
-                                    if action {
-                                        let ip = Path::new(&install.directory).follow_symlink().unwrap();
-                                        empty_dir(&ip).unwrap();
-                                        let mut data = HashMap::new();
-                                        data.insert("install", install.id.clone());
-                                        data.insert("biz", gbiz);
-                                        data.insert("lang", payload.lang);
-                                        data.insert("region", install.region_code);
-                                        data.insert("is_latest", "1".to_string());
-                                        h5.emit("start_game_download", data).unwrap();
-                                        update_install_after_update_by_id(&h5, install.id, vn, ig, gb, vc);
-                                    } else {
-                                        prevent_exit(&h5, false);
-                                        h5.emit("update_complete", ()).unwrap();
-                                    }
-                                });
+                    // Show dialog with Redownload/Cancel options
+                    let callback_id = format!(
+                        "update_redownload_chunk_{}",
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_millis()
+                    );
+
+                    let install_clone = install.clone();
+                    let h5_clone = h5.clone();
+                    let gbiz_clone = gbiz.clone();
+                    let payload_lang = payload.lang.clone();
+                    let vn_clone = vn.clone();
+                    let ig_clone = ig.clone();
+                    let gb_clone = gb.clone();
+                    let vc_clone = vc.clone();
+                    let callback_id_clone = callback_id.clone();
+
+                    h5.listen("dialog_response", move |event| {
+                        #[derive(serde::Deserialize)]
+                        struct DialogResponse {
+                            callback_id: String,
+                            button_index: usize,
+                        }
+                        if let Ok(response) =
+                            serde_json::from_str::<DialogResponse>(event.payload())
+                        {
+                            if response.callback_id == callback_id_clone {
+                                if response.button_index == 0 {
+                                    // "Redownload" clicked
+                                    let ip = Path::new(&install_clone.directory);
+                                    empty_dir(&ip).unwrap_or_default();
+                                    let mut data = HashMap::new();
+                                    data.insert("install", install_clone.id.clone());
+                                    data.insert("biz", gbiz_clone.clone());
+                                    data.insert("lang", payload_lang.clone());
+                                    data.insert("region", install_clone.region_code.clone());
+                                    data.insert("is_latest", "1".to_string());
+                                    h5_clone.emit("start_game_download", data).unwrap();
+                                    update_install_after_update_by_id(
+                                        &h5_clone,
+                                        install_clone.id.clone(),
+                                        vn_clone.clone(),
+                                        ig_clone.clone(),
+                                        gb_clone.clone(),
+                                        vc_clone.clone(),
+                                    );
+                                } else {
+                                    // "Cancel" clicked
+                                    prevent_exit(&h5_clone, false);
+                                    h5_clone.emit("update_complete", ()).unwrap();
+                                }
+                            }
+                        }
+                    });
+
+                    show_dialog_with_callback(
+                        &h5,
+                        "info",
+                        "TwintailLauncher",
+                        &format!(
+                            "Could not find update for {}!\nRedownload latest full game version by pressing \"Redownload\" button.",
+                            install.name
+                        ),
+                        Some(vec!["Redownload", "Cancel"]),
+                        Some(&callback_id),
+                    );
                 } else {
                     let total_size: u64 = urls
                         .clone()
@@ -173,8 +265,6 @@ pub fn run_game_update(
                         let is_preload = Path::new(&install.directory)
                             .join("patching")
                             .join(".preload")
-                            .follow_symlink()
-                            .unwrap()
                             .exists();
                         #[cfg(target_os = "linux")]
                         let hpatchz = h5.path().app_data_dir().unwrap().join("hpatchz");
@@ -193,20 +283,19 @@ pub fn run_game_update(
                                         let dlpayload = dlpayload.clone();
                                         let tmp = tmp.clone();
                                         let instn = instn.clone();
-                                        let job_id = job_id.clone();
-                                        move |download_current, download_total, install_current, install_total, net_speed, disk_speed, phase| {
+                                        move |_dl_cur,
+                                              _dl_total,
+                                              current,
+                                              total,
+                                              net_speed,
+                                              disk_speed,
+                                              _phase| {
                                             let mut dlp = dlpayload.lock().unwrap();
-                                            dlp.insert("job_id", job_id.to_string());
                                             dlp.insert("name", instn.to_string());
-                                            dlp.insert("progress", download_current.to_string());
-                                            dlp.insert("total", download_total.to_string());
+                                            dlp.insert("progress", current.to_string());
+                                            dlp.insert("total", total.to_string());
                                             dlp.insert("speed", net_speed.to_string());
                                             dlp.insert("disk", disk_speed.to_string());
-                                            // Include install progress in same event to avoid flickering
-                                            dlp.insert("install_progress", install_current.to_string());
-                                            dlp.insert("install_total", install_total.to_string());
-                                            // Phase: 0=idle, 1=verifying, 2=downloading, 3=installing, 4=validating, 5=moving
-                                            dlp.insert("phase", phase.to_string());
                                             tmp.emit("update_progress", dlp.clone()).unwrap();
                                             drop(dlp);
                                         }
@@ -217,10 +306,7 @@ pub fn run_game_update(
                         });
                         // We finished the loop emit complete
                         if is_preload {
-                            let p = Path::new(&install.directory)
-                                .join("patching")
-                                .follow_symlink()
-                                .unwrap();
+                            let p = Path::new(&install.directory).join("patching");
                             fs::remove_dir_all(p).unwrap();
                         }
                         h5.emit("update_complete", ()).unwrap();
@@ -240,9 +326,18 @@ pub fn run_game_update(
                             picked.metadata.version.clone(),
                         );
                     } else {
-                        h5.dialog().message(format!("Unable to update {inn} as there is not enough free space, please make sure there is enough free space for the update!", inn = install.name).as_str()).title("TwintailLauncher")
-                                    .kind(MessageDialogKind::Warning)
-                                    .buttons(MessageDialogButtons::OkCustom("Ok".to_string())).show(move |_action| { prevent_exit(&h5, false); h5.emit("update_complete", ()).unwrap(); });
+                        show_dialog(
+                            &h5,
+                            "warning",
+                            "TwintailLauncher",
+                            &format!(
+                                "Unable to update {} as there is not enough free space, please make sure there is enough free space for the update!",
+                                install.name
+                            ),
+                            Some(vec!["Ok"]),
+                        );
+                        prevent_exit(&h5, false);
+                        h5.emit("update_complete", ()).unwrap();
                     }
                 }
             }
@@ -255,26 +350,74 @@ pub fn run_game_update(
                     .filter(|e| e.original_version.as_str() == install.version.clone().as_str())
                     .collect::<Vec<&DiffGameFile>>();
                 if urls.is_empty() {
-                    h5.dialog().message(format!("Could not find update for {inn}!\nRedownload latest version by pressing \"Redownload\" button.", inn = install.name.clone()).as_str()).title("TwintailLauncher")
-                                .kind(MessageDialogKind::Info)
-                                .buttons(MessageDialogButtons::OkCancelCustom("Redownload".to_string(), "I will figure it out".to_string()))
-                                .show(move |action| {
-                                    if action {
-                                        let ip = Path::new(&install.directory).follow_symlink().unwrap();
-                                        empty_dir(&ip).unwrap();
-                                        let mut data = HashMap::new();
-                                        data.insert("install", install.id.clone());
-                                        data.insert("biz", gbiz);
-                                        data.insert("lang", payload.lang);
-                                        data.insert("region", install.region_code);
-                                        data.insert("is_latest", "1".to_string());
-                                        h5.emit("start_game_download", data).unwrap();
-                                        update_install_after_update_by_id(&h5, install.id, vn, ig, gb, vc);
-                                    } else {
-                                        prevent_exit(&h5, false);
-                                        h5.emit("update_complete", ()).unwrap();
-                                    }
-                                });
+                    // Show dialog with Redownload/Cancel options
+                    let callback_id = format!(
+                        "update_redownload_raw_{}",
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_millis()
+                    );
+
+                    let install_clone = install.clone();
+                    let h5_clone = h5.clone();
+                    let gbiz_clone = gbiz.clone();
+                    let payload_lang = payload.lang.clone();
+                    let vn_clone = vn.clone();
+                    let ig_clone = ig.clone();
+                    let gb_clone = gb.clone();
+                    let vc_clone = vc.clone();
+                    let callback_id_clone = callback_id.clone();
+
+                    h5.listen("dialog_response", move |event| {
+                        #[derive(serde::Deserialize)]
+                        struct DialogResponse {
+                            callback_id: String,
+                            button_index: usize,
+                        }
+                        if let Ok(response) =
+                            serde_json::from_str::<DialogResponse>(event.payload())
+                        {
+                            if response.callback_id == callback_id_clone {
+                                if response.button_index == 0 {
+                                    // "Redownload" clicked
+                                    let ip = Path::new(&install_clone.directory);
+                                    empty_dir(&ip).unwrap_or_default();
+                                    let mut data = HashMap::new();
+                                    data.insert("install", install_clone.id.clone());
+                                    data.insert("biz", gbiz_clone.clone());
+                                    data.insert("lang", payload_lang.clone());
+                                    data.insert("region", install_clone.region_code.clone());
+                                    data.insert("is_latest", "1".to_string());
+                                    h5_clone.emit("start_game_download", data).unwrap();
+                                    update_install_after_update_by_id(
+                                        &h5_clone,
+                                        install_clone.id.clone(),
+                                        vn_clone.clone(),
+                                        ig_clone.clone(),
+                                        gb_clone.clone(),
+                                        vc_clone.clone(),
+                                    );
+                                } else {
+                                    // "Cancel" clicked
+                                    prevent_exit(&h5_clone, false);
+                                    h5_clone.emit("update_complete", ()).unwrap();
+                                }
+                            }
+                        }
+                    });
+
+                    show_dialog_with_callback(
+                        &h5,
+                        "info",
+                        "TwintailLauncher",
+                        &format!(
+                            "Could not find update for {}!\nRedownload latest full game version by pressing \"Redownload\" button.",
+                            install.name
+                        ),
+                        Some(vec!["Redownload", "Cancel"]),
+                        Some(&callback_id),
+                    );
                 } else {
                     let total_size: u64 = urls
                         .clone()
@@ -292,8 +435,6 @@ pub fn run_game_update(
                         let is_preload = Path::new(&install.directory)
                             .join("patching")
                             .join(".preload")
-                            .follow_symlink()
-                            .unwrap()
                             .exists();
                         let rslt = run_async_command(async {
                             <Game as Kuro>::patch(
@@ -340,15 +481,46 @@ pub fn run_game_update(
                                 picked.metadata.version.clone(),
                             );
                             #[cfg(target_os = "linux")]
-                            {
-                                let target = Path::new(&install.directory.clone()).join("Client/Binaries/Win64/ThirdParty/KrPcSdk_Global/KRSDKRes/KRSDK.bin").follow_symlink().unwrap();
-                                patch_aki(target.to_str().unwrap().to_string());
+                            crate::utils::apply_patch(
+                                &h5,
+                                Path::new(&install.directory.clone())
+                                    .to_str()
+                                    .unwrap()
+                                    .to_string(),
+                                "aki".to_string(),
+                                "add".to_string(),
+                            );
+                        } else {
+                            show_dialog(
+                                &h5,
+                                "warning",
+                                "TwintailLauncher",
+                                &format!(
+                                    "Error occurred while trying to update {}\nPlease try again!",
+                                    install.name
+                                ),
+                                Some(vec!["Ok"]),
+                            );
+                            let dir = Path::new(&install.directory).join("patching");
+                            if dir.exists() {
+                                fs::remove_dir_all(dir).unwrap_or_default();
                             }
+                            prevent_exit(&h5, false);
+                            h5.emit("update_complete", ()).unwrap();
                         }
                     } else {
-                        h5.dialog().message(format!("Unable to update {inn} as there is not enough free space, please make sure there is enough free space for the update!", inn = install.name).as_str()).title("TwintailLauncher")
-                                    .kind(MessageDialogKind::Warning)
-                                    .buttons(MessageDialogButtons::OkCustom("Ok".to_string())).show(move |_action| { prevent_exit(&h5, false); h5.emit("update_complete", ()).unwrap(); });
+                        show_dialog(
+                            &h5,
+                            "warning",
+                            "TwintailLauncher",
+                            &format!(
+                                "Unable to update {} as there is not enough free space, please make sure there is enough free space for the update!",
+                                install.name
+                            ),
+                            Some(vec!["Ok"]),
+                        );
+                        prevent_exit(&h5, false);
+                        h5.emit("update_complete", ()).unwrap();
                     }
                 }
             }

@@ -220,7 +220,17 @@ pub fn run_game_preload(
                                         .as_str(),
                                     None,
                                 );
-                            }
+                            } else {
+                                        h5.dialog().message(format!("Error occurred while trying to predownload {inn}\nPlease try again!", inn = install.name).as_str()).title("TwintailLauncher")
+                                            .kind(MessageDialogKind::Warning)
+                                            .buttons(MessageDialogButtons::OkCustom("Ok".to_string()))
+                                            .show(move |_action| {
+                                                let dir = std::path::Path::new(&install.directory).join("patching");
+                                                if dir.exists() { std::fs::remove_dir_all(dir).unwrap_or_default(); }
+                                                prevent_exit(&h5, false);
+                                                h5.emit("preload_complete", ()).unwrap();
+                                            });
+                                    }
                         } else {
                             h5.dialog().message(format!("Unable to predownload update for {inn} as there is not enough free space, please make sure there is enough free space for the update!", inn = install.name).as_str()).title("TwintailLauncher")
                                         .kind(MessageDialogKind::Warning)

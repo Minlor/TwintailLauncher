@@ -10,8 +10,7 @@ use crate::utils::db_manager::{
 };
 use crate::utils::repo_manager::get_manifest;
 use crate::utils::{
-    PathResolve, block_telemetry, download_or_update_fps_unlock, download_or_update_jadeite,
-    download_or_update_xxmi, get_mi_path_from_game, send_notification,
+    block_telemetry, get_mi_path_from_game, send_notification,
 };
 use std::fs;
 use std::path::Path;
@@ -52,7 +51,7 @@ pub fn update_settings_third_party_repo_updates(app: AppHandle, enabled: bool) -
 
 #[tauri::command]
 pub fn update_settings_default_game_path(app: AppHandle, path: String) -> Option<bool> {
-    let p = Path::new(&path).follow_symlink().unwrap();
+    let p = Path::new(&path);
 
     if !p.exists() && p.is_dir() {
         fs::create_dir_all(&p).unwrap();
@@ -65,7 +64,7 @@ pub fn update_settings_default_game_path(app: AppHandle, path: String) -> Option
 
 #[tauri::command]
 pub fn update_settings_default_xxmi_path(app: AppHandle, path: String) -> Option<bool> {
-    let p = Path::new(&path).follow_symlink().unwrap();
+    let p = Path::new(&path);
 
     if !p.exists() && p.is_dir() {
         fs::create_dir_all(&p).unwrap();
@@ -78,7 +77,7 @@ pub fn update_settings_default_xxmi_path(app: AppHandle, path: String) -> Option
 
 #[tauri::command]
 pub fn update_settings_default_fps_unlock_path(app: AppHandle, path: String) -> Option<bool> {
-    let p = Path::new(&path).follow_symlink().unwrap();
+    let p = Path::new(&path);
 
     if !p.exists() && p.is_dir() {
         fs::create_dir_all(&p).unwrap();
@@ -91,7 +90,7 @@ pub fn update_settings_default_fps_unlock_path(app: AppHandle, path: String) -> 
 
 #[tauri::command]
 pub fn update_settings_default_jadeite_path(app: AppHandle, path: String) -> Option<bool> {
-    let p = Path::new(&path).follow_symlink().unwrap();
+    let p = Path::new(&path);
 
     if !p.exists() && p.is_dir() {
         fs::create_dir_all(&p).unwrap();
@@ -104,7 +103,7 @@ pub fn update_settings_default_jadeite_path(app: AppHandle, path: String) -> Opt
 
 #[tauri::command]
 pub fn update_settings_default_prefix_path(app: AppHandle, path: String) -> Option<bool> {
-    let p = Path::new(&path).follow_symlink().unwrap();
+    let p = Path::new(&path);
 
     if !p.exists() && p.is_dir() {
         fs::create_dir_all(&p).unwrap();
@@ -117,7 +116,7 @@ pub fn update_settings_default_prefix_path(app: AppHandle, path: String) -> Opti
 
 #[tauri::command]
 pub fn update_settings_default_runner_path(app: AppHandle, path: String) -> Option<bool> {
-    let p = Path::new(&path).follow_symlink().unwrap();
+    let p = Path::new(&path);
 
     if !p.exists() && p.is_dir() {
         fs::create_dir_all(&p).unwrap();
@@ -130,7 +129,7 @@ pub fn update_settings_default_runner_path(app: AppHandle, path: String) -> Opti
 
 #[tauri::command]
 pub fn update_settings_default_dxvk_path(app: AppHandle, path: String) -> Option<bool> {
-    let p = Path::new(&path).follow_symlink().unwrap();
+    let p = Path::new(&path);
 
     if !p.exists() && p.is_dir() {
         fs::create_dir_all(&p).unwrap();
@@ -143,7 +142,7 @@ pub fn update_settings_default_dxvk_path(app: AppHandle, path: String) -> Option
 
 #[tauri::command]
 pub fn update_settings_default_mangohud_config_path(app: AppHandle, path: String) -> Option<bool> {
-    let p = Path::new(&path).follow_symlink().unwrap();
+    let p = Path::new(&path);
 
     if !p.exists() && p.is_file() {
         fs::create_dir_all(&p).unwrap();
@@ -197,36 +196,6 @@ pub fn block_telemetry_cmd(app: AppHandle) -> Option<bool> {
 }
 
 #[tauri::command]
-pub fn update_extras(app: AppHandle, show_notify: bool) -> bool {
-    let settings = get_settings(&app);
-    if settings.is_some() {
-        let s = settings.unwrap();
-        let xxmi = Path::new(&s.xxmi_path)
-            .follow_symlink()
-            .unwrap()
-            .to_path_buf();
-        let jadeite = Path::new(&s.jadeite_path)
-            .follow_symlink()
-            .unwrap()
-            .to_path_buf();
-        let fpsu = Path::new(&s.fps_unlock_path)
-            .follow_symlink()
-            .unwrap()
-            .to_path_buf();
-
-        download_or_update_jadeite(jadeite, true);
-        download_or_update_fps_unlock(fpsu, true);
-        download_or_update_xxmi(&app, xxmi, None, true);
-        if show_notify {
-            send_notification(&app, "Successfully repaired extras.", None);
-        }
-        true
-    } else {
-        false
-    }
-}
-
-#[tauri::command]
 pub fn open_folder(
     app: AppHandle,
     manifest_id: String,
@@ -243,10 +212,7 @@ pub fn open_folder(
                 let mm = get_manifest(&app, m.filename).unwrap();
                 let fm = get_mi_path_from_game(mm.paths.exe_filename).unwrap();
 
-                let xxmi = Path::new(&s.xxmi_path)
-                    .follow_symlink()
-                    .unwrap()
-                    .to_path_buf();
+                let xxmi = Path::new(&s.xxmi_path);
                 let fp = xxmi.join(&fm).join("d3dx.ini");
                 if fp.exists() {
                     match app.opener().reveal_item_in_dir(fp.as_path()) {
@@ -272,11 +238,7 @@ pub fn open_folder(
             let install = get_install_info_by_id(&app, install_id);
             if install.is_some() {
                 let i = install.unwrap();
-                let fp = Path::new(&i.directory)
-                    .join("game.log")
-                    .follow_symlink()
-                    .unwrap()
-                    .to_path_buf();
+                let fp = Path::new(&i.directory).join("game.log");
                 if fp.exists() {
                     match app.opener().reveal_item_in_dir(fp.as_path()) {
                         Ok(_) => {}
@@ -301,11 +263,7 @@ pub fn open_folder(
             let install = get_install_info_by_id(&app, install_id);
             if install.is_some() {
                 let i = install.unwrap();
-                let fp = Path::new(&i.runner_path)
-                    .join("proton")
-                    .follow_symlink()
-                    .unwrap()
-                    .to_path_buf();
+                let fp = Path::new(&i.runner_path).join("proton");
                 if fp.exists() {
                     match app.opener().reveal_item_in_dir(fp.as_path()) {
                         Ok(_) => {}
@@ -330,11 +288,7 @@ pub fn open_folder(
             let runner = get_installed_runner_info_by_version(&app, runner_version);
             if runner.is_some() {
                 let i = runner.unwrap();
-                let fp = Path::new(&i.runner_path)
-                    .join("proton")
-                    .follow_symlink()
-                    .unwrap()
-                    .to_path_buf();
+                let fp = Path::new(&i.runner_path).join("proton");
                 if fp.exists() {
                     match app.opener().reveal_item_in_dir(fp.as_path()) {
                         Ok(_) => {}
@@ -359,11 +313,7 @@ pub fn open_folder(
             let install = get_install_info_by_id(&app, install_id);
             if install.is_some() {
                 let i = install.unwrap();
-                let fp = Path::new(&i.runner_prefix)
-                    .join("version")
-                    .follow_symlink()
-                    .unwrap()
-                    .to_path_buf();
+                let fp = Path::new(&i.runner_prefix).join("version");
                 if fp.exists() {
                     match app.opener().reveal_item_in_dir(fp.as_path()) {
                         Ok(_) => {}
