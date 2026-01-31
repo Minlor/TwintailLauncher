@@ -1,120 +1,199 @@
+use crate::utils::{compare_version, db_manager::get_settings, empty_dir, find_package_version, prevent_exit, run_async_command};
+use fischl::download::Extras;
 use std::collections::HashMap;
 use std::fs;
-use std::path::{PathBuf, Path};
-use fischl::download::Extras;
+use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
-use crate::utils::{compare_version, empty_dir, find_package_version, prevent_exit, run_async_command, db_manager::{get_settings}};
 
 #[cfg(target_os = "linux")]
-use fischl::compat::{check_steamrt_update, download_steamrt};
+use crate::DownloadState;
 #[cfg(target_os = "linux")]
-use crate::utils::{send_notification};
+use crate::downloading::queue::{QueueJobKind, QueueJobOutcome};
+#[cfg(target_os = "linux")]
+use crate::downloading::{QueueJobPayload, RunnerDownloadPayload, SteamrtDownloadPayload};
+#[cfg(target_os = "linux")]
+use crate::utils::db_manager::update_installed_runner_is_installed_by_version;
+#[cfg(target_os = "linux")]
+use crate::utils::send_notification;
+#[cfg(target_os = "linux")]
+use fischl::compat::{Compat, check_steamrt_update, download_steamrt};
+#[cfg(target_os = "linux")]
+use std::sync::{Arc, Mutex};
+#[cfg(target_os = "linux")]
+use tauri::Manager;
 
+/// Register steamrt download handler
+/// SteamRT downloads are now enqueued via the queue system
+#[cfg(target_os = "linux")]
+pub fn register_steamrt_download_handler(_app: &AppHandle) {
+    // SteamRT downloads are enqueued directly, no event listener needed
+}
+
+/// Check if SteamRT needs to be downloaded or updated, and enqueue the job
 #[cfg(target_os = "linux")]
 pub fn download_or_update_steamrt(app: &AppHandle) {
     let gs = get_settings(app);
-
-    if gs.is_some() {
-        let s = gs.unwrap();
+    if let Some(s) = gs {
         let rp = Path::new(&s.default_runner_path);
         let steamrt = rp.join("steamrt");
         if !steamrt.exists() {
-            let r = fs::create_dir_all(&steamrt);
-            match r {
-                Ok(_) => {},
-                Err(e) => { send_notification(&app, format!("Failed to prepare SteamLinuxRuntime directory. {} - Please fix the error and restart the app!", e.to_string()).as_str(), None); return; }
-            }
+            if let Err(e) = fs::create_dir_all(&steamrt) { send_notification(&app, format!("Failed to prepare SteamLinuxRuntime directory. {} - Please fix the error and restart the app!", e.to_string()).as_str(), None); return; }
         }
 
-        if fs::read_dir(&steamrt).unwrap().next().is_none() {
-            let app = app.clone();
-            std::thread::spawn(move || {
-                let app = app.clone();
-                let mut dlpayload = HashMap::new();
-                dlpayload.insert("name", String::from("SteamLinuxRuntime 3"));
-                dlpayload.insert("progress", "0".to_string());
-                dlpayload.insert("total", "1000".to_string());
-                app.emit("download_progress", dlpayload.clone()).unwrap();
-                prevent_exit(&app, true);
+        let steamrt_path = steamrt.to_str().unwrap().to_string();
 
-                let r = run_async_command(async {
-                    download_steamrt(steamrt.clone(), steamrt.clone(), "steamrt3".to_string(), "latest-public-beta".to_string(), {
-                        let app = app.clone();
-                        let dlpayload = dlpayload.clone();
-                        move |current, total, _downloaded, _total_size| {
-                            let mut dlpayload = dlpayload.clone();
-                            dlpayload.insert("name", "SteamLinuxRuntime 3".to_string());
-                            dlpayload.insert("progress", current.to_string());
-                            dlpayload.insert("total", total.to_string());
-                            app.emit("download_progress", dlpayload.clone()).unwrap();
-                        }
-                    }).await
-                });
-                if r {
-                    app.emit("download_complete", String::from("SteamLinuxRuntime 3")).unwrap();
-                    prevent_exit(&app, false);
-                } else {
-                    app.dialog().message("Error occurred while trying to download SteamLinuxRuntime! Please restart the application to retry.").title("TwintailLauncher")
-                        .kind(MessageDialogKind::Error)
-                        .buttons(MessageDialogButtons::OkCustom("Ok".to_string()))
-                        .show(move |_action| {
-                            prevent_exit(&app, false);
-                            app.emit("download_complete", String::from("SteamLinuxRuntime 3")).unwrap();
-                            empty_dir(steamrt.as_path()).unwrap();
-                        });
-                }
-            });
+        if fs::read_dir(&steamrt).unwrap().next().is_none() {
+            // Fresh download - enqueue via queue system
+            let state = app.state::<DownloadState>();
+            let q = state.queue.lock().unwrap().clone();
+            if let Some(queue) = q { queue.enqueue(QueueJobKind::SteamrtDownload, QueueJobPayload::Steamrt(SteamrtDownloadPayload { steamrt_path, is_update: false })); }
         } else {
+            // Check for updates
             let vp = steamrt.join("VERSIONS.txt");
             if !vp.exists() { return; }
             let cur_ver = crate::utils::find_steamrt_version(vp).unwrap();
             if cur_ver.is_empty() { return; }
             let remote_ver = check_steamrt_update("steamrt3".to_string(), "latest-public-beta".to_string());
-            if remote_ver.is_some() {
-                let rv = remote_ver.unwrap();
+            if let Some(rv) = remote_ver {
                 if crate::utils::compare_steamrt_versions(&rv, &cur_ver) {
                     empty_dir(steamrt.as_path()).unwrap();
-                    let app = app.clone();
-                    std::thread::spawn(move || {
-                        let app = app.clone();
-                        let mut dlpayload = HashMap::new();
-                        dlpayload.insert("name", String::from("SteamLinuxRuntime 3"));
-                        dlpayload.insert("progress", "0".to_string());
-                        dlpayload.insert("total", "1000".to_string());
-                        app.emit("update_progress", dlpayload.clone()).unwrap();
-                        prevent_exit(&app, true);
-
-                        let r = run_async_command(async {
-                            download_steamrt(steamrt.clone(), steamrt.clone(), "steamrt3".to_string(), "latest-public-beta".to_string(), {
-                                let app = app.clone();
-                                let dlpayload = dlpayload.clone();
-                                move |current, total, _downloaded, _total_size| {
-                                    let mut dlpayload = dlpayload.clone();
-                                    dlpayload.insert("name", "SteamLinuxRuntime 3".to_string());
-                                    dlpayload.insert("progress", current.to_string());
-                                    dlpayload.insert("total", total.to_string());
-                                    app.emit("update_progress", dlpayload.clone()).unwrap();
-                                }
-                            }).await
-                        });
-                        if r {
-                            app.emit("update_complete", String::from("SteamLinuxRuntime 3")).unwrap();
-                            prevent_exit(&app, false);
-                        } else {
-                            app.dialog().message("Error occurred while trying to update SteamLinuxRuntime! Please restart the application to retry.").title("TwintailLauncher")
-                                .kind(MessageDialogKind::Error)
-                                .buttons(MessageDialogButtons::OkCustom("Ok".to_string()))
-                                .show(move |_action| {
-                                    prevent_exit(&app, false);
-                                    app.emit("update_complete", String::from("SteamLinuxRuntime 3")).unwrap();
-                                    empty_dir(steamrt.as_path()).unwrap();
-                                });
-                        }
-                    });
+                    // Update - enqueue via queue system
+                    let state = app.state::<DownloadState>();
+                    let q = state.queue.lock().unwrap().clone();
+                    if let Some(queue) = q { queue.enqueue(QueueJobKind::SteamrtDownload, QueueJobPayload::Steamrt(SteamrtDownloadPayload { steamrt_path, is_update: true })); }
                 } else { println!("SteamLinuxRuntime is up to date!"); }
             }
         }
+    }
+}
+
+/// Run the actual SteamRT download (called by queue worker)
+#[cfg(target_os = "linux")]
+pub fn run_steamrt_download(app: AppHandle, payload: SteamrtDownloadPayload, job_id: String) -> QueueJobOutcome {
+    let job_id = Arc::new(job_id);
+    let dlpayload: Arc<Mutex<HashMap<String, String>>> = Arc::new(Mutex::new(HashMap::new()));
+    let steamrt_path = PathBuf::from(&payload.steamrt_path);
+    let event_name = if payload.is_update { "update_progress" } else { "download_progress" };
+    let complete_event = if payload.is_update { "update_complete" } else { "download_complete" };
+
+    {
+        let mut dlp = dlpayload.lock().unwrap();
+        dlp.insert("job_id".to_string(), job_id.to_string());
+        dlp.insert("name".to_string(), String::from("SteamLinuxRuntime 3"));
+        dlp.insert("progress".to_string(), "0".to_string());
+        dlp.insert("total".to_string(), "1000".to_string());
+        dlp.insert("speed".to_string(), "0".to_string());
+        dlp.insert("disk".to_string(), "0".to_string());
+        app.emit(event_name, dlp.clone()).unwrap();
+    }
+    prevent_exit(&app, true);
+
+    let success = run_async_command(async {
+        download_steamrt(steamrt_path.clone(), steamrt_path.clone(), "steamrt3".to_string(), "latest-public-beta".to_string(), {
+            let app = app.clone();
+            let dlpayload = dlpayload.clone();
+            let job_id = job_id.clone();
+            let event_name = event_name.to_string();
+            move |current, total, net_speed, disk_speed| {
+                let mut dlp = dlpayload.lock().unwrap();
+                dlp.insert("job_id".to_string(), job_id.to_string());
+                dlp.insert("name".to_string(), "SteamLinuxRuntime 3".to_string());
+                dlp.insert("progress".to_string(), current.to_string());
+                dlp.insert("total".to_string(), total.to_string());
+                dlp.insert("speed".to_string(), net_speed.to_string());
+                dlp.insert("disk".to_string(), disk_speed.to_string());
+                dlp.insert("phase".to_string(), "2".to_string()); // downloading phase
+                app.emit(&event_name, dlp.clone()).unwrap();
+            }
+        }, {
+                             let app = app.clone();
+                             let dlpayload = dlpayload.clone();
+                             let job_id = job_id.clone();
+                             let event_name = event_name.to_string();
+                             move |current, total| {
+                                 let mut dlp = dlpayload.lock().unwrap();
+                                 dlp.insert("job_id".to_string(), job_id.to_string());
+                                 dlp.insert("name".to_string(), "SteamLinuxRuntime 3".to_string());
+                                 dlp.insert("install_progress".to_string(), current.to_string());
+                                 dlp.insert("install_total".to_string(), total.to_string());
+                                 dlp.insert("phase".to_string(), "3".to_string()); // installing phase
+                                 app.emit(&event_name, dlp.clone()).unwrap();
+                             }
+                         }).await
+    });
+
+    prevent_exit(&app, false);
+
+    if success {
+        app.emit(complete_event, String::from("SteamLinuxRuntime 3")).unwrap();
+        QueueJobOutcome::Completed
+    } else {
+        app.dialog().message(if payload.is_update { "Error occurred while trying to update SteamLinuxRuntime! Please restart the application to retry." } else { "Error occurred while trying to download SteamLinuxRuntime! Please restart the application to retry." })
+            .title("TwintailLauncher")
+            .kind(MessageDialogKind::Error)
+            .buttons(MessageDialogButtons::OkCustom("Ok".to_string()))
+            .show(move |_action| { let _ = empty_dir(steamrt_path.as_path()); });
+        app.emit(complete_event, String::from("SteamLinuxRuntime 3")).unwrap();
+        QueueJobOutcome::Failed
+    }
+}
+
+/// Register runner download handler
+/// Runner downloads are enqueued directly from install.rs and runners.rs
+#[cfg(target_os = "linux")]
+pub fn register_runner_download_handler(_app: &AppHandle) {
+    // Runner downloads are enqueued directly, no event listener needed
+}
+
+/// Run the actual runner/proton download (called by queue worker)
+#[cfg(target_os = "linux")]
+pub fn run_runner_download(app: AppHandle, payload: RunnerDownloadPayload, job_id: String) -> QueueJobOutcome {
+    let job_id = Arc::new(job_id);
+    let dlpayload: Arc<Mutex<HashMap<String, String>>> = Arc::new(Mutex::new(HashMap::new()));
+
+    let runner_name = payload.runner_version.clone();
+    {
+        let mut dlp = dlpayload.lock().unwrap();
+        dlp.insert("job_id".to_string(), job_id.to_string());
+        dlp.insert("name".to_string(), runner_name.clone());
+        dlp.insert("progress".to_string(), "0".to_string());
+        dlp.insert("total".to_string(), "1000".to_string());
+        dlp.insert("speed".to_string(), "0".to_string());
+        dlp.insert("disk".to_string(), "0".to_string());
+        app.emit("download_progress", dlp.clone()).unwrap();
+    }
+    prevent_exit(&app, true);
+
+    let success = run_async_command(async {
+        Compat::download_runner(payload.runner_url.clone(), payload.runner_path.clone(), true, {
+            let app = app.clone();
+            let dlpayload = dlpayload.clone();
+            let job_id = job_id.clone();
+            let runner_name = runner_name.clone();
+            move |current, total, net_speed, disk_speed| {
+                let mut dlp = dlpayload.lock().unwrap();
+                dlp.insert("job_id".to_string(), job_id.to_string());
+                dlp.insert("name".to_string(), runner_name.clone());
+                dlp.insert("progress".to_string(), current.to_string());
+                dlp.insert("total".to_string(), total.to_string());
+                dlp.insert("speed".to_string(), net_speed.to_string());
+                dlp.insert("disk".to_string(), disk_speed.to_string());
+                app.emit("download_progress", dlp.clone()).unwrap();
+            }
+        }).await
+    });
+
+    prevent_exit(&app, false);
+
+    if success {
+        // Mark the runner as installed in the database
+        update_installed_runner_is_installed_by_version(&app, payload.runner_version.clone(), true);
+        app.emit("download_complete", payload.runner_version.clone()).unwrap();
+        QueueJobOutcome::Completed
+    } else {
+        app.emit("download_complete", payload.runner_version.clone()).unwrap();
+        QueueJobOutcome::Failed
     }
 }
 

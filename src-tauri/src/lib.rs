@@ -23,11 +23,11 @@ use crate::commands::runners::{add_installed_runner, get_installed_runner_by_id,
 use crate::commands::network::check_network_connectivity;
 
 #[cfg(target_os = "linux")]
-use crate::downloading::runner::register_runner_download_handler;
+use crate::downloading::misc::register_runner_download_handler;
 #[cfg(target_os = "linux")]
 use crate::utils::{deprecate_jadeite, sync_installed_runners, is_flatpak, block_telemetry};
 #[cfg(target_os = "linux")]
-use crate::downloading::misc::{download_or_update_steamrt};
+use crate::downloading::misc::{download_or_update_steamrt, register_steamrt_download_handler};
 
 mod utils;
 mod commands;
@@ -121,7 +121,9 @@ pub fn run() {
                         (QueueJobKind::GamePreload, QueueJobPayload::Game(p)) => crate::downloading::preload::run_game_preload(app, p, job.id),
                         (QueueJobKind::GameRepair, QueueJobPayload::Game(p)) => crate::downloading::repair::run_game_repair(app, p, job.id),
                         #[cfg(target_os = "linux")]
-                        (QueueJobKind::RunnerDownload, QueueJobPayload::Runner(p)) => crate::downloading::runner::run_runner_download(app, p, job.id),
+                        (QueueJobKind::RunnerDownload, QueueJobPayload::Runner(p)) => crate::downloading::misc::run_runner_download(app, p, job.id),
+                        #[cfg(target_os = "linux")]
+                        (QueueJobKind::SteamrtDownload, QueueJobPayload::Steamrt(p)) => crate::downloading::misc::run_steamrt_download(app, p, job.id),
                         // Mismatch between kind and payload - should never happen
                         _ => QueueJobOutcome::Failed,
                     }
