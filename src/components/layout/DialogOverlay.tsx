@@ -53,7 +53,7 @@ export default function DialogOverlay() {
             }}
         >
             {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <div className="absolute inset-0 bg-black/80" />
 
             {/* Dialog */}
             <div className="relative z-10">

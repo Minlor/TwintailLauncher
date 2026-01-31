@@ -434,7 +434,7 @@ export default function DownloadsModal(props: DownloadsModalProps) {
 
                                 {hoverSample && (
                                   <div
-                                    className="absolute z-10 px-3 py-2 rounded-md bg-black/90 border border-white/20 text-white text-stroke text-xs pointer-events-none shadow-lg backdrop-blur-sm"
+                                    className="absolute z-10 px-3 py-2 rounded-md bg-black/95 border border-white/20 text-white text-stroke text-xs pointer-events-none shadow-lg"
                                     style={{ top: 10, right: 10 }}
                                   >
                                     <div className="flex gap-3">

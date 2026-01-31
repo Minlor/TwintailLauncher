@@ -187,18 +187,22 @@ export const zIndex = {
  * Use these for consistency across components.
  */
 export const tw = {
-  // Input field styles
-  input: 'w-full h-10 rounded-xl bg-zinc-800/60 border border-white/10 text-white px-3 placeholder-white/50 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/30 transition-colors',
-
   // Card styles
-  card: 'bg-zinc-900/50 backdrop-blur-sm border border-white/10 rounded-xl p-5 hover:border-white/15 transition-colors',
+  card: 'bg-zinc-900/85 border border-white/10 rounded-xl p-5 hover:border-white/15 transition-colors',
+  cardInteractive: 'bg-zinc-900/85 border border-white/10 rounded-xl p-5 hover:border-white/20 hover:bg-zinc-900/90 transition-all cursor-pointer',
+  cardFlat: 'bg-zinc-900/85 border border-white/5 rounded-xl p-5',
   cardElevated: 'bg-[#0c0c0c] border border-white/10 rounded-2xl shadow-2xl',
 
-  // Button base styles
-  buttonBase: 'rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed',
-  buttonPrimary: 'bg-purple-600 hover:bg-purple-500 text-white px-6 py-3',
-  buttonSecondary: 'bg-white/5 hover:bg-white/10 text-white/70 hover:text-white px-6 py-3',
-  buttonDanger: 'bg-red-600 hover:bg-red-500 text-white px-6 py-3',
+  // Input field styles
+  input: 'bg-zinc-900/90 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all',
+  inputError: 'bg-zinc-900/90 border border-red-500/50 rounded-lg px-4 py-2.5 text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all',
+
+  // Button styles
+  button: 'px-4 py-2.5 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black',
+  buttonPrimary: 'bg-purple-600 hover:bg-purple-500 text-white shadow-lg hover:shadow-purple-500/25',
+  buttonSecondary: 'bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10',
+  buttonDanger: 'bg-red-600 hover:bg-red-500 text-white shadow-lg hover:shadow-red-500/25',
+  buttonGhost: 'hover:bg-white/5 text-zinc-300 hover:text-white',
 
   // Icon button (circular)
   iconButton: 'p-2.5 rounded-full border border-white/20 shadow-lg disabled:brightness-75 disabled:saturate-100 transition-colors focus:outline-none focus:ring-2',
@@ -216,7 +220,7 @@ export const tw = {
   helpText: 'text-sm text-zinc-400',
 
   // Glass effect
-  glass: 'bg-black/50 backdrop-blur-md border border-white/10',
+  glass: 'bg-black/85 border border-white/10',
 
   // Focus ring (for accessibility)
   focusRing: 'focus:ring-2 focus:ring-purple-400/60 focus:outline-none',

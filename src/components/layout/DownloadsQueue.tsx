@@ -72,7 +72,7 @@ export default function DownloadsQueue(props: DownloadsQueueProps) {
       {/* Dock Container */}
       <div
         className={`
-          flex flex-col bg-[#0a0a0a]/80 backdrop-blur-xl border border-white/10 shadow-2xl overflow-hidden transition-all duration-300
+          flex flex-col bg-[#0a0a0a]/95 border border-white/10 shadow-2xl overflow-hidden transition-all duration-300
           ${isExpanded ? 'rounded-2xl' : 'rounded-full h-14 hover:bg-[#0a0a0a]/90'}
         `}
       >

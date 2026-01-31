@@ -21,7 +21,7 @@ export default function GameInfoOverlay({
 
     return (
         <div className="absolute bottom-8 left-24 max-w-md animate-slideUp z-10" style={{ animationDelay: '200ms' }}>
-            <div className="bg-black/50 backdrop-blur-sm rounded-xl border border-white/10 p-4 shadow-lg">
+            <div className="bg-black/50 rounded-xl border border-white/10 p-4 shadow-lg">
                 <div className="flex items-center gap-3">
                     {gameIcon && (
                         <div className="w-12 h-12 rounded-lg overflow-hidden border border-white/10 flex-shrink-0">

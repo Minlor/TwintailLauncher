@@ -75,7 +75,7 @@ const AppLoadingScreen: React.FC<AppLoadingScreenProps> = ({ progress, message, 
                 {/* Progress Section */}
                 <div className="w-full space-y-4">
                     {/* Progress Bar Container */}
-                    <div className="relative h-1.5 w-full bg-white/[0.06] rounded-full overflow-hidden backdrop-blur-sm ring-1 ring-white/[0.05]">
+                    <div className="relative h-1.5 w-full bg-white/[0.06] rounded-full overflow-hidden ring-1 ring-white/[0.05]">
                         {/* Actual Bar */}
                         <div
                             className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-600 via-blue-400 to-blue-500 rounded-full transition-all duration-300 ease-out shadow-[0_0_12px_rgba(59,130,246,0.6)]"

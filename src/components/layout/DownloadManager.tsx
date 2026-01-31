@@ -503,7 +503,7 @@ export default function DownloadManager({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 animate-in fade-in duration-200"
       onClick={onClose}
     >
       {/* Hover Tooltip */}
@@ -526,7 +526,7 @@ export default function DownloadManager({
           const sample = speedHistory[hoveredIndex];
           return (
             <div
-              className="fixed z-50 bg-gray-900/95 border border-gray-700 rounded-lg px-3 py-2 shadow-2xl pointer-events-none backdrop-blur-sm"
+              className="fixed z-50 bg-gray-900/98 border border-gray-700 rounded-lg px-3 py-2 shadow-2xl pointer-events-none"
               style={{ left: `${left}px`, top: `${top}px`, minWidth: tooltipWidth }}
             >
               <div className="text-xs space-y-1.5 min-w-[180px]">

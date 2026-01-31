@@ -525,7 +525,7 @@ export default function DownloadsPage({
                     const sample = speedHistory[hoveredIndex];
                     return (
                         <div
-                            className="fixed z-50 bg-gray-900/95 border border-gray-700 rounded-lg px-3 py-2 shadow-2xl pointer-events-none backdrop-blur-sm"
+                            className="fixed z-50 bg-gray-900/98 border border-gray-700 rounded-lg px-3 py-2 shadow-2xl pointer-events-none"
                             style={{ left: `${left}px`, top: `${top}px`, minWidth: tooltipWidth }}
                         >
                             <div className="text-xs space-y-1.5 min-w-[180px]">
@@ -630,7 +630,7 @@ export default function DownloadsPage({
                                 </div>
 
                                 {/* Stats Panel - Wider with background */}
-                                <div className="w-[420px] flex flex-col justify-between z-10 px-6 py-4 bg-black/40 backdrop-blur-sm border-l border-white/5">
+                                <div className="w-[420px] flex flex-col justify-between z-10 px-6 py-4 bg-black/90 border-l border-white/5">
                                     <div className="space-y-6">
                                         {/* Stats Row */}
                                         <div className="mt-3">

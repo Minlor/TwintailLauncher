@@ -197,7 +197,7 @@ export default class App extends React.Component<any, any> {
                     {/* Limited Mode Banner */}
                     {this.state.limitedMode && (
                         <div className="absolute top-0 left-0 right-0 z-50 flex justify-center pointer-events-none">
-                            <div className="mt-2 px-4 py-2 bg-amber-500/90 backdrop-blur-sm rounded-lg shadow-lg pointer-events-auto flex items-center gap-2 animate-fadeIn">
+                            <div className="mt-2 px-4 py-2 bg-amber-500/95 rounded-lg shadow-lg pointer-events-auto flex items-center gap-2 animate-fadeIn">
                                 {/* Icon - changes based on recovery state */}
                                 {this.state.recoveryProgress?.phase && this.state.recoveryProgress.phase !== "idle" && this.state.recoveryProgress.phase !== "complete" ? (
                                     <svg className="w-4 h-4 text-amber-900 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -899,7 +899,7 @@ export default class App extends React.Component<any, any> {
     }
 
     fetchDownloadSizes(biz: any, version: any, lang: any, path: any, region_filter: any, callback: (data: any) => void) {
-        invoke("get_download_sizes", {biz: biz, version: version, path: path, lang: lang, region: region_filter}).then(data => {
+        invoke("get_download_sizes", { biz: biz, version: version, path: path, lang: lang, region: region_filter }).then(data => {
             if (data === null) {
                 console.error("Could not get download sizes!");
             } else {
