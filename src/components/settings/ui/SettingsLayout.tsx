@@ -33,7 +33,8 @@ export const SettingsLayout = ({ title, onClose, children, banner, icon, imageVe
                     {/* Banner Image */}
                     <div className="absolute inset-0">
                         <CachedImage key={`banner-v${imageVersion}`} src={banner} className="w-full h-full object-cover object-center opacity-80" />
-                        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-[#09090b]" />
+                        {/* Extended past bottom edge to fix WebKitGTK subpixel rendering gap */}
+                        <div className="absolute top-0 left-0 right-0 -bottom-1 bg-gradient-to-b from-black/20 via-black/40 to-[#09090b]" />
                     </div>
 
                     {/* Content */}

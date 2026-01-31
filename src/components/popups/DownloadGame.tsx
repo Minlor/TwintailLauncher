@@ -1,5 +1,5 @@
-import {Check, ChevronDown, DownloadCloudIcon, Folder, HardDrive, HardDriveDownloadIcon, X} from "lucide-react";
-import {POPUPS} from "./POPUPS.ts";
+import { Check, ChevronDown, DownloadCloudIcon, Folder, HardDrive, HardDriveDownloadIcon, X } from "lucide-react";
+import { POPUPS } from "./POPUPS.ts";
 import { PAGES } from "../pages/PAGES.ts";
 import FolderInput from "../common/FolderInput.tsx";
 import CheckBox from "../common/CheckBox.tsx";
@@ -17,7 +17,7 @@ interface IProps {
     displayName: string;
     settings: any;
     biz: string;
-    versions: { value: string; name: string; background?: string; liveBackground? : string }[];
+    versions: { value: string; name: string; background?: string; liveBackground?: string }[];
     background: string;
     icon: string;
     pushInstalls: () => void;
@@ -191,7 +191,8 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
                 {popupBanner && (
                     <div className="absolute inset-0">
                         <CachedImage key={`banner-v${imageVersion}`} src={popupBanner} className="w-full h-full object-cover opacity-80" alt="Game Background" />
-                        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-[#0c0c0c]" />
+                        {/* Extended past bottom edge to fix WebKitGTK subpixel rendering gap */}
+                        <div className="absolute top-0 left-0 right-0 -bottom-1 bg-gradient-to-b from-black/20 via-black/40 to-[#0c0c0c]" />
                     </div>
                 )}
 

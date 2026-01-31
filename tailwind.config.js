@@ -74,9 +74,9 @@ export default {
 				'shimmer': 'shimmer 2s infinite',
 				'bg-fade-in': 'bgFadeIn 300ms ease-out',
 				'bg-fade-out': 'bgFadeOut 300ms ease-out forwards',
-				'zoom-in': 'zoomIn 200ms ease-out',
+				'zoom-in': 'zoomIn 200ms ease-out both',
 				'zoom-out': 'zoomOut 200ms ease-in forwards',
-				'scaleIn': 'scaleIn 200ms ease-out',
+				'scaleIn': 'scaleIn 200ms ease-out both',
 				'bounce-slow': 'bounceSlow 3s ease-in-out infinite',
 			},
 			keyframes: {
