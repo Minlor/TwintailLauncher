@@ -119,14 +119,11 @@ export default function PopupOverlay(props: PopupOverlayProps) {
     <div
       role="dialog"
       aria-modal={openPopup !== POPUPS.NONE}
-      className={`absolute items-center justify-center top-0 bottom-0 left-16 right-0 p-8 z-50 ${openPopup == POPUPS.NONE ? "hidden" : "flex"
-        }`}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          setOpenPopup(POPUPS.NONE);
-        }
-      }}
+      className={`absolute items-center justify-center top-0 bottom-0 left-16 right-0 p-8 z-50 ${openPopup == POPUPS.NONE ? "hidden" : "flex"}`}
+      onClick={(e) => { if (e.target === e.currentTarget) { setOpenPopup(POPUPS.NONE); } }}
     >
+      {/* Backdrop overlay - prevents WebKitGTK flash during popup animation */}
+      <div className="absolute inset-0 bg-black/60 animate-backdrop-in pointer-events-none" style={{ willChange: 'opacity', backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }} />
       {openPopup == POPUPS.REPOMANAGER && (
         <RepoManager
           repos={reposList}

@@ -244,7 +244,8 @@ textarea,
 /* GPU compositing hints for popup animations - prevents WebKitGTK flickering */
 .animate-zoom-in,
 .animate-zoom-out,
-.animate-scaleIn {
+.animate-scaleIn,
+.animate-backdrop-in {
     /* Force GPU compositing layer to prevent repaint flickering */
     will-change: transform, opacity;
     backface-visibility: hidden;
