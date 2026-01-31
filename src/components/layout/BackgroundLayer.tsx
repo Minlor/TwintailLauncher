@@ -31,6 +31,9 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
   const previousContainerRef = useRef<HTMLDivElement | null>(null);
   const currentElementRef = useRef<HTMLImageElement | HTMLVideoElement | null>(null);
   const currentSrcRef = useRef<string>("");
+  // Track pending preload to prevent race condition on Linux where effect re-runs
+  // before preload completes, causing duplicate image appends
+  const pendingPreloadRef = useRef<string | null>(null);
 
   // MP4 loop restart handler
   const restartMp4 = useCallback(() => {
@@ -113,13 +116,20 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
     const container = currentContainerRef.current;
     if (!container) return;
 
-    // Skip if same source
+    // Skip if same source and element already exists
     if (currentSrcRef.current === currentSrc && currentElementRef.current) {
       // Just update classes for popup state changes - handled by separate useEffect below
       return;
     }
 
+    // Skip if preload is already pending for this source (prevents race condition on Linux
+    // where effect re-runs due to transitioning/popup changes before preload completes)
+    if (pendingPreloadRef.current === currentSrc) {
+      return;
+    }
+
     currentSrcRef.current = currentSrc;
+    pendingPreloadRef.current = null; // Clear any stale pending state
 
     // Clear previous element
     container.innerHTML = "";
@@ -130,11 +140,18 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
     const baseClass = `w-full h-screen object-cover object-center transition-all duration-300 ease-out ${transitioning ? "animate-bg-fade-in" : ""} ${(popupOpen || pageOpen) ? "scale-[1.03] brightness-[0.45] saturate-75" : ""}`;
 
     // Ensure preloaded before creating element
-    const createAndAppend = () => {
+    const createAndAppend = (srcAtCallTime: string) => {
+      // Guard: only append if source hasn't changed since preload started
+      if (currentSrcRef.current !== srcAtCallTime) {
+        return;
+      }
+
+      pendingPreloadRef.current = null;
+
       let element: HTMLImageElement | HTMLVideoElement;
 
-      if (isVideo(currentSrc)) {
-        element = createVideoElement(currentSrc, baseClass, () => {
+      if (isVideo(srcAtCallTime)) {
+        element = createVideoElement(srcAtCallTime, baseClass, () => {
           onMainLoad?.();
         });
 
@@ -151,7 +168,7 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
           element.play().catch(() => { });
         } catch { /* ignore */ }
       } else {
-        element = createImageElement(currentSrc, baseClass, () => {
+        element = createImageElement(srcAtCallTime, baseClass, () => {
           onMainLoad?.();
         });
 
@@ -163,9 +180,12 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
 
     // If already preloaded, create immediately; otherwise wait for preload
     if (isImagePreloaded(currentSrc)) {
-      createAndAppend();
+      createAndAppend(currentSrc);
     } else {
-      preloadImage(currentSrc).then(createAndAppend);
+      // Track that we're preloading this source
+      pendingPreloadRef.current = currentSrc;
+      const srcToPreload = currentSrc;
+      preloadImage(srcToPreload).then(() => createAndAppend(srcToPreload));
     }
   }, [currentSrc, bgVersion, transitioning, popupOpen, pageOpen, createVideoElement, createImageElement, onMainLoad]);
 
