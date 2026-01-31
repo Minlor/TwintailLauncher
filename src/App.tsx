@@ -718,7 +718,7 @@ export default class App extends React.Component<any, any> {
                 let gi = JSON.parse(m as string);
                 // Hacky way to pass some values from DB manifest data onto the list of games we use to render SideBarIcon components
                 gi.forEach((e: any) => {
-                    let g = games.find(g => g.filename.replace(".json", "") === e.biz);
+                    let g = games.find(g => g.filename.toLowerCase().replace(".json", "") === e.biz.toLowerCase());
                     // @ts-ignore
                     e["manifest_id"] = g.id;
                     // @ts-ignore
@@ -994,8 +994,16 @@ export default class App extends React.Component<any, any> {
             if (install) {
                 // Try to find the game manifest by ID first, then by title
                 let game = this.state.gamesinfo.find((g: any) => g.manifest_id === install.manifest_id);
+
                 if (!game) {
-                    game = this.state.gamesinfo.find((g: any) => g.title === install.name);
+                    game = this.state.gamesinfo.find((g: any) =>
+                        g.display_name === install.name ||
+                        g.game_versions?.some((v: any) => v.metadata?.versioned_name === install.name)
+                    );
+                }
+
+                if (!game) {
+                    console.warn(`Could not find game manifest for install: ${install.name} (${install.manifest_id})`);
                 }
 
                 if (game) {
