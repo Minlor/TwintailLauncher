@@ -74,8 +74,30 @@ export default function PageViewContainer({
     fetchInstalledRunners,
     imageVersion = 0,
 }: PageViewContainerProps) {
+    const isOpen = currentPage !== PAGES.NONE;
     return (
-        <div className="absolute inset-0 left-16 z-30 bg-black/50 flex flex-col overflow-hidden border-l border-white/10">
+        <div
+            className={`absolute inset-0 left-16 z-30 flex flex-col overflow-hidden border-l border-white/10 ${isOpen ? '' : 'pointer-events-none'}`}
+            style={{
+                backfaceVisibility: 'hidden',
+                WebkitBackfaceVisibility: 'hidden',
+                transform: 'translateZ(0)',
+                // Use visibility instead of opacity for instant show/hide without compositor flash
+                visibility: isOpen ? 'visible' : 'hidden',
+                background: 'rgba(0,0,0,0.5)'
+            }}
+        >
+            {/* Animated content wrapper for smooth page transitions */}
+            <div 
+                className="absolute inset-0 transition-all duration-300 ease-out animate-slideInRight"
+                style={{
+                    opacity: isOpen ? 1 : 0,
+                    transform: isOpen ? 'translateX(0) scale(1)' : 'translateX(20px) scale(0.98)',
+                    willChange: 'opacity, transform',
+                    // Coordinated timing: page starts after background, closes before background
+                    transitionDelay: isOpen ? '50ms' : '0ms'
+                }}
+            >
             {currentPage === PAGES.SETTINGS && (
                 <SettingsPage
                     settings={globalSettings}
@@ -104,6 +126,7 @@ export default function PageViewContainer({
                     fetchInstalledRunners={fetchInstalledRunners}
                 />
             )}
+            </div>
         </div>
     );
 }

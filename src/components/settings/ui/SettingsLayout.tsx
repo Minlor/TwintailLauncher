@@ -25,7 +25,7 @@ export const SettingsLayout = ({ title, onClose, children, banner, icon, imageVe
     }, []);
 
     return (
-        <div className="rounded-2xl w-[85vw] max-w-7xl h-[80vh] bg-[#09090b] border border-white/10 flex flex-col overflow-hidden shadow-2xl animate-scaleIn relative group/settings" style={{ willChange: 'transform, opacity', backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'translateZ(0)', isolation: 'isolate', contain: 'paint' }}>
+        <div className="rounded-2xl w-[85vw] max-w-7xl h-[80vh] bg-[#09090b] border border-white/10 flex flex-col overflow-hidden shadow-2xl animate-zoom-in relative group/settings" style={{ willChange: 'transform, opacity', backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'translateZ(0)' }}>
 
             {/* Header / Hero Section */}
             {banner ? (

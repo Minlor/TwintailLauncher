@@ -63,7 +63,10 @@ export default function SettingsPage({ settings, fetchSettings, setCurrentPage }
     };
 
     return (
-        <div className="flex-1 flex flex-col h-full overflow-hidden animate-fadeIn">
+        <div
+            className="flex-1 flex flex-col h-full overflow-hidden animate-fadeIn"
+            style={{ willChange: 'opacity', backfaceVisibility: 'hidden', transform: 'translateZ(0)' }}
+        >
             {/* Page Header */}
             <div className="flex items-center gap-4 px-8 py-5 border-b border-white/5">
                 <button

@@ -249,11 +249,30 @@ export default class App extends React.Component<any, any> {
                             </div>
                         </div>
                     )}
+                    {/* Solid dark backdrop - instant visibility to prevent black flash on WebKitGTK */}
+                    {/* This layer uses visibility (not opacity) for truly instant show/hide */}
+                    <div
+                        className="pointer-events-none absolute inset-0 left-16 z-[15]"
+                        style={{
+                            visibility: (this.state.openPopup !== POPUPS.NONE || this.state.currentPage !== PAGES.NONE) ? 'visible' : 'hidden',
+                            background: 'rgba(0,0,0,0.5)',
+                            backfaceVisibility: 'hidden',
+                            WebkitBackfaceVisibility: 'hidden',
+                            transform: 'translateZ(0)'
+                        }}
+                    />
                     {/* Frost overlay - always rendered to prevent DOM insertion flash on WebKitGTK */}
                     <div
-                        className={`pointer-events-none absolute inset-0 transition-opacity duration-200 ${(this.state.openPopup != POPUPS.NONE || this.state.currentPage !== PAGES.NONE) ? "opacity-100" : "opacity-0"} ${this.state.openPopup != POPUPS.NONE ? "z-40" : "z-20"}`}
-                        style={{ willChange: 'opacity' }}
+                        className={`pointer-events-none absolute inset-0 ${this.state.openPopup != POPUPS.NONE ? "z-40" : "z-20"}`}
+                        style={{
+                            // Use visibility instead of opacity for instant show/hide without compositor flash on WebKitGTK
+                            visibility: (this.state.openPopup !== POPUPS.NONE || this.state.currentPage !== PAGES.NONE) ? 'visible' : 'hidden',
+                            backfaceVisibility: 'hidden',
+                            WebkitBackfaceVisibility: 'hidden',
+                            transform: 'translateZ(0)'
+                        }}
                     >
+                        {/* Frost content - static decorative layers, no animation needed */}
                         {/* Frost-like light veil */}
                         <div className="absolute inset-0 bg-gradient-to-br from-white/[0.08] via-white/[0.03] to-white/[0.06]" />
                         {/* Subtle dark vignette for depth */}
@@ -530,26 +549,24 @@ export default class App extends React.Component<any, any> {
                         isVisible={this.state.openPopup === POPUPS.NONE && this.state.currentPage === PAGES.NONE && (this.state.currentInstall !== "" || this.state.currentGame !== "")}
                     />
                 </main>
-                {/* Page View Container */}
-                {this.state.currentPage !== PAGES.NONE && (
-                    <PageViewContainer
-                        currentPage={this.state.currentPage}
-                        setCurrentPage={this.setCurrentPage}
-                        globalSettings={this.state.globalSettings}
-                        fetchSettings={this.fetchSettings}
-                        downloadQueueState={this.state.downloadQueueState}
-                        downloadProgressByJobId={this.state.downloadProgressByJobId}
-                        installs={this.state.installs}
-                        speedHistory={this.state.speedHistory}
-                        onSpeedSample={this.handleSpeedSample}
-                        onClearHistory={this.handleClearSpeedHistory}
-                        downloadSpeedLimitKiB={this.state.globalSettings?.download_speed_limit ?? 0}
-                        runners={this.state.runners}
-                        installedRunners={this.state.installedRunners}
-                        fetchInstalledRunners={this.fetchInstalledRunners}
-                        imageVersion={this.state.imageVersion}
-                    />
-                )}
+                {/* Page View Container - always rendered to prevent WebKitGTK DOM insertion flash */}
+                <PageViewContainer
+                    currentPage={this.state.currentPage}
+                    setCurrentPage={this.setCurrentPage}
+                    globalSettings={this.state.globalSettings}
+                    fetchSettings={this.fetchSettings}
+                    downloadQueueState={this.state.downloadQueueState}
+                    downloadProgressByJobId={this.state.downloadProgressByJobId}
+                    installs={this.state.installs}
+                    speedHistory={this.state.speedHistory}
+                    onSpeedSample={this.handleSpeedSample}
+                    onClearHistory={this.handleClearSpeedHistory}
+                    downloadSpeedLimitKiB={this.state.globalSettings?.download_speed_limit ?? 0}
+                    runners={this.state.runners}
+                    installedRunners={this.state.installedRunners}
+                    fetchInstalledRunners={this.fetchInstalledRunners}
+                    imageVersion={this.state.imageVersion}
+                />
                 {this.state.showLoadingOverlay && (
                     <AppLoadingScreen
                         progress={this.state.loadingProgress}

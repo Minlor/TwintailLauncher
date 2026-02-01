@@ -78,7 +78,7 @@ export default {
 				'zoom-out': 'zoomOut 200ms ease-in forwards',
 				'scaleIn': 'scaleIn 200ms ease-out both',
 				'bounce-slow': 'bounceSlow 3s ease-in-out infinite',
-				'backdrop-in': 'backdropIn 100ms ease-out both',
+				'backdrop-in': 'backdropIn 200ms ease-out both',
 			},
 			keyframes: {
 				fadeInOpacity: {

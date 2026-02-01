@@ -141,7 +141,7 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
       return;
     }
 
-    const baseClass = `w-full h-screen object-cover object-center transition-all duration-300 ease-out`;
+    const baseClass = `w-full h-screen object-cover object-center transition-transform duration-300 ease-out will-change-transform`;
 
     // Ensure preloaded before creating element
     const createAndAppend = (srcAtCallTime: string) => {
@@ -252,14 +252,12 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
     const el = currentElementRef.current;
     if (!el || !currentSrc) return;
 
-    const baseClass = `w-full h-screen object-cover object-center transition-all duration-300 ease-out ${transitioning ? "animate-bg-fade-in" : ""} ${(popupOpen || pageOpen) ? "scale-[1.03]" : ""}`;
+    // Use transition-transform only (not transition-all) to prevent flash during scale change on WebKitGTK
+    // Keep will-change-transform for GPU layer permanence
+    const baseClass = `w-full h-screen object-cover object-center transition-transform duration-300 ease-out will-change-transform ${transitioning ? "animate-bg-fade-in" : ""} ${(popupOpen || pageOpen) ? "scale-[1.03]" : ""}`;
 
-    // Use requestAnimationFrame to prevent layout thrashing
-    requestAnimationFrame(() => {
-      if (el) {
-        el.className = baseClass;
-      }
-    });
+    // Apply immediately without RAF delay to prevent black flash on WebKitGTK
+    el.className = baseClass;
   }, [popupOpen, pageOpen, transitioning, currentSrc]);
 
   return (
@@ -279,8 +277,9 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
       />
 
       {/* Dimming overlay - replaces expensive brightness/saturate filters with cheap alpha blending */}
+      {/* No transition on open to prevent black flash on WebKitGTK; instant visibility */}
       <div
-        className={`absolute inset-0 transition-opacity duration-300 ease-out pointer-events-none ${(popupOpen || pageOpen) ? "opacity-100" : "opacity-0"}`}
+        className={`absolute inset-0 pointer-events-none ${(popupOpen || pageOpen) ? "opacity-100" : "opacity-0"}`}
         style={{
           background: 'linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(0,0,0,0.6))',
           willChange: 'opacity',

@@ -504,7 +504,10 @@ export default function DownloadsPage({
         : '';
 
     return (
-        <div className="flex-1 flex flex-col h-full overflow-hidden animate-fadeIn">
+        <div
+            className="flex-1 flex flex-col h-full overflow-hidden animate-fadeIn"
+            style={{ willChange: 'opacity', backfaceVisibility: 'hidden', transform: 'translateZ(0)' }}
+        >
             {/* Hover Tooltip */}
             {hoveredIndex !== null && mousePos && speedHistory[hoveredIndex] && (
                 (() => {

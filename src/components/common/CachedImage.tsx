@@ -17,7 +17,7 @@ interface CachedImageProps {
  * For Tauri WebViews (WebView2/WebKitGTK), this component:
  * - Uses crossOrigin="anonymous" for images to share browser cache with preloader
  * - Uses preload="auto" for videos to ensure full buffering
- * - Triggers on-demand preloading if content isn't already cached
+ * - Uses deferred swap to prevent black flash when changing sources
  */
 export function CachedImage({ src, alt = '', className = '' }: CachedImageProps) {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -37,6 +37,32 @@ export function CachedImage({ src, alt = '', className = '' }: CachedImageProps)
         updateClassName(elementRef.current, className);
     }, [className, updateClassName]);
 
+    // Helper to clear old content and finalize new element
+    const finalizeElement = useCallback((container: HTMLDivElement, newElement: HTMLImageElement | HTMLVideoElement, srcAtCreation: string) => {
+        // Only finalize if this is still the current src (prevents race conditions)
+        if (currentSrcRef.current !== srcAtCreation) return;
+
+        // Remove all previous children (old content)
+        while (container.firstChild && container.firstChild !== newElement) {
+            container.removeChild(container.firstChild);
+        }
+        elementRef.current = newElement;
+        cacheImage(srcAtCreation, newElement, false);
+        setIsReady(true);
+    }, []);
+
+    // Helper for error handling
+    const handleError = useCallback((container: HTMLDivElement, newElement: HTMLImageElement | HTMLVideoElement, srcAtCreation: string) => {
+        if (currentSrcRef.current !== srcAtCreation) return;
+
+        while (container.firstChild && container.firstChild !== newElement) {
+            container.removeChild(container.firstChild);
+        }
+        elementRef.current = newElement;
+        cacheImage(srcAtCreation, newElement, true);
+        setIsReady(true);
+    }, []);
+
     // Main effect for src changes - only runs when src changes
     useEffect(() => {
         if (!containerRef.current || !src) return;
@@ -44,23 +70,12 @@ export function CachedImage({ src, alt = '', className = '' }: CachedImageProps)
         const container = containerRef.current;
         currentSrcRef.current = src;
 
-        // Reset ready state when src changes
-        const preloaded = isImagePreloaded(src);
-        if (!preloaded) {
-            setIsReady(false);
-            // Don't call preloadImage here - we create our own element below
-            // and register it via cacheImage to avoid double-loading
-        }
-
-        // Clear previous content
-        container.innerHTML = '';
-        elementRef.current = null;
-
         const cachedElement = getPreloadedImage(src);
         const isVideo = isVideoUrl(src);
 
         if (cachedElement) {
-            // Use the cached/preloaded element by cloning
+            // Use the cached/preloaded element by cloning - immediate swap is safe
+            container.innerHTML = '';
             if (cachedElement instanceof HTMLVideoElement) {
                 const clone = cachedElement.cloneNode(true) as HTMLVideoElement;
                 clone.className = className;
@@ -71,7 +86,6 @@ export function CachedImage({ src, alt = '', className = '' }: CachedImageProps)
                 clone.preload = 'auto';
                 elementRef.current = clone;
                 container.appendChild(clone);
-                // Ensure video plays after cloning
                 clone.play().catch(() => { });
                 setIsReady(true);
             } else {
@@ -83,7 +97,10 @@ export function CachedImage({ src, alt = '', className = '' }: CachedImageProps)
                 setIsReady(true);
             }
         } else {
-            // Create new element - will use browser cache if preloaded
+            // Not cached - create new element but don't remove old content yet
+            // Old content stays visible as a placeholder until new content loads
+            setIsReady(false);
+
             if (isVideo) {
                 const video = document.createElement('video');
                 video.src = src;
@@ -93,20 +110,12 @@ export function CachedImage({ src, alt = '', className = '' }: CachedImageProps)
                 video.autoplay = true;
                 video.loop = true;
                 video.preload = 'auto';
-                video.onloadeddata = () => {
-                    if (currentSrcRef.current === src) {
-                        cacheImage(src, video, false);
-                        setIsReady(true);
-                    }
-                };
-                video.onerror = () => {
-                    if (currentSrcRef.current === src) {
-                        cacheImage(src, video, true);
-                        setIsReady(true);
-                    }
-                };
-                elementRef.current = video;
+                // Append new element (old content still visible behind/before it)
                 container.appendChild(video);
+
+                video.onloadeddata = () => finalizeElement(container, video, src);
+                video.onerror = () => handleError(container, video, src);
+
                 video.play().catch(() => { });
             } else {
                 const img = document.createElement('img');
@@ -115,23 +124,14 @@ export function CachedImage({ src, alt = '', className = '' }: CachedImageProps)
                 img.className = className;
                 img.loading = 'eager';
                 img.decoding = 'async';
-                img.onload = () => {
-                    if (currentSrcRef.current === src) {
-                        cacheImage(src, img, false);
-                        setIsReady(true);
-                    }
-                };
-                img.onerror = () => {
-                    if (currentSrcRef.current === src) {
-                        cacheImage(src, img, true);
-                        setIsReady(true);
-                    }
-                };
-                elementRef.current = img;
+                // Append new element (old content still visible behind/before it)
                 container.appendChild(img);
+
+                img.onload = () => finalizeElement(container, img, src);
+                img.onerror = () => handleError(container, img, src);
             }
         }
-    }, [src, alt]); // Note: className removed from deps to prevent re-mounting
+    }, [src, alt, className, finalizeElement, handleError]);
 
     return (
         <div

@@ -115,96 +115,99 @@ export default function PopupOverlay(props: PopupOverlayProps) {
     }
   }, [openPopup, setOpenPopup]);
 
+  const isOpen = openPopup !== POPUPS.NONE;
+
   return (
     <div
       role="dialog"
-      aria-modal={openPopup !== POPUPS.NONE}
-      className={`absolute items-center justify-center top-0 bottom-0 left-16 right-0 p-8 z-50 transition-opacity duration-200 flex ${openPopup == POPUPS.NONE ? "opacity-0 pointer-events-none invisible" : "opacity-100 visible"}`}
+      aria-modal={isOpen}
+      className={`absolute items-center justify-center top-0 bottom-0 left-16 right-0 p-8 z-50 flex ${isOpen ? "animate-backdrop-in" : "pointer-events-none"}`}
       style={{
-        willChange: 'opacity',
         backfaceVisibility: 'hidden',
         WebkitBackfaceVisibility: 'hidden',
         transform: 'translateZ(0)',
-        contain: 'content' // Isolate layout/paint
+        // Use visibility for instant hide (no flash), opacity transition handled by animate-backdrop-in
+        visibility: isOpen ? 'visible' : 'hidden',
+        opacity: isOpen ? 1 : 0,
+        background: 'rgba(0,0,0,0.6)'
       }}
       onClick={(e) => { if (e.target === e.currentTarget) { setOpenPopup(POPUPS.NONE); } }}
     >
-      {/* Backdrop overlay - prevents WebKitGTK flash during popup animation */}
-      {openPopup !== POPUPS.NONE && (
-        <div className="absolute inset-0 bg-black/60 animate-backdrop-in pointer-events-none" style={{ willChange: 'opacity', backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }} />
-      )}
-      {openPopup == POPUPS.REPOMANAGER && (
-        <RepoManager
-          repos={reposList}
-          setOpenPopup={setOpenPopup}
-          fetchRepositories={fetchRepositories}
-        />
-      )}
-      {openPopup == POPUPS.ADDREPO && <AddRepo setOpenPopup={setOpenPopup} />}
-      {openPopup == POPUPS.SETTINGS && (
-        <LauncherSettings
-          fetchSettings={fetchSettings}
-          settings={globalSettings}
-          setOpenPopup={setOpenPopup}
-        />
-      )}
-      {openPopup == POPUPS.DOWNLOADGAME && (
-        <DownloadGame
-          fetchDownloadSizes={fetchDownloadSizes}
-          disk={downloadSizes}
-          runnerVersions={runnerVersions}
-          dxvkVersions={dxvkVersions}
-          versions={gameVersions}
-          icon={gameIcon}
-          background={gameBackground}
-          biz={currentGame}
-          displayName={displayName}
-          settings={globalSettings}
-          setOpenPopup={setOpenPopup}
-          pushInstalls={pushInstalls}
-          setBackground={setBackground}
-          setCurrentInstall={setCurrentInstall}
-          openAsExisting={openDownloadAsExisting}
-          setCurrentPage={setCurrentPage}
-          imageVersion={imageVersion}
-        />
-      )}
+      {/* Content wrapper - individual popups handle their own animations (zoom-in/scaleIn) */}
+      <div>
+        {openPopup == POPUPS.REPOMANAGER && (
+          <RepoManager
+            repos={reposList}
+            setOpenPopup={setOpenPopup}
+            fetchRepositories={fetchRepositories}
+          />
+        )}
+        {openPopup == POPUPS.ADDREPO && <AddRepo setOpenPopup={setOpenPopup} />}
+        {openPopup == POPUPS.SETTINGS && (
+          <LauncherSettings
+            fetchSettings={fetchSettings}
+            settings={globalSettings}
+            setOpenPopup={setOpenPopup}
+          />
+        )}
+        {openPopup == POPUPS.DOWNLOADGAME && (
+          <DownloadGame
+            fetchDownloadSizes={fetchDownloadSizes}
+            disk={downloadSizes}
+            runnerVersions={runnerVersions}
+            dxvkVersions={dxvkVersions}
+            versions={gameVersions}
+            icon={gameIcon}
+            background={gameBackground}
+            biz={currentGame}
+            displayName={displayName}
+            settings={globalSettings}
+            setOpenPopup={setOpenPopup}
+            pushInstalls={pushInstalls}
+            setBackground={setBackground}
+            setCurrentInstall={setCurrentInstall}
+            openAsExisting={openDownloadAsExisting}
+            setCurrentPage={setCurrentPage}
+            imageVersion={imageVersion}
+          />
+        )}
 
-      {openPopup == POPUPS.INSTALLSETTINGS && (
-        <GameSettings
-          installedRunners={installedRunners}
-          installSettings={installSettings}
-          setOpenPopup={setOpenPopup}
-          fetchInstallSettings={fetchInstallSettings}
-          prefetchedSwitches={installGameSwitches}
-          prefetchedFps={installGameFps}
-          installs={installs}
-          setCurrentPage={setCurrentPage}
-          gamesinfo={gamesinfo}
-          imageVersion={imageVersion}
-        />
-      )}
-      {openPopup == POPUPS.INSTALLDELETECONFIRMATION && (
-        <InstallDeleteConfirm
-          installs={installs}
-          games={gamesinfo}
-          install={installSettings}
-          setOpenPopup={setOpenPopup}
-          pushInstalls={pushInstalls}
-          setCurrentInstall={setCurrentInstall}
-          setCurrentGame={setCurrentGame}
-          setBackground={setBackground}
-        />
-      )}
-      {openPopup == POPUPS.FPSUNLOCKERSETTINGS && (
-        <FpsUnlockSettings install={installSettings} setOpenPopup={setOpenPopup} gameSwitches={installGameSwitches} gameFps={installGameFps} fetchInstallSettings={fetchInstallSettings} />
-      )}
-      {openPopup == POPUPS.XXMISETTINGS && (
-        <XXMISettings install={installSettings} setOpenPopup={setOpenPopup} gameSwitches={installGameSwitches} fetchInstallSettings={fetchInstallSettings} />
-      )}
-      {openPopup == POPUPS.MANGOHUDSETTINGS && (
-        <MangoHudSettings install={installSettings} setOpenPopup={setOpenPopup} fetchInstallSettings={fetchInstallSettings} gameSwitches={installGameSwitches} />
-      )}
+        {openPopup == POPUPS.INSTALLSETTINGS && (
+          <GameSettings
+            installedRunners={installedRunners}
+            installSettings={installSettings}
+            setOpenPopup={setOpenPopup}
+            fetchInstallSettings={fetchInstallSettings}
+            prefetchedSwitches={installGameSwitches}
+            prefetchedFps={installGameFps}
+            installs={installs}
+            setCurrentPage={setCurrentPage}
+            gamesinfo={gamesinfo}
+            imageVersion={imageVersion}
+          />
+        )}
+        {openPopup == POPUPS.INSTALLDELETECONFIRMATION && (
+          <InstallDeleteConfirm
+            installs={installs}
+            games={gamesinfo}
+            install={installSettings}
+            setOpenPopup={setOpenPopup}
+            pushInstalls={pushInstalls}
+            setCurrentInstall={setCurrentInstall}
+            setCurrentGame={setCurrentGame}
+            setBackground={setBackground}
+          />
+        )}
+        {openPopup == POPUPS.FPSUNLOCKERSETTINGS && (
+          <FpsUnlockSettings install={installSettings} setOpenPopup={setOpenPopup} gameSwitches={installGameSwitches} gameFps={installGameFps} fetchInstallSettings={fetchInstallSettings} />
+        )}
+        {openPopup == POPUPS.XXMISETTINGS && (
+          <XXMISettings install={installSettings} setOpenPopup={setOpenPopup} gameSwitches={installGameSwitches} fetchInstallSettings={fetchInstallSettings} />
+        )}
+        {openPopup == POPUPS.MANGOHUDSETTINGS && (
+          <MangoHudSettings install={installSettings} setOpenPopup={setOpenPopup} fetchInstallSettings={fetchInstallSettings} gameSwitches={installGameSwitches} />
+        )}
+      </div>
     </div>
   );
 }
