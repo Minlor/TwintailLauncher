@@ -25,13 +25,13 @@ export const SettingsLayout = ({ title, onClose, children, banner, icon, imageVe
     }, []);
 
     return (
-        <div className="rounded-2xl w-[85vw] max-w-7xl h-[80vh] bg-[#09090b] border border-white/10 flex flex-col overflow-hidden shadow-2xl animate-scaleIn relative group/settings">
+        <div className="rounded-2xl w-[85vw] max-w-7xl h-[80vh] bg-[#09090b] border border-white/10 flex flex-col overflow-hidden shadow-2xl animate-scaleIn relative group/settings" style={{ willChange: 'transform, opacity', backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'translateZ(0)', isolation: 'isolate', contain: 'paint' }}>
 
             {/* Header / Hero Section */}
             {banner ? (
                 <div className="relative h-48 shrink-0 overflow-hidden">
                     {/* Banner Image */}
-                    <div className="absolute inset-0">
+                    <div className="absolute inset-0 bg-zinc-900">
                         <CachedImage key={`banner-v${imageVersion}`} src={banner} className="w-full h-full object-cover object-center opacity-80" />
                         {/* Extended past bottom edge to fix WebKitGTK subpixel rendering gap */}
                         <div className="absolute top-0 left-0 right-0 -bottom-1 bg-gradient-to-b from-black/20 via-black/40 to-[#09090b]" />

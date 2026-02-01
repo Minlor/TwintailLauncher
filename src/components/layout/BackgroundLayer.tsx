@@ -131,13 +131,17 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
     currentSrcRef.current = currentSrc;
     pendingPreloadRef.current = null; // Clear any stale pending state
 
-    // Clear previous element
-    container.innerHTML = "";
-    currentElementRef.current = null;
+    // DON'T clear the container here - keep old element visible until new one is ready
+    // This prevents black flash on WebKitGTK when switching backgrounds
 
-    if (!currentSrc) return;
+    if (!currentSrc) {
+      // Only clear if source becomes empty
+      container.innerHTML = "";
+      currentElementRef.current = null;
+      return;
+    }
 
-    const baseClass = `w-full h-screen object-cover object-center transition-all duration-300 ease-out ${transitioning ? "animate-bg-fade-in" : ""} ${(popupOpen || pageOpen) ? "scale-[1.03] brightness-[0.45] saturate-75" : ""}`;
+    const baseClass = `w-full h-screen object-cover object-center transition-all duration-300 ease-out`;
 
     // Ensure preloaded before creating element
     const createAndAppend = (srcAtCallTime: string) => {
@@ -155,7 +159,8 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
           onMainLoad?.();
         });
 
-        // Start playback
+        // Clear old element AFTER new one is created, right before appending
+        container.innerHTML = "";
         container.appendChild(element);
         currentElementRef.current = element;
         element.id = "app-bg";
@@ -172,6 +177,8 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
           onMainLoad?.();
         });
 
+        // Clear old element AFTER new one is created, right before appending
+        container.innerHTML = "";
         container.appendChild(element);
         currentElementRef.current = element;
         element.id = "app-bg";
@@ -187,7 +194,7 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
       const srcToPreload = currentSrc;
       preloadImage(srcToPreload).then(() => createAndAppend(srcToPreload));
     }
-  }, [currentSrc, bgVersion, transitioning, popupOpen, pageOpen, createVideoElement, createImageElement, onMainLoad]);
+  }, [currentSrc, bgVersion, createVideoElement, createImageElement, onMainLoad]);
 
   // Effect to handle previous background (for transitions)
   useEffect(() => {
@@ -199,7 +206,7 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
 
     if (!transitioning || !previousSrc) return;
 
-    const baseClass = `w-full h-screen object-cover object-center absolute inset-0 transition-none animate-bg-fade-out ${(popupOpen || pageOpen) ? "scale-[1.03] brightness-[0.45] saturate-75" : ""}`;
+    const baseClass = `w-full h-screen object-cover object-center absolute inset-0 transition-none animate-bg-fade-out ${(popupOpen || pageOpen) ? "scale-[1.03]" : ""}`;
 
     if (isVideo(previousSrc)) {
       const preloaded = getPreloadedImage(previousSrc);
@@ -245,7 +252,7 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
     const el = currentElementRef.current;
     if (!el || !currentSrc) return;
 
-    const baseClass = `w-full h-screen object-cover object-center transition-all duration-300 ease-out ${transitioning ? "animate-bg-fade-in" : ""} ${(popupOpen || pageOpen) ? "scale-[1.03] brightness-[0.45] saturate-75" : ""}`;
+    const baseClass = `w-full h-screen object-cover object-center transition-all duration-300 ease-out ${transitioning ? "animate-bg-fade-in" : ""} ${(popupOpen || pageOpen) ? "scale-[1.03]" : ""}`;
 
     // Use requestAnimationFrame to prevent layout thrashing
     requestAnimationFrame(() => {
@@ -256,7 +263,7 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
   }, [popupOpen, pageOpen, transitioning, currentSrc]);
 
   return (
-    <div className="absolute inset-0 -z-10 pointer-events-none overflow-hidden">
+    <div className="absolute inset-0 -z-10 pointer-events-none overflow-hidden bg-zinc-950">
       {/* Previous background container (for fade-out transition) */}
       <div ref={previousContainerRef} className="contents" />
 
@@ -269,6 +276,18 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         } : undefined}
+      />
+
+      {/* Dimming overlay - replaces expensive brightness/saturate filters with cheap alpha blending */}
+      <div
+        className={`absolute inset-0 transition-opacity duration-300 ease-out pointer-events-none ${(popupOpen || pageOpen) ? "opacity-100" : "opacity-0"}`}
+        style={{
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(0,0,0,0.6))',
+          willChange: 'opacity',
+          backfaceVisibility: 'hidden',
+          WebkitBackfaceVisibility: 'hidden',
+          transform: 'translateZ(0)',
+        }}
       />
 
       {/* Loading gradient overlay */}

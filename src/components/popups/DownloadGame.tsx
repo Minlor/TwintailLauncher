@@ -184,12 +184,12 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
     };
 
     return (
-        <div className={`relative w-[95vw] max-w-4xl h-auto max-h-[90vh] flex flex-col overflow-hidden rounded-2xl shadow-2xl border border-white/10 bg-[#0c0c0c] group/download ${isClosing ? 'animate-zoom-out' : 'animate-zoom-in'}`}>
+        <div className={`relative w-[95vw] max-w-4xl h-auto max-h-[90vh] flex flex-col overflow-hidden rounded-2xl shadow-2xl border border-white/10 bg-[#0c0c0c] group/download ${isClosing ? 'animate-zoom-out' : 'animate-zoom-in'}`} style={{ willChange: 'transform, opacity', backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' as any, transform: 'translateZ(0)' }}>
 
             {/* Hero Header */}
             <div className="relative h-48 w-full flex-shrink-0">
                 {popupBanner && (
-                    <div className="absolute inset-0">
+                    <div className="absolute inset-0 bg-zinc-900">
                         <CachedImage key={`banner-v${imageVersion}`} src={popupBanner} className="w-full h-full object-cover opacity-80" alt="Game Background" />
                         {/* Extended past bottom edge to fix WebKitGTK subpixel rendering gap */}
                         <div className="absolute top-0 left-0 right-0 -bottom-1 bg-gradient-to-b from-black/20 via-black/40 to-[#0c0c0c]" />

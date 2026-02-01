@@ -74,6 +74,25 @@ export function getPreloadedImage(url: string): HTMLImageElement | HTMLVideoElem
 }
 
 /**
+ * Register an externally loaded element into the cache.
+ * Useful for CachedImage to share its loaded elements without duplicate preloading.
+ * @param url The URL of the loaded resource
+ * @param element The loaded image or video element
+ * @param failed Whether the load failed (for retry tracking)
+ */
+export function cacheImage(url: string, element: HTMLImageElement | HTMLVideoElement, failed: boolean = false): void {
+  if (!url) return;
+  loadedUrls.add(url);
+  imageElementCache.set(url, element);
+  pendingPreloads.delete(url);
+  if (failed) {
+    failedUrls.add(url);
+  } else {
+    failedUrls.delete(url);
+  }
+}
+
+/**
  * Check if content is a video based on file extension
  */
 export function isVideoUrl(url: string): boolean {

@@ -6,7 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 import SidebarSettings from "./components/sidebar/SidebarSettings.tsx";
 import SidebarIconInstall from "./components/sidebar/SidebarIconInstall.tsx";
 import SidebarLink from "./components/sidebar/SidebarLink.tsx";
-import { preloadImages, isLinux } from "./utils/imagePreloader";
+import { preloadImages, isLinux, isImagePreloaded } from "./utils/imagePreloader";
 import AppLoadingScreen from "./components/AppLoadingScreen";
 import SidebarManifests from "./components/sidebar/SidebarManifests.tsx";
 import { determineButtonType } from "./utils/determineButtonType";
@@ -249,16 +249,18 @@ export default class App extends React.Component<any, any> {
                             </div>
                         </div>
                     )}
-                    {(this.state.openPopup != POPUPS.NONE || this.state.currentPage !== PAGES.NONE) && (
-                        <div className={`pointer-events-none absolute inset-0 animate-fadeIn ${this.state.openPopup != POPUPS.NONE ? "z-40" : "z-20"}`}>
-                            {/* Frost-like light veil */}
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.08] via-white/[0.03] to-white/[0.06]" />
-                            {/* Subtle dark vignette for depth */}
-                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.25)_70%,rgba(0,0,0,0.4)_100%)]" />
-                            {/* Light grid texture for frost feel */}
-                            <div className="absolute inset-0 backdrop-fallback-grid opacity-[0.06]" />
-                        </div>
-                    )}
+                    {/* Frost overlay - always rendered to prevent DOM insertion flash on WebKitGTK */}
+                    <div
+                        className={`pointer-events-none absolute inset-0 transition-opacity duration-200 ${(this.state.openPopup != POPUPS.NONE || this.state.currentPage !== PAGES.NONE) ? "opacity-100" : "opacity-0"} ${this.state.openPopup != POPUPS.NONE ? "z-40" : "z-20"}`}
+                        style={{ willChange: 'opacity' }}
+                    >
+                        {/* Frost-like light veil */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/[0.08] via-white/[0.03] to-white/[0.06]" />
+                        {/* Subtle dark vignette for depth */}
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.25)_70%,rgba(0,0,0,0.4)_100%)]" />
+                        {/* Light grid texture for frost feel */}
+                        <div className="absolute inset-0 backdrop-fallback-grid opacity-[0.06]" />
+                    </div>
                     {/* Top floating manifest panel (slides out from left), toggled by the sidebar chevron */}
                     <ManifestsPanel
                         openPopup={this.state.openPopup}
@@ -1097,9 +1099,14 @@ export default class App extends React.Component<any, any> {
             }));
         }
 
+        // Only show loading state if the image isn't already preloaded
+        // This prevents the brief flash of loading gradient on WebKitGTK when switching
+        // between already-cached backgrounds
+        const needsLoading = !isImagePreloaded(file);
+
         // Start loading: show gradient on the new image while it loads
         this.setState((prev: any) => ({
-            bgLoading: true,
+            bgLoading: needsLoading,
             previousBackground: prev.gameBackground || prev.previousBackground || "",
             gameBackground: file,
             transitioningBackground: prev.gameBackground !== "",

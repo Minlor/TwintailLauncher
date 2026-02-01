@@ -114,23 +114,23 @@ export default {
 					'100%': { transform: 'translateX(100%)' }
 				},
 				bgFadeIn: {
-					'0%': { opacity: '0', transform: 'scale(1.015)' },
+					'0%': { opacity: '0.01', transform: 'scale(1.015)' },
 					'100%': { opacity: '1', transform: 'scale(1)' }
 				},
 				bgFadeOut: {
 					'0%': { opacity: '1' },
-					'100%': { opacity: '0' }
+					'100%': { opacity: '0.01' }
 				},
 				zoomIn: {
-					'0%': { opacity: '0', transform: 'scale(0.95)' },
+					'0%': { opacity: '0.01', transform: 'scale(0.95)' },
 					'100%': { opacity: '1', transform: 'scale(1)' }
 				},
 				zoomOut: {
 					'0%': { opacity: '1', transform: 'scale(1)' },
-					'100%': { opacity: '0', transform: 'scale(0.95)' }
+					'100%': { opacity: '0.01', transform: 'scale(0.95)' }
 				},
 				scaleIn: {
-					'0%': { opacity: '0', transform: 'scale(0.95)' },
+					'0%': { opacity: '0.01', transform: 'scale(0.95)' },
 					'100%': { opacity: '1', transform: 'scale(1)' }
 				},
 				bounceSlow: {
@@ -138,7 +138,7 @@ export default {
 					'50%': { transform: 'translateY(-10px)' }
 				},
 				backdropIn: {
-					'0%': { opacity: '0' },
+					'0%': { opacity: '0.01' },
 					'100%': { opacity: '1' }
 				}
 			}

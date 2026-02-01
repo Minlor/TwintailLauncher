@@ -52,7 +52,7 @@ export default class SettingsInstall extends React.Component<IProps, IState> {
 
     render() {
         return (
-            <div className={`rounded-2xl w-[85vw] max-w-4xl max-h-[85vh] bg-[#0c0c0c] border border-white/10 flex flex-col p-6 overflow-hidden shadow-2xl ${this.state.isClosing ? 'animate-zoom-out' : 'animate-zoom-in'}`}>
+            <div className={`rounded-2xl w-[85vw] max-w-4xl max-h-[85vh] bg-[#0c0c0c] border border-white/10 flex flex-col p-6 overflow-hidden shadow-2xl ${this.state.isClosing ? 'animate-zoom-out' : 'animate-zoom-in'}`} style={{ willChange: 'transform, opacity', backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' as any, transform: 'translateZ(0)' }}>
                 <div className="flex flex-row items-center justify-between mb-2">
                     <h1 className="text-white font-bold text-3xl bg-gradient-to-r from-white to-cyan-200 bg-clip-text text-transparent">{this.props.installSettings.name}</h1>
                     <X className="text-white/70 hover:text-white hover:bg-white/10 rounded-lg p-3 w-12 h-12 transition-all duration-200 cursor-pointer" onClick={() => {

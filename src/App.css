@@ -241,6 +241,19 @@ textarea,
     animation-fill-mode: both;
 }
 
+/* GPU compositing hints for slide animations - improves sidebar animation on WebKitGTK */
+.animate-slideInLeft,
+.animate-slideInRight,
+.animate-slideUp,
+.animate-slideDown,
+.animate-slideUpToPosition,
+.animate-slideDownToPosition,
+.animate-fadeIn {
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
 /* GPU compositing hints for popup animations - prevents WebKitGTK flickering */
 .animate-zoom-in,
 .animate-zoom-out,
@@ -252,6 +265,8 @@ textarea,
     -webkit-backface-visibility: hidden;
     transform: translateZ(0);
     -webkit-transform: translateZ(0);
+    /* Isolate layout/paint to prevent propagation to parent elements */
+    contain: layout paint;
 }
 
 /* Sliding reveal/hide mask from left for floating panel */

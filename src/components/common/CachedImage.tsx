@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { getPreloadedImage, isImagePreloaded, isVideoUrl, preloadImage } from '../../utils/imagePreloader';
+import { getPreloadedImage, isImagePreloaded, isVideoUrl, cacheImage } from '../../utils/imagePreloader';
 
 interface CachedImageProps {
     src: string;
@@ -48,8 +48,8 @@ export function CachedImage({ src, alt = '', className = '' }: CachedImageProps)
         const preloaded = isImagePreloaded(src);
         if (!preloaded) {
             setIsReady(false);
-            // Trigger preload for faster loading
-            preloadImage(src);
+            // Don't call preloadImage here - we create our own element below
+            // and register it via cacheImage to avoid double-loading
         }
 
         // Clear previous content
@@ -95,6 +95,13 @@ export function CachedImage({ src, alt = '', className = '' }: CachedImageProps)
                 video.preload = 'auto';
                 video.onloadeddata = () => {
                     if (currentSrcRef.current === src) {
+                        cacheImage(src, video, false);
+                        setIsReady(true);
+                    }
+                };
+                video.onerror = () => {
+                    if (currentSrcRef.current === src) {
+                        cacheImage(src, video, true);
                         setIsReady(true);
                     }
                 };
@@ -110,6 +117,13 @@ export function CachedImage({ src, alt = '', className = '' }: CachedImageProps)
                 img.decoding = 'async';
                 img.onload = () => {
                     if (currentSrcRef.current === src) {
+                        cacheImage(src, img, false);
+                        setIsReady(true);
+                    }
+                };
+                img.onerror = () => {
+                    if (currentSrcRef.current === src) {
+                        cacheImage(src, img, true);
                         setIsReady(true);
                     }
                 };
