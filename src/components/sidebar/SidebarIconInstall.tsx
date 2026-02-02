@@ -74,19 +74,34 @@ export default function SidebarIconInstall({ icon, name, id, setCurrentInstall, 
                 <div
                     className="relative flex flex-col items-center"
                     style={{ width: 48, minWidth: 48 }} // Fixed width to prevent layout shifts
+                    onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        if (index !== undefined && onDragOver) {
+                            // Detect if cursor is in top or bottom half of the component
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const midY = rect.top + rect.height / 2;
+                            const isBottomHalf = e.clientY > midY;
+                            // If on bottom half, signal drop target as next index (drop below this item)
+                            onDragOver(isBottomHalf ? index + 1 : index);
+                        }
+                    }}
+                    onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (index !== undefined && onDrop) {
+                            // Use same logic as dragOver to determine actual drop target
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const midY = rect.top + rect.height / 2;
+                            const isBottomHalf = e.clientY > midY;
+                            onDrop(isBottomHalf ? index + 1 : index);
+                        }
+                    }}
                 >
                     {/* Drop indicator - animated placeholder that appears above */}
+                    {/* pointer-events-none ensures animation doesn't interfere with drag calculations */}
                     <div
-                        className={`w-12 flex items-center justify-center transition-all duration-200 ease-out overflow-hidden ${isDragTarget ? 'h-14 mb-1' : 'h-0'}`}
-                        onDragOver={(e) => {
-                            e.preventDefault();
-                            e.dataTransfer.dropEffect = 'move';
-                            if (index !== undefined && onDragOver) onDragOver(index);
-                        }}
-                        onDrop={(e) => {
-                            e.preventDefault();
-                            if (index !== undefined && onDrop) onDrop(index);
-                        }}
+                        className={`w-12 flex items-center justify-center transition-all duration-200 ease-out overflow-hidden pointer-events-none ${isDragTarget ? 'h-14 mb-1' : 'h-0'}`}
                     >
                         {isDragTarget && (
                             <div className="w-12 h-12 rounded-lg border-2 border-dashed border-purple-500/70 bg-purple-500/10 flex items-center justify-center animate-pulse">
