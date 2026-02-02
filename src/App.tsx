@@ -430,33 +430,52 @@ export default class App extends React.Component<any, any> {
                                 )}
                             </div>
                         </div>
-                        <div className="flex flex-col gap-4 flex-shrink overflow-visible scrollbar-none animate-slideInLeft mt-auto items-center" style={{ animationDelay: '900ms' }}>
-                            <div className="w-8 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent animate-slideInLeft" style={{ animationDelay: '950ms' }} />
-                            <div className="animate-slideInLeft" style={{ animationDelay: '975ms' }}>
+                        {/* Sidebar bottom icons - single container with dynamic stagger delays */}
+                        {(() => {
+                            const isAnimating = this.state.isInitialLoading || this.state.showLoadingOverlay;
+                            const baseDelay = 900; // Starting delay in ms
+                            const staggerStep = 50; // Delay increment between items
+
+                            // Build array of sidebar bottom items (conditional items included when applicable)
+                            const bottomItems: React.ReactNode[] = [
+                                // Divider
+                                <div key="divider" className="w-8 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />,
+                                // Downloads
                                 <SidebarDownloads
+                                    key="downloads"
                                     popup={this.state.openPopup}
                                     setOpenPopup={this.setOpenPopup}
                                     hasDownloads={hasDownloads}
                                     progressPercent={downloadsPercent}
                                     currentPage={this.state.currentPage}
                                     setCurrentPage={this.setCurrentPage}
-                                />
-                            </div>
-                            {(window.navigator.platform.includes("Linux")) && (
-                                <div className="animate-slideInLeft" style={{ animationDelay: '1000ms' }}>
-                                    <SidebarRunners popup={this.state.openPopup} setOpenPopup={this.setOpenPopup} currentPage={this.state.currentPage} setCurrentPage={this.setCurrentPage} />
+                                />,
+                                // Runners (Linux only)
+                                ...(window.navigator.platform.includes("Linux") ? [
+                                    <SidebarRunners key="runners" popup={this.state.openPopup} setOpenPopup={this.setOpenPopup} currentPage={this.state.currentPage} setCurrentPage={this.setCurrentPage} />
+                                ] : []),
+                                // Settings
+                                <SidebarSettings key="settings" popup={this.state.openPopup} setOpenPopup={this.setOpenPopup} currentPage={this.state.currentPage} setCurrentPage={this.setCurrentPage} />,
+                                // Discord
+                                <SidebarLink key="discord" popup={this.state.openPopup} title={"Discord"} iconType={"discord"} uri={"https://discord.gg/nDMJDwuj7s"} />,
+                                // Donate
+                                <SidebarLink key="donate" popup={this.state.openPopup} title={"Support the project"} iconType={"donate"} uri={"https://ko-fi.com/twintailteam"} />,
+                            ];
+
+                            return (
+                                <div className="flex flex-col gap-4 flex-shrink overflow-visible scrollbar-none mt-auto items-center">
+                                    {bottomItems.map((item, index) => (
+                                        <div
+                                            key={index}
+                                            className={isAnimating ? 'animate-slideInLeft-stagger' : ''}
+                                            style={isAnimating ? { '--stagger-delay': `${baseDelay + (index * staggerStep)}ms` } as React.CSSProperties : undefined}
+                                        >
+                                            {item}
+                                        </div>
+                                    ))}
                                 </div>
-                            )}
-                            <div className="animate-slideInLeft" style={{ animationDelay: '1100ms' }}>
-                                <SidebarSettings popup={this.state.openPopup} setOpenPopup={this.setOpenPopup} currentPage={this.state.currentPage} setCurrentPage={this.setCurrentPage} />
-                            </div>
-                            <div className="animate-slideInLeft" style={{ animationDelay: '1200ms' }}>
-                                <SidebarLink popup={this.state.openPopup} title={"Discord"} iconType={"discord"} uri={"https://discord.gg/nDMJDwuj7s"} />
-                            </div>
-                            <div className="animate-slideInLeft" style={{ animationDelay: '1300ms' }}>
-                                <SidebarLink popup={this.state.openPopup} title={"Support the project"} iconType={"donate"} uri={"https://ko-fi.com/twintailteam"} />
-                            </div>
-                        </div>
+                            );
+                        })()}
                     </div>
                     <GameInfoOverlay
                         displayName={this.state.displayName}

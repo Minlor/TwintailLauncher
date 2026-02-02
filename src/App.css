@@ -221,6 +221,13 @@ textarea,
     animation-fill-mode: both;
 }
 
+/* Staggered version that reads delay from CSS custom property */
+.animate-slideInLeft-stagger {
+    animation: slideInLeft 300ms ease-out;
+    animation-fill-mode: both;
+    animation-delay: var(--stagger-delay, 0ms);
+}
+
 .animate-slideInRight {
     animation: slideInRight 400ms ease-out;
     animation-fill-mode: both;
