@@ -55,7 +55,7 @@ export const ModernToggle = ({ label, description, checked, onChange, ...props }
     );
 };
 
-export const ModernInput = ({ label, description, value, onChange, onBlur, ...props }: SettingsControlProps & React.InputHTMLAttributes<HTMLInputElement>) => {
+export const ModernInput = ({ label, description, helpText, value, onChange, onBlur, ...props }: SettingsControlProps & React.InputHTMLAttributes<HTMLInputElement>) => {
     // Use local state to allow typing without immediate save
     const [localValue, setLocalValue] = React.useState(value?.toString() ?? "");
 
@@ -82,7 +82,7 @@ export const ModernInput = ({ label, description, value, onChange, onBlur, ...pr
                 <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
                         <label className="text-base font-medium text-white">{label}</label>
-                        {props.helpText && <HelpTooltip text={props.helpText} />}
+                        {helpText && <HelpTooltip text={helpText} />}
                     </div>
                     {description && <span className="text-sm text-zinc-400">{description}</span>}
                 </div>
