@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { ArrowLeft, AtomIcon, ChevronDown, DownloadCloud, FolderOpen, Trash2, Check } from "lucide-react";
+import { ArrowLeft, AtomIcon, DownloadCloud, FolderOpen, Trash2, Check, Settings, Shield, Box, Monitor } from "lucide-react";
 import { PAGES } from "./PAGES";
+import { SettingsSidebar, SettingsTab } from "../settings/ui/SettingsSidebar";
+import { SettingsSection } from "../settings/ui/SettingsComponents";
 
 interface RunnerVersion {
     version: string;
@@ -59,7 +61,7 @@ function RunnerItem({
     };
 
     return (
-        <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 transition-all duration-200 group">
+        <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/60 hover:bg-zinc-800/80 border border-white/5 hover:border-white/10 transition-all duration-200 group">
             <div className="flex items-center gap-3">
                 <div className={`w-2 h-2 rounded-full ${isInstalled ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-zinc-600'}`} />
                 <span className="text-white/90 text-sm font-medium">{version}</span>
@@ -109,105 +111,53 @@ function RunnerItem({
     );
 }
 
-function RunnerCategory({
-    name,
-    versions,
-    installedRunners,
-    fetchInstalledRunners,
-}: {
-    name: string;
-    versions: RunnerVersion[];
-    installedRunners: InstalledRunner[];
-    fetchInstalledRunners: () => void;
-}) {
-    const [isExpanded, setIsExpanded] = useState(false);
-    const installedCount = versions.filter(v =>
-        installedRunners.some(r => r.version === v.version && r.is_installed)
-    ).length;
-
-    return (
-        <div className="rounded-xl overflow-hidden border border-white/5 bg-black/20">
-            {/* Category Header */}
-            <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="w-full flex items-center justify-between px-5 py-4 hover:bg-white/5 transition-all duration-200"
-            >
-                <div className="flex items-center gap-4">
-                    <div className="p-2 rounded-lg bg-purple-500/10 border border-purple-500/20">
-                        <AtomIcon className="w-5 h-5 text-purple-400" />
-                    </div>
-                    <div className="text-left">
-                        <h3 className="text-white font-semibold">{name}</h3>
-                        <p className="text-xs text-white/50 mt-0.5">
-                            {installedCount} of {versions.length} installed
-                        </p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-3">
-                    {installedCount > 0 && (
-                        <div className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                            <span className="text-xs text-emerald-400 font-medium">{installedCount} active</span>
-                        </div>
-                    )}
-                    <ChevronDown
-                        className={`w-5 h-5 text-white/40 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
-                    />
-                </div>
-            </button>
-
-            {/* Expanded Content */}
-            <div
-                className={`overflow-hidden transition-all duration-300 ease-out ${isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}
-            >
-                <div className="px-4 pb-4 pt-1 flex flex-col gap-2">
-                    {versions.map((v) => {
-                        const isInstalled = installedRunners.some(
-                            r => r.version === v.version && r.is_installed
-                        );
-                        return (
-                            <RunnerItem
-                                key={v.version}
-                                version={v.version}
-                                isInstalled={isInstalled}
-                                onInstall={async () => {
-                                    await invoke("add_installed_runner", {
-                                        runnerUrl: v.url,
-                                        runnerVersion: v.version
-                                    });
-                                    fetchInstalledRunners();
-                                }}
-                                onRemove={async () => {
-                                    await invoke("remove_installed_runner", {
-                                        runnerVersion: v.version
-                                    });
-                                    fetchInstalledRunners();
-                                }}
-                                onOpenFolder={() => {
-                                    invoke("open_folder", {
-                                        runnerVersion: v.version,
-                                        manifestId: "",
-                                        installId: "",
-                                        pathType: "runner_global"
-                                    });
-                                }}
-                            />
-                        );
-                    })}
-                </div>
-            </div>
-        </div>
-    );
-}
-
 export default function RunnersPage({
     setCurrentPage,
     runners,
     installedRunners,
     fetchInstalledRunners,
 }: RunnersPageProps) {
+    // Generate tabs from runner manifests
+    const tabs: SettingsTab[] = useMemo(() => {
+        return runners.map((runner, index) => ({
+            id: runner.display_name.toLowerCase().replace(/\s+/g, '-'),
+            label: runner.display_name,
+            icon: AtomIcon, // We could use different icons if we had map, but Atom is good for generic runner
+            color: ["purple", "blue", "green", "orange", "pink", "yellow"][index % 6], // Cycle colors
+            // Store original name to find data easily
+            _originalName: runner.display_name
+        }));
+    }, [runners]);
+
+    const [activeTab, setActiveTab] = useState<string>("");
+
+    // Set initial tab 
+    useEffect(() => {
+        if (tabs.length > 0 && !activeTab) {
+            setActiveTab(tabs[0].id);
+        }
+    }, [tabs, activeTab]);
+
+    // Track animation class state for transitions
+    const [animClass, setAnimClass] = useState("animate-fadeIn");
+
+    const handleTabChange = (newTabId: string) => {
+        const oldIndex = tabs.findIndex(t => t.id === activeTab);
+        const newIndex = tabs.findIndex(t => t.id === newTabId);
+        const direction = newIndex > oldIndex ? "animate-slideUp" : "animate-slideDown";
+
+        setAnimClass(direction);
+        setActiveTab(newTabId);
+    };
+
     // Calculate totals
     const totalVersions = runners.reduce((sum, r) => sum + r.versions.length, 0);
     const totalInstalled = installedRunners.filter(r => r.is_installed).length;
+
+    // Find active runner data
+    const activeRunner = runners.find(r =>
+        r.display_name.toLowerCase().replace(/\s+/g, '-') === activeTab
+    );
 
     return (
         <div
@@ -215,47 +165,87 @@ export default function RunnersPage({
             style={{ willChange: 'opacity', backfaceVisibility: 'hidden', transform: 'translateZ(0)' }}
         >
             {/* Page Header */}
-            <div className="flex items-center gap-4 px-8 py-6 border-b border-white/5">
+            <div className="flex items-center gap-4 px-8 py-5 border-b border-white/5">
                 <button
                     onClick={() => setCurrentPage(PAGES.NONE)}
-                    className="p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 transition-all duration-200 hover:scale-105"
+                    className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 transition-all duration-200 hover:scale-105 hover:shadow-[0_0_12px_rgba(147,51,234,0.15)] active:scale-95"
                 >
                     <ArrowLeft className="w-5 h-5 text-white/70" />
                 </button>
                 <div className="flex items-center gap-4">
-                    <div className="p-3 bg-purple-600/20 rounded-xl border border-purple-500/30">
+                    <div className="p-3 bg-purple-500/15 rounded-xl border border-purple-500/20 shadow-[0_0_15px_rgba(147,51,234,0.2)]">
                         <AtomIcon className="w-6 h-6 text-purple-400" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-white">Runner Manager</h1>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">
+                            Runner Manager
+                        </h1>
                         <p className="text-sm text-white/50">
-                            {totalInstalled} installed of {totalVersions} available Wine/Proton versions
+                            {totalInstalled} installed / {totalVersions} available versions
                         </p>
                     </div>
                 </div>
             </div>
 
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
-                {runners.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center">
+            {/* Main Content */}
+            <div className="flex flex-1 overflow-hidden">
+                {runners.length > 0 ? (
+                    <>
+                        <SettingsSidebar tabs={tabs} activeTab={activeTab} onTabChange={handleTabChange} />
+
+                        {/* Content Area */}
+                        <div
+                            key={activeTab}
+                            className={`flex-1 overflow-y-auto p-8 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent ${animClass}`}
+                        >
+                            {activeRunner && (
+                                <SettingsSection title={`${activeRunner.display_name} Versions`}>
+                                    <div className="flex flex-col gap-2">
+                                        {activeRunner.versions.map((v) => {
+                                            const isInstalled = installedRunners.some(
+                                                r => r.version === v.version && r.is_installed
+                                            );
+                                            return (
+                                                <RunnerItem
+                                                    key={v.version}
+                                                    version={v.version}
+                                                    isInstalled={isInstalled}
+                                                    onInstall={async () => {
+                                                        await invoke("add_installed_runner", {
+                                                            runnerUrl: v.url,
+                                                            runnerVersion: v.version
+                                                        });
+                                                        fetchInstalledRunners();
+                                                    }}
+                                                    onRemove={async () => {
+                                                        await invoke("remove_installed_runner", {
+                                                            runnerVersion: v.version
+                                                        });
+                                                        fetchInstalledRunners();
+                                                    }}
+                                                    onOpenFolder={() => {
+                                                        invoke("open_folder", {
+                                                            runnerVersion: v.version,
+                                                            manifestId: "",
+                                                            installId: "",
+                                                            pathType: "runner_global"
+                                                        });
+                                                    }}
+                                                />
+                                            );
+                                        })}
+                                    </div>
+                                </SettingsSection>
+                            )}
+                        </div>
+                    </>
+                ) : (
+                    <div className="flex flex-col items-center justify-center w-full h-full text-center">
                         <AtomIcon className="w-16 h-16 text-white/20 mb-4" />
                         <h3 className="text-lg font-medium text-white/70">No runners available</h3>
                         <p className="text-sm text-white/40 mt-2">
                             Runner versions will appear here when available
                         </p>
-                    </div>
-                ) : (
-                    <div className="max-w-4xl mx-auto space-y-4">
-                        {runners.map((runner) => (
-                            <RunnerCategory
-                                key={runner.display_name}
-                                name={runner.display_name}
-                                versions={runner.versions}
-                                installedRunners={installedRunners}
-                                fetchInstalledRunners={fetchInstalledRunners}
-                            />
-                        ))}
                     </div>
                 )}
             </div>
