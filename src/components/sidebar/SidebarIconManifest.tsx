@@ -59,12 +59,6 @@ export default function SidebarIconManifest({ icon, name, id, setGameIcon, setCu
             {(enabled) ? <img ref={refs.setReference} {...getReferenceProps()} id={id} className={composedClass} srcSet={undefined} loading={"lazy"} decoding={"async"} src={icon} tabIndex={0} onClick={() => {
                 setOpenPopup(POPUPS.NONE)
                 setCurrentInstall("")
-                // Only set background if switching to a different game
-                // This prevents overriding the dynamic background with static when clicking the same game
-                const isAlreadySelected = currentGame === id;
-                if (!isAlreadySelected) {
-                    setBackground(background)
-                }
                 setCurrentGame(id)
                 setDisplayName(name)
                 setGameIcon(icon)

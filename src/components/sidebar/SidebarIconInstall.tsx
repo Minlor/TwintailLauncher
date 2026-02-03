@@ -152,12 +152,6 @@ export default function SidebarIconInstall({ icon, name, id, setCurrentInstall, 
                                 else {
                                     setOpenPopup(POPUPS.NONE)
                                     if (setCurrentPage) setCurrentPage(PAGES.NONE)
-                                    // Only set background if switching to a different install
-                                    // This prevents overriding the dynamic background with static when clicking the same game
-                                    const isAlreadySelected = installSettings?.id === id;
-                                    if (!isAlreadySelected) {
-                                        setBackground(background)
-                                    }
                                     setCurrentInstall(id)
                                     setDisplayName(name)
                                     setGameIcon(icon)

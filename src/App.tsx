@@ -1074,13 +1074,6 @@ export default class App extends React.Component<any, any> {
             }
         }
 
-        // Ensure the currently displayed background is in the list (if valid)
-        if (this.state.gameBackground && !seen.has(this.state.gameBackground)) {
-            // Determine if it's dynamic based on URL
-            const isDynamic = this.state.gameBackground.endsWith(".mp4") || this.state.gameBackground.endsWith(".webm");
-            addBg(this.state.gameBackground, isDynamic ? "Dynamic" : "Static", isDynamic);
-        }
-
         // Sort: Dynamic first
         backgrounds.sort((a, b) => (a.isDynamic === b.isDynamic ? 0 : a.isDynamic ? -1 : 1));
 
@@ -1096,11 +1089,12 @@ export default class App extends React.Component<any, any> {
                 if (preferredBg && this.state.gameBackground !== preferredBg.src) {
                     this.setBackground(preferredBg.src);
                 }
-            } else {
-                // No saved preference - default to dynamic background if available
-                const dynamicBg = backgrounds.find(b => b.isDynamic);
-                if (dynamicBg && this.state.gameBackground !== dynamicBg.src) {
-                    this.setBackground(dynamicBg.src);
+            } else if (backgrounds.length > 0) {
+                // No saved preference - use the first available background (dynamic preferred due to sorting)
+                // Always set if current background isn't in the new game's available list
+                const currentBgInList = backgrounds.some(b => b.src === this.state.gameBackground);
+                if (!currentBgInList) {
+                    this.setBackground(backgrounds[0].src);
                 }
             }
         });
