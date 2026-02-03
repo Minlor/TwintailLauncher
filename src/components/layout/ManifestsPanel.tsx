@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import SidebarIconManifest from "../sidebar/SidebarIconManifest.tsx";
 import { POPUPS } from "../popups/POPUPS.ts";
 import { isLinux } from "../../utils/imagePreloader";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface GameInfoItem {
   manifest_enabled: boolean;
@@ -61,46 +62,83 @@ const ManifestsPanel: React.FC<ManifestsPanelProps> = ({
     document.addEventListener('mousedown', handleDocMouseDown);
     return () => document.removeEventListener('mousedown', handleDocMouseDown);
   }, [manifestsOpenVisual, openPopup, manifestsPanelRef, onRequestClose]);
+
+  const variantsContainer = {
+    closed: {
+      clipPath: "inset(0 100% 0 0)",
+      opacity: 0,
+      transition: {
+        type: "spring",
+        stiffness: 400,
+        damping: 40,
+        staggerChildren: 0.05,
+        staggerDirection: -1
+      }
+    },
+    open: {
+      clipPath: "inset(0 0% 0 0)",
+      opacity: 1,
+      transition: {
+        type: "spring",
+        stiffness: 300,
+        damping: 30,
+        staggerChildren: 0.07,
+        delayChildren: 0.1
+      }
+    },
+    hidden: {
+      opacity: 0,
+      y: -10,
+      pointerEvents: "none" as const, // explicitly cast to prevent type issues
+    }
+  };
+
+  const variantsItem = {
+    closed: { opacity: 0, x: -20, scale: 0.8 },
+    open: {
+      opacity: 1,
+      x: 0,
+      scale: 1,
+      transition: { type: "spring", stiffness: 300, damping: 20 }
+    }
+  };
+
+  // Determine the animation state
+  let animationState = "closed";
+  if (openPopup === POPUPS.NONE) {
+    if (manifestsOpenVisual) {
+      animationState = "open";
+    }
+  } else {
+    // If a popup is open, we hide the panel entirely, similar to the original logic
+    animationState = "hidden";
+  }
+
   return (
     <div className="absolute top-0 left-16 right-0 z-20 pointer-events-none">
       <div className="pl-3 pt-2 pr-6">
-        <div
+        <motion.div
           ref={manifestsPanelRef}
-          className={"relative inline-flex rounded-2xl border border-white/10 bg-black/50 shadow-2xl overflow-hidden pointer-events-auto origin-left"}
-          style={{
-            clipPath: manifestsOpenVisual ? 'inset(0 0% 0 0)' : 'inset(0 100% 0 0)',
-            transition: 'clip-path 400ms ease',
-            transform: (openPopup != POPUPS.NONE) ? 'translateY(-8px)' : 'translateY(0)',
-            opacity: (openPopup != POPUPS.NONE) ? 0 : 1,
-            willChange: 'clip-path, transform, opacity'
-          }}
+          className="relative inline-flex rounded-2xl border border-white/10 bg-black/50 shadow-2xl overflow-hidden pointer-events-auto origin-left backdrop-blur-md"
+          initial="closed"
+          animate={animationState}
+          variants={variantsContainer}
         >
-          <div
-            className="flex flex-row items-center gap-2 overflow-x-auto px-3 py-2 scrollbar-none select-none"
-
-          >
+          <div className="flex flex-row items-center gap-2 overflow-x-auto px-3 py-2 scrollbar-none select-none">
             {gamesinfo.map((game, index) => {
               // Use dynamic background if available (skip on Linux), otherwise fall back to static
               // Using || handles undefined, null, and empty string cases
               let bg = (!isLinux && game.assets.game_live_background) || game.assets.game_background;
-              const opening = manifestsOpenVisual;
-              const delayMs = manifestsInitialLoading
-                ? (index * 100 + 400)
-                : (opening ? (index * 60 + 50) : ((gamesinfo.length - index - 1) * 50));
+
               return (
-                <div
+                <motion.div
                   key={`${game.biz}-v${imageVersion}`}
-                  className={manifestsInitialLoading ? 'animate-slideInLeft' : ''}
-                  style={{
-                    transition: 'transform 300ms ease, opacity 300ms ease',
-                    transform: opening ? 'translateX(0)' : 'translateX(-20px)',
-                    opacity: opening ? 1 : 0,
-                    transitionDelay: `${delayMs}ms`
-                  }}
+                  variants={variantsItem}
+                  layout
                 >
                   <SidebarIconManifest
                     variant="floating"
-                    sizeClass="w-12"
+                    sizeClass="w-12 h-12"
                     popup={openPopup}
                     icon={game.assets.game_icon}
                     background={bg}
@@ -115,14 +153,16 @@ const ManifestsPanel: React.FC<ManifestsPanelProps> = ({
                     setCurrentInstall={setCurrentInstall}
                     setGameIcon={setGameIcon}
                   />
-                </div>
+                </motion.div>
               )
             })}
           </div>
+
           {/* Edge fades to hint horizontal scroll */}
+          {/* We treat these as purely decorative; no need to animate individually, they just fade with container */}
           <div className="pointer-events-none absolute top-0 left-0 h-full w-10 bg-gradient-to-r from-black/50 to-transparent" />
           <div className="pointer-events-none absolute top-0 right-0 h-full w-12 bg-gradient-to-l from-black/50 to-transparent" />
-        </div>
+        </motion.div>
       </div>
     </div>
   );
