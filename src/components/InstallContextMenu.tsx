@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import { MonitorIcon, SettingsIcon, Trash2Icon } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
+import { motion } from "framer-motion";
 
 // Steam icon component - official Steam logo
 const SteamIcon = ({ className }: { className?: string }) => (
@@ -103,7 +104,7 @@ export default function InstallContextMenu({
                     onClose();
                 }}
             >
-                <Icon className="w-4 h-4" />
+                <Icon className="w-5 h-5 stroke-[1.5]" />
                 <span>{label}</span>
             </button>
         );
@@ -139,9 +140,13 @@ export default function InstallContextMenu({
     };
 
     return ReactDOM.createPortal(
-        <div
+        <motion.div
             ref={menuRef}
-            className="fixed z-[9999] bg-zinc-900/90 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl min-w-[200px] overflow-hidden animate-bg-fade-in ring-1 ring-white/5"
+            initial={{ opacity: 0, scale: 0.9, y: -5 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25, mass: 0.8 }}
+            className="fixed z-[9999] bg-zinc-900/95 border border-white/10 rounded-xl shadow-2xl min-w-[200px] overflow-hidden ring-1 ring-white/5 origin-top-left"
             style={{
                 left: `${position.x}px`,
                 top: `${position.y}px`
@@ -195,7 +200,7 @@ export default function InstallContextMenu({
                     </>
                 )}
             </div>
-        </div>,
+        </motion.div>,
         document.body
     );
 }
