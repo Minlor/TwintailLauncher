@@ -97,7 +97,7 @@ export default function InstallContextMenu({
 
         return (
             <button
-                className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors ${variants[variant]} text-sm font-medium`}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 transition-all duration-200 ${variants[variant]} text-sm font-medium rounded-lg mx-1 my-0.5 w-[calc(100%-8px)]`}
                 onClick={() => {
                     onClick();
                     onClose();
@@ -110,7 +110,7 @@ export default function InstallContextMenu({
     };
 
     const Separator = () => (
-        <div className="h-px bg-white/10 my-1" />
+        <div className="h-px bg-white/5 my-1 mx-2" />
     );
 
     const handleOpenSettings = () => {
@@ -141,7 +141,7 @@ export default function InstallContextMenu({
     return ReactDOM.createPortal(
         <div
             ref={menuRef}
-            className="fixed z-[9999] bg-zinc-900/98 border border-white/20 rounded-lg shadow-2xl min-w-[200px] overflow-hidden animate-bg-fade-in"
+            className="fixed z-[9999] bg-zinc-900/90 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl min-w-[200px] overflow-hidden animate-bg-fade-in ring-1 ring-white/5"
             style={{
                 left: `${position.x}px`,
                 top: `${position.y}px`
