@@ -331,7 +331,7 @@ export default class App extends React.Component<any, any> {
                             }}>
                                 {/* Manifests moved to the top bar */}
                             </div>
-                            <div className={`w-8 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent transition-all duration-500 ${this.state.manifestsClosing ? 'animate-slideUpToPosition' : ''}`} style={{
+                            <div className={`w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent transition-all duration-500 ${this.state.manifestsClosing ? 'animate-slideUpToPosition' : ''}`} style={{
                                 animationDelay: this.state.manifestsClosing ? "100ms" : "0ms",
                                 '--target-y': this.state.manifestsClosing ? `-${(this.state.gamesinfo.length * 56) + 12}px` : '0px'
                             } as React.CSSProperties} />
@@ -439,7 +439,7 @@ export default class App extends React.Component<any, any> {
                             // Build array of sidebar bottom items (conditional items included when applicable)
                             const bottomItems: React.ReactNode[] = [
                                 // Divider
-                                <div key="divider" className="w-8 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />,
+                                <div key="divider" className="w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />,
                                 // Downloads
                                 <SidebarDownloads
                                     key="downloads"
