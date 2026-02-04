@@ -701,6 +701,13 @@ export default class App extends React.Component<any, any> {
             this.updateAvailableBackgrounds();
         }
 
+        // Update available backgrounds when switching from install view to manifest view
+        // This handles the case where user clicks on a manifest for a game they have installed
+        // (e.g., to see install options) - the install's bg preference shouldn't persist
+        if (!this.state.currentInstall && prevState.currentInstall && this.state.currentGame) {
+            this.updateAvailableBackgrounds(true); // Force reset to default bg
+        }
+
         // Update available backgrounds when gamesinfo updates (handles late-loading dynamic backgrounds)
         // This ensures dynamic backgrounds show up even if data wasn't ready when user first clicked a game
         if (this.state.gamesinfo !== prevState.gamesinfo && this.state.gamesinfo.length > 0 && (this.state.currentGame || this.state.currentInstall)) {
@@ -1015,7 +1022,8 @@ export default class App extends React.Component<any, any> {
     }
 
     // Update available backgrounds for the current game/install
-    updateAvailableBackgrounds() {
+    // forceReset: If true, always reset to default background (used when switching from install to manifest view)
+    updateAvailableBackgrounds(forceReset: boolean = false) {
         const backgrounds: { src: string; label: string; isDynamic: boolean }[] = [];
         const seen = new Set<string>();
 
@@ -1083,17 +1091,17 @@ export default class App extends React.Component<any, any> {
                 ? this.state.installs.find((i: any) => i.id === this.state.currentInstall)
                 : null;
 
-            if (install?.preferred_background) {
+            if (install?.preferred_background && !forceReset) {
                 // User has a saved preference - use it if it's in the available list
                 const preferredBg = backgrounds.find(b => b.src === install.preferred_background);
                 if (preferredBg && this.state.gameBackground !== preferredBg.src) {
                     this.setBackground(preferredBg.src);
                 }
             } else if (backgrounds.length > 0) {
-                // No saved preference - use the first available background (dynamic preferred due to sorting)
-                // Always set if current background isn't in the new game's available list
+                // No saved preference (or forceReset) - use the first available background (dynamic preferred due to sorting)
+                // Always set if current background isn't in the new game's available list, or if forceReset is true
                 const currentBgInList = backgrounds.some(b => b.src === this.state.gameBackground);
-                if (!currentBgInList) {
+                if (forceReset || !currentBgInList) {
                     this.setBackground(backgrounds[0].src);
                 }
             }
