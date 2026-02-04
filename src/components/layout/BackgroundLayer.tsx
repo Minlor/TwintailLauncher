@@ -141,7 +141,7 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
       return;
     }
 
-    const baseClass = `w-full h-screen object-cover object-center transition-transform duration-300 ease-out will-change-transform`;
+    const baseClass = `w-full h-screen object-cover object-center absolute inset-0 transition-transform duration-300 ease-out will-change-transform`;
 
     // Ensure preloaded before creating element
     const createAndAppend = (srcAtCallTime: string) => {
@@ -159,29 +159,135 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
           onMainLoad?.();
         });
 
-        // Clear old element AFTER new one is created, right before appending
-        container.innerHTML = "";
-        container.appendChild(element);
-        currentElementRef.current = element;
+        // For videos, we need to wait until the first frame is ready before showing
+        // to prevent the black flash during transition
+        element.style.opacity = "0";
         element.id = "app-bg";
 
-        // Reset and play
+        // Store reference to old element to remove after new video is ready
+        const oldElement = currentElementRef.current;
+
+        // Append new video (hidden) alongside old one temporarily
+        container.appendChild(element);
+        currentElementRef.current = element;
+
+        // Function to reveal the video once it's ready
+        const revealVideo = () => {
+          // Guard: ensure source hasn't changed and this is still the current element
+          if (currentSrcRef.current !== srcAtCallTime || currentElementRef.current !== element) {
+            element.remove();
+            return;
+          }
+
+          // Make the new video visible with smooth fade-in
+          // Remove the hidden state and apply fresh animation class
+          element.style.opacity = "";
+          // Force reflow to ensure animation restarts cleanly
+          void element.offsetWidth;
+          // Apply the fade-in animation class fresh (remove first to restart if already applied)
+          element.classList.remove("animate-bg-fade-in");
+          element.classList.add("animate-bg-fade-in");
+
+          // Start playback
+          try {
+            element.play().catch(() => { });
+          } catch { /* ignore */ }
+
+          // Remove old element AFTER a short delay to allow crossfade
+          // This ensures smooth video-to-video transitions
+          if (oldElement && oldElement.parentNode) {
+            setTimeout(() => {
+              if (oldElement.parentNode) {
+                oldElement.remove();
+              }
+            }, 350); // Slightly longer than the 300ms fade animation
+          }
+        };
+
+        // Wait for video to have enough data to show first frame
+        // readyState 3 = HAVE_FUTURE_DATA, 4 = HAVE_ENOUGH_DATA
+        const checkAndReveal = () => {
+          if (element.readyState >= 3) {
+            revealVideo();
+          } else {
+            // Listen for canplay event (fires when readyState >= 3)
+            element.addEventListener("canplay", revealVideo, { once: true });
+            // Also set a fallback timeout in case video loading is slow
+            // This ensures we don't wait forever
+            setTimeout(() => {
+              if (element.style.opacity === "0" && currentElementRef.current === element) {
+                revealVideo();
+              }
+            }, 500);
+          }
+        };
+
+        // Reset and load the video
         try {
           element.pause();
           try { element.currentTime = 0; } catch { /* ignore */ }
           element.load();
-          element.play().catch(() => { });
-        } catch { /* ignore */ }
+          checkAndReveal();
+        } catch {
+          // If anything fails, just reveal immediately
+          revealVideo();
+        }
       } else {
+        // Store reference to old element for crossfade
+        const oldElement = currentElementRef.current;
+
         element = createImageElement(srcAtCallTime, baseClass, () => {
           onMainLoad?.();
         });
 
-        // Clear old element AFTER new one is created, right before appending
-        container.innerHTML = "";
-        container.appendChild(element);
-        currentElementRef.current = element;
         element.id = "app-bg";
+
+        // For smooth crossfade (especially dynamic-to-static), keep old element during fade
+        // Start hidden, reveal with animation once loaded
+        const revealImage = () => {
+          // Guard: ensure source hasn't changed
+          if (currentSrcRef.current !== srcAtCallTime || currentElementRef.current !== element) {
+            element.remove();
+            return;
+          }
+
+          // Apply fade-in animation
+          element.style.opacity = "";
+          void element.offsetWidth;
+          element.classList.remove("animate-bg-fade-in");
+          element.classList.add("animate-bg-fade-in");
+
+          // Remove old element after crossfade completes
+          if (oldElement && oldElement.parentNode) {
+            setTimeout(() => {
+              if (oldElement.parentNode) {
+                oldElement.remove();
+              }
+            }, 350);
+          }
+        };
+
+        // If image is already loaded (from preload cache), reveal immediately
+        // Otherwise wait for load event
+        if (element.complete && element.naturalHeight !== 0) {
+          element.style.opacity = "0";
+          container.appendChild(element);
+          currentElementRef.current = element;
+          // Use microtask to ensure DOM is updated before revealing
+          queueMicrotask(revealImage);
+        } else {
+          element.style.opacity = "0";
+          container.appendChild(element);
+          currentElementRef.current = element;
+
+          element.onload = revealImage;
+          // Fallback timeout
+          setTimeout(() => {
+            if (element.style.opacity === "0" && currentElementRef.current === element) {
+              revealImage();
+            }
+          }, 500);
+        }
       }
     };
 
@@ -254,7 +360,7 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
 
     // Use transition-transform only (not transition-all) to prevent flash during scale change on WebKitGTK
     // Keep will-change-transform for GPU layer permanence
-    const baseClass = `w-full h-screen object-cover object-center transition-transform duration-300 ease-out will-change-transform ${transitioning ? "animate-bg-fade-in" : ""} ${(popupOpen || pageOpen) ? "scale-[1.03]" : ""}`;
+    const baseClass = `w-full h-screen object-cover object-center absolute inset-0 transition-transform duration-300 ease-out will-change-transform ${transitioning ? "animate-bg-fade-in" : ""} ${(popupOpen || pageOpen) ? "scale-[1.03]" : ""}`;
 
     // Apply immediately without RAF delay to prevent black flash on WebKitGTK
     el.className = baseClass;
