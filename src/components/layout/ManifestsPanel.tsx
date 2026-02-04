@@ -69,9 +69,9 @@ const ManifestsPanel: React.FC<ManifestsPanelProps> = ({
       opacity: 0,
       transition: {
         type: "spring",
-        stiffness: 400,
+        stiffness: 500,
         damping: 40,
-        staggerChildren: 0.05,
+        staggerChildren: 0.02,
         staggerDirection: -1
       }
     },
@@ -80,10 +80,10 @@ const ManifestsPanel: React.FC<ManifestsPanelProps> = ({
       opacity: 1,
       transition: {
         type: "spring",
-        stiffness: 300,
-        damping: 30,
-        staggerChildren: 0.07,
-        delayChildren: 0.1
+        stiffness: 450,
+        damping: 35,
+        staggerChildren: 0.04,
+        delayChildren: 0
       }
     },
     hidden: {
@@ -99,7 +99,7 @@ const ManifestsPanel: React.FC<ManifestsPanelProps> = ({
       opacity: 1,
       x: 0,
       scale: 1,
-      transition: { type: "spring", stiffness: 300, damping: 20 }
+      transition: { type: "spring", stiffness: 450, damping: 25 }
     }
   };
 
