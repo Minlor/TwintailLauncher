@@ -253,6 +253,7 @@ pub fn start_download_queue_worker(
             while let Ok((job_id, outcome)) = done_rx.try_recv() {
                 if let Some(mut view) = active.remove(&job_id) {
                     let removed_job = active_jobs.remove(&job_id);
+                    let install_id = view.install_id.clone();
 
                     match outcome {
                         QueueJobOutcome::Completed => {
@@ -282,7 +283,6 @@ pub fn start_download_queue_worker(
                                 // Normal pause - move to paused_jobs for later resume
                                 paused = true;
                                 view.status = QueueJobStatus::Paused;
-                                let install_id = view.install_id.clone();
                                 // Clear the "pausing" state since we're now fully paused
                                 pausing_installs.remove(&install_id);
                                 paused_jobs.insert(install_id.clone(), view);
@@ -405,10 +405,13 @@ pub fn start_download_queue_worker(
                     }
                     QueueCommand::RemoveByInstallId(install_id, reply) => {
                         let mut removed_any = false;
+                        let mut removed_job_ids = Vec::new();
+
                         // Remove all queued jobs matching this install_id
                         let mut i = 0;
                         while i < queued.len() {
                             if queued[i].payload.get_id() == install_id {
+                                removed_job_ids.push(queued[i].id.clone());
                                 queued.remove(i);
                                 queued_views.remove(i);
                                 removed_any = true;
@@ -416,7 +419,44 @@ pub fn start_download_queue_worker(
                                 i += 1;
                             }
                         }
+
+                        // Also remove from paused jobs
+                        if let Some(view) = paused_jobs.remove(&install_id) {
+                            removed_job_ids.push(view.id);
+                            paused_jobs_data.remove(&install_id);
+                            removed_any = true;
+                        }
+
+                        // Also remove from completed history
+                        let mut j = 0;
+                        while j < completed_views.len() {
+                            if completed_views[j].install_id == install_id {
+                                removed_job_ids.push(completed_views[j].id.clone());
+                                completed_views.remove(j);
+                                removed_any = true;
+                            } else {
+                                j += 1;
+                            }
+                        }
+
+                        // Remove from active immediately
+                        let mut active_to_remove = Vec::new();
+                        for (jid, v) in active.iter() {
+                            if v.install_id == install_id {
+                                active_to_remove.push(jid.clone());
+                            }
+                        }
+                        for jid in active_to_remove {
+                            active.remove(&jid);
+                            active_jobs.remove(&jid);
+                            removed_job_ids.push(jid);
+                            removed_any = true;
+                        }
+
                         if removed_any {
+                            for jid in removed_job_ids {
+                                let _ = app.emit("download_removed", jid);
+                            }
                             emit_queue_state(&app, max_concurrent, paused, auto_paused, &active, &queued_views, &completed_views, &paused_jobs, &pausing_installs);
                         }
                         let _ = reply.send(removed_any);

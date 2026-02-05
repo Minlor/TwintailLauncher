@@ -46,6 +46,7 @@ export function registerEvents(
       };
     }
     case 'move_complete':
+    case 'download_removed':
     case 'download_complete':
     case 'update_complete':
     case 'repair_complete':
