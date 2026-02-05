@@ -262,10 +262,10 @@ pub fn run_game_update(
                         false
                     };
                     if has_space {
-                        let is_preload = Path::new(&install.directory)
-                            .join("patching")
-                            .join(".preload")
-                            .exists();
+                        let patching_marker = Path::new(&install.directory).join("patching");
+                        let is_preload = patching_marker.join(".preload").exists();
+                        // Create patching marker if not exists (for resume detection)
+                        if !patching_marker.exists() { fs::create_dir_all(&patching_marker).unwrap_or_default(); }
                         #[cfg(target_os = "linux")]
                         let hpatchz = h5.path().app_data_dir().unwrap().join("hpatchz");
                         #[cfg(target_os = "windows")]
@@ -304,11 +304,8 @@ pub fn run_game_update(
                                 .await
                             });
                         });
-                        // We finished the loop emit complete
-                        if is_preload {
-                            let p = Path::new(&install.directory).join("patching");
-                            fs::remove_dir_all(p).unwrap();
-                        }
+                        // We finished the loop emit complete - remove patching marker
+                        if patching_marker.exists() { fs::remove_dir_all(&patching_marker).unwrap_or_default(); }
                         h5.emit("update_complete", ()).unwrap();
                         prevent_exit(&h5, false);
                         send_notification(
@@ -432,10 +429,10 @@ pub fn run_game_update(
                     };
                     if has_space {
                         let manifest = urls.get(0).unwrap();
-                        let is_preload = Path::new(&install.directory)
-                            .join("patching")
-                            .join(".preload")
-                            .exists();
+                        let patching_marker = Path::new(&install.directory).join("patching");
+                        let is_preload = patching_marker.join(".preload").exists();
+                        // Create patching marker if not exists (for resume detection)
+                        if !patching_marker.exists() { fs::create_dir_all(&patching_marker).unwrap_or_default(); }
                         let rslt = run_async_command(async {
                             <Game as Kuro>::patch(
                                 manifest.file_url.to_owned(),
@@ -465,46 +462,17 @@ pub fn run_game_update(
                             .await
                         });
                         if rslt {
+                            // Remove patching marker on success
+                            if patching_marker.exists() { fs::remove_dir_all(&patching_marker).unwrap_or_default(); }
                             h5.emit("update_complete", ()).unwrap();
                             prevent_exit(&h5, false);
-                            send_notification(
-                                &h5,
-                                format!("Updating {inn} complete.", inn = install.name).as_str(),
-                                None,
-                            );
-                            update_install_after_update_by_id(
-                                &h5,
-                                install.id,
-                                picked.metadata.versioned_name.clone(),
-                                picked.assets.game_icon.clone(),
-                                picked.assets.game_background.clone(),
-                                picked.metadata.version.clone(),
-                            );
+                            send_notification(&h5, format!("Updating {inn} complete.", inn = install.name).as_str(), None);
+                            update_install_after_update_by_id(&h5, install.id, picked.metadata.versioned_name.clone(), picked.assets.game_icon.clone(), picked.assets.game_background.clone(), picked.metadata.version.clone());
                             #[cfg(target_os = "linux")]
-                            crate::utils::apply_patch(
-                                &h5,
-                                Path::new(&install.directory.clone())
-                                    .to_str()
-                                    .unwrap()
-                                    .to_string(),
-                                "aki".to_string(),
-                                "add".to_string(),
-                            );
+                            crate::utils::apply_patch(&h5, Path::new(&install.directory.clone()).to_str().unwrap().to_string(), "aki".to_string(), "add".to_string());
                         } else {
-                            show_dialog(
-                                &h5,
-                                "warning",
-                                "TwintailLauncher",
-                                &format!(
-                                    "Error occurred while trying to update {}\nPlease try again!",
-                                    install.name
-                                ),
-                                Some(vec!["Ok"]),
-                            );
-                            let dir = Path::new(&install.directory).join("patching");
-                            if dir.exists() {
-                                fs::remove_dir_all(dir).unwrap_or_default();
-                            }
+                            // Show error dialog - keep marker so user can resume
+                            show_dialog(&h5, "warning", "TwintailLauncher", &format!("Error occurred while trying to update {}\nPlease try again!", install.name), Some(vec!["Ok"]));
                             prevent_exit(&h5, false);
                             h5.emit("update_complete", ()).unwrap();
                         }

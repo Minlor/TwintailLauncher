@@ -255,6 +255,11 @@ pub fn run_game_download(
             }
             // HoYoverse sophon chunk mode
             "DOWNLOAD_MODE_CHUNK" => {
+                let install_dir = Path::new(&install.directory);
+                let downloading_marker = install_dir.join("downloading");
+                if !install_dir.exists() { std::fs::create_dir_all(install_dir).unwrap_or_default(); }
+                if !downloading_marker.exists() { std::fs::create_dir(&downloading_marker).unwrap_or_default(); }
+
                 let biz = if payload.biz.is_empty() {
                     gm.biz.clone()
                 } else {
@@ -340,24 +345,21 @@ pub fn run_game_download(
                     cumulative_install.fetch_add(e.decompressed_size.parse::<u64>().unwrap_or(0), std::sync::atomic::Ordering::SeqCst);
                 }
                 if ok {
+                    if downloading_marker.exists() { std::fs::remove_dir(&downloading_marker).unwrap_or_default(); }
                     h4.emit("download_complete", ()).unwrap();
                     prevent_exit(&h4, false);
-                    send_notification(
-                        &h4,
-                        format!("Download of {inn} complete.", inn = inna.to_string()).as_str(),
-                        None,
-                    );
+                    send_notification(&h4, format!("Download of {inn} complete.", inn = inna.to_string()).as_str(), None);
                     success = true;
                 }
             }
             // KuroGame only
             "DOWNLOAD_MODE_RAW" => {
-                let urls = picked
-                    .game
-                    .full
-                    .iter()
-                    .map(|v| v.file_url.clone())
-                    .collect::<Vec<String>>();
+                let install_dir = Path::new(&install.directory);
+                let downloading_marker = install_dir.join("downloading");
+                if !install_dir.exists() { std::fs::create_dir_all(install_dir).unwrap_or_default(); }
+                if !downloading_marker.exists() { std::fs::create_dir(&downloading_marker).unwrap_or_default(); }
+
+                let urls = picked.game.full.iter().map(|v| v.file_url.clone()).collect::<Vec<String>>();
                 let manifest = urls.get(0).unwrap();
                 let cancel_token = cancel_token.clone();
                 let rslt = run_async_command(async {
@@ -388,40 +390,16 @@ pub fn run_game_download(
                     .await
                 });
                 if rslt {
+                    if downloading_marker.exists() { std::fs::remove_dir(&downloading_marker).unwrap_or_default(); }
                     h4.emit("download_complete", ()).unwrap();
                     prevent_exit(&h4, false);
-                    send_notification(
-                        &h4,
-                        format!("Download of {inn} complete.", inn = inna.to_string()).as_str(),
-                        None,
-                    );
+                    send_notification(&h4, format!("Download of {inn} complete.", inn = inna.to_string()).as_str(), None);
                     success = true;
                     #[cfg(target_os = "linux")]
-                    crate::utils::apply_patch(
-                        &h4,
-                        Path::new(&install.directory.clone())
-                            .to_str()
-                            .unwrap()
-                            .to_string(),
-                        "aki".to_string(),
-                        "add".to_string(),
-                    );
+                    crate::utils::apply_patch(&h4, Path::new(&install.directory.clone()).to_str().unwrap().to_string(), "aki".to_string(), "add".to_string());
                 } else {
-                    // Show error dialog using React dialog system
-                    show_dialog(
-                        &h4,
-                        "warning",
-                        "TwintailLauncher",
-                        &format!(
-                            "Error occurred while trying to download {}\nPlease try again!",
-                            install.name
-                        ),
-                        Some(vec!["Ok"]),
-                    );
-                    let dir = Path::new(&install.directory).join("downloading");
-                    if dir.exists() {
-                        std::fs::remove_dir_all(dir).unwrap_or_default();
-                    }
+                    // Show error dialog - keep marker so user can resume
+                    show_dialog(&h4, "warning", "TwintailLauncher", &format!("Error occurred while trying to download {}\nPlease try again!", install.name), Some(vec!["Ok"]));
                     prevent_exit(&h4, false);
                     h4.emit("download_complete", ()).unwrap();
                 }
