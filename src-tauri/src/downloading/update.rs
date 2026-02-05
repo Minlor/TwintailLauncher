@@ -443,17 +443,18 @@ pub fn run_game_update(
                                 {
                                     let dlpayload = dlpayload.clone();
                                     let job_id = job_id.clone();
-                                    move |current: u64,
-                                          total: u64,
-                                          net_speed: u64,
-                                          disk_speed: u64| {
+                                    move |download_current: u64, download_total: u64, install_current: u64, install_total: u64, net_speed: u64, disk_speed: u64, phase: u8| {
                                         let mut dlp = dlpayload.lock().unwrap();
                                         dlp.insert("job_id", job_id.to_string());
                                         dlp.insert("name", instn.to_string());
-                                        dlp.insert("progress", current.to_string());
-                                        dlp.insert("total", total.to_string());
+                                        dlp.insert("progress", download_current.to_string());
+                                        dlp.insert("total", download_total.to_string());
                                         dlp.insert("speed", net_speed.to_string());
                                         dlp.insert("disk", disk_speed.to_string());
+                                        dlp.insert("install_progress", install_current.to_string());
+                                        dlp.insert("install_total", install_total.to_string());
+                                        // Phase: 0=idle, 1=verifying, 2=downloading, 3=installing, 4=validating, 5=moving
+                                        dlp.insert("phase", phase.to_string());
                                         tmp.emit("update_progress", dlp.clone()).unwrap();
                                         drop(dlp);
                                     }
