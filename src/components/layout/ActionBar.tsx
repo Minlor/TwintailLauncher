@@ -1,6 +1,6 @@
 
 import { emit } from "@tauri-apps/api/event";
-import { DownloadIcon, Settings } from "lucide-react";
+import { CircleFadingArrowUp, Settings } from "lucide-react";
 import TooltipIcon from "../common/TooltipIcon";
 import GameButton from "../GameButton";
 
@@ -53,8 +53,17 @@ export default function ActionBar(props: ActionBarProps) {
     >
       {currentInstall !== "" && preloadAvailable ? (
         <button
-          className="p-2.5 rounded-full bg-purple-500/70 hover:bg-purple-500/80 border border-white/20 shadow-lg shadow-purple-900/20 disabled:cursor-not-allowed disabled:brightness-75 disabled:saturate-100 disabled:hover:bg-purple-500/70 transition-colors"
-          disabled={disablePreload}
+          className={`p-2.5 rounded-full border border-white/20 shadow-lg disabled:cursor-not-allowed disabled:brightness-75 disabled:saturate-100 transition-colors focus:outline-none
+            ${buttonType === "pause"
+              ? "bg-yellow-600 hover:bg-yellow-700 shadow-yellow-900/20 focus:ring-2 focus:ring-yellow-400/60"
+              : buttonType === "update"
+                ? "bg-green-600 hover:bg-green-700 shadow-green-900/20 focus:ring-2 focus:ring-green-400/60"
+                : buttonType === "resume"
+                  ? "bg-amber-600 hover:bg-amber-700 shadow-amber-900/20 focus:ring-2 focus:ring-amber-400/60"
+                  : buttonType === "queued"
+                    ? "bg-gray-600 hover:bg-gray-700 shadow-gray-900/20 focus:ring-2 focus:ring-gray-400/60"
+                    : "bg-purple-600 hover:bg-purple-700 shadow-purple-900/20 focus:ring-2 focus:ring-purple-400/60"}`}
+          disabled={disablePreload || buttonType === "queued" || buttonType === "pause"}
           onClick={() => {
             emit("start_game_preload", {
               install: currentInstall,
@@ -68,20 +77,22 @@ export default function ActionBar(props: ActionBarProps) {
             side={"top"}
             text={"Predownload update"}
             icon={
-              <DownloadIcon className="w-8 h-8 text-white/90" />
+              <CircleFadingArrowUp className="w-8 h-8 text-white/90" />
             }
           />
         </button>
       ) : null}
       {currentInstall !== "" ? (
         <button id={`install_settings_btn`} className={`p-2.5 rounded-full shadow-lg disabled:cursor-not-allowed disabled:brightness-75 disabled:saturate-100 transition-colors focus:outline-none 
-              ${buttonType === "update"
-            ? "bg-green-600 hover:bg-green-700 border border-white/20 shadow-green-900/20 focus:ring-2 focus:ring-green-400/60"
-            : buttonType === "resume"
-              ? "bg-amber-600 hover:bg-amber-700 border border-white/20 shadow-amber-900/20 focus:ring-2 focus:ring-amber-400/60"
-              : buttonType === "queued"
-                ? "bg-gray-600 hover:bg-gray-700 border border-white/20 shadow-gray-900/20 focus:ring-2 focus:ring-gray-400/60"
-                : "bg-purple-600 hover:bg-purple-700 border border-white/20 shadow-purple-900/20 focus:ring-2 focus:ring-purple-400/60"}
+              ${buttonType === "pause"
+            ? "bg-yellow-600 hover:bg-yellow-700 border border-white/20 shadow-yellow-900/20 focus:ring-2 focus:ring-yellow-400/60"
+            : buttonType === "update"
+              ? "bg-green-600 hover:bg-green-700 border border-white/20 shadow-green-900/20 focus:ring-2 focus:ring-green-400/60"
+              : buttonType === "resume"
+                ? "bg-amber-600 hover:bg-amber-700 border border-white/20 shadow-amber-900/20 focus:ring-2 focus:ring-amber-400/60"
+                : buttonType === "queued"
+                  ? "bg-gray-600 hover:bg-gray-700 border border-white/20 shadow-gray-900/20 focus:ring-2 focus:ring-gray-400/60"
+                  : "bg-purple-600 hover:bg-purple-700 border border-white/20 shadow-purple-900/20 focus:ring-2 focus:ring-purple-400/60"}
             `} disabled={disableInstallEdit} onClick={() => onOpenInstallSettings()}>
           <TooltipIcon side={"top"} text={"Install settings"} icon={<Settings className="w-8 h-8 text-white" />} />
         </button>

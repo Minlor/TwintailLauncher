@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { DownloadIcon, HardDriveDownloadIcon, RefreshCcwIcon, Rocket, PauseIcon, Clock } from "lucide-react";
+import { DownloadIcon, HardDriveDownloadIcon, RefreshCcwIcon, Play, PauseIcon, Clock, FolderOpen } from "lucide-react";
 import { emit } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -130,20 +130,20 @@ export default function GameButton({ currentInstall, globalSettings, buttonType,
 
     const getLaunchLabel = (): string => {
         switch (gameStatus) {
-            case "launching": return "Launching...";
-            case "running": return "Running";
-            default: return "Play!";
+            case "launching": return "LAUNCHING...";
+            case "running": return "RUNNING";
+            default: return "PLAY";
         }
     };
 
     const label = buttonType === "launch" ? getLaunchLabel()
-        : buttonType === "download" ? "Download"
-            : buttonType === "update" ? "Update"
-                : buttonType === "pause" ? (isPausing ? "Pausing..." : "Pause")
-                    : buttonType === "queued" ? "Queued"
-                        : "Resume";
+        : buttonType === "download" ? "INSTALL"
+            : buttonType === "update" ? "UPDATE"
+                : buttonType === "pause" ? (isPausing ? "PAUSING..." : "PAUSE")
+                    : buttonType === "queued" ? "QUEUED"
+                        : "RESUME";
 
-    const Icon = buttonType === "launch" ? Rocket
+    const Icon = buttonType === "launch" ? Play
         : buttonType === "download" ? HardDriveDownloadIcon
             : buttonType === "update" ? DownloadIcon
                 : buttonType === "pause" ? PauseIcon
@@ -210,24 +210,39 @@ export default function GameButton({ currentInstall, globalSettings, buttonType,
         }
     };
 
+    // Determine if shimmer should show (only for primary action buttons)
+    const showShimmer = buttonType === "launch" || buttonType === "download" || buttonType === "update";
+
+    // Determine icon fill (play and pause are filled)
+    const iconFill = (buttonType === "launch" || buttonType === "pause") ? "currentColor" : "none";
+
     return (
         <div className="flex flex-col items-center gap-1">
             <button
                 id={theme.id}
                 disabled={disabled}
                 onClick={handleClick}
-                className={`flex flex-row gap-3 items-center justify-center w-56 md:w-64 py-3 px-7 md:px-8 rounded-full text-white border ${theme.border} disabled:cursor-not-allowed disabled:brightness-75 disabled:saturate-100 focus:outline-none focus:ring-2 ${theme.bg} ${theme.ring} shadow-lg ${theme.shadow} transition-[background-color,box-shadow,transform] duration-300 ease-out`}
+                className={`relative overflow-hidden flex flex-row gap-3 items-center justify-center w-56 md:w-64 py-3 px-7 md:px-8 rounded-full text-white border ${theme.border} disabled:cursor-not-allowed disabled:brightness-75 disabled:saturate-100 focus:outline-none focus:ring-2 ${theme.bg} ${theme.ring} shadow-lg ${theme.shadow} transition-[background-color,box-shadow,transform] duration-300 ease-out`}
             >
-                <Icon className="w-5 h-5 md:w-6 md:h-6 text-white/90" />
-                <span className="font-semibold translate-y-px text-base md:text-lg text-white">{label}</span>
+                {/* Shimmer effect overlay - only for primary buttons */}
+                {showShimmer && (
+                    <span
+                        className="pointer-events-none absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                        aria-hidden="true"
+                    />
+                )}
+                <Icon className="w-5 h-5 md:w-6 md:h-6 text-white/90 ml-1" fill={iconFill}/>
+                <span className="font-semibold text-lg md:text-xl text-white tracking-wide">{label}</span>
             </button>
             {buttonType === "download" && (
                 <button
                     type="button"
-                    className="w-56 md:w-64 text-center text-sm text-blue-300 cursor-pointer tw-text-shadow-custom-link-wide whitespace-nowrap"
+                    className="group flex items-center justify-center gap-1.5 px-4 py-1 rounded-full bg-black/40 hover:bg-black/50 text-center text-xs text-white/90 hover:text-white cursor-pointer whitespace-nowrap transition-all duration-200"
+                    style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}
                     onClick={() => refreshDownloadButtonInfo(true)}
                 >
-                    Already installed? Use existing installation
+                    <FolderOpen className="w-3.5 h-3.5" />
+                    <span className="uppercase tracking-wider group-hover:underline underline-offset-2">Use existing install</span>
                 </button>
             )}
         </div>
