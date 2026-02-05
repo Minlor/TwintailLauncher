@@ -278,10 +278,18 @@ pub fn run_game_download(
                 } else {
                     picked.game.full.clone()
                 };
+                // Pre-calculate combined totals across all manifest files
+                let combined_download_total: u64 = urls.iter().map(|e| e.compressed_size.parse::<u64>().unwrap_or(0)).sum();
+                let combined_install_total: u64 = urls.iter().map(|e| e.decompressed_size.parse::<u64>().unwrap_or(0)).sum();
+                // Track cumulative progress from completed manifests
+                let cumulative_download = Arc::new(std::sync::atomic::AtomicU64::new(0));
+                let cumulative_install = Arc::new(std::sync::atomic::AtomicU64::new(0));
                 let mut ok = true;
                 for e in urls.clone() {
                     let h4 = h4.clone();
                     let cancel_token = cancel_token.clone();
+                    let cumulative_download = cumulative_download.clone();
+                    let cumulative_install = cumulative_install.clone();
                     let rslt = run_async_command(async {
                         <Game as Sophon>::download(
                             e.file_url.clone(),
@@ -291,24 +299,23 @@ pub fn run_game_download(
                                 let dlpayload = dlpayload.clone();
                                 let instn = instn.clone();
                                 let job_id = job_id.clone();
-                                move |download_current,
-                                      download_total,
-                                      install_current,
-                                      install_total,
-                                      net_speed,
-                                      disk_speed,
-                                      phase| {
+                                let cumulative_download = cumulative_download.clone();
+                                let cumulative_install = cumulative_install.clone();
+                                move |download_current, _download_total, install_current, _install_total, net_speed, disk_speed, phase| {
                                     let mut dlp = dlpayload.lock().unwrap();
                                     let instn = instn.to_string();
+                                    // Add cumulative progress from previous manifests to current progress
+                                    let total_download_progress = cumulative_download.load(std::sync::atomic::Ordering::SeqCst) + download_current;
+                                    let total_install_progress = cumulative_install.load(std::sync::atomic::Ordering::SeqCst) + install_current;
                                     dlp.insert("job_id", job_id.to_string());
                                     dlp.insert("name", instn.clone());
-                                    dlp.insert("progress", download_current.to_string());
-                                    dlp.insert("total", download_total.to_string());
+                                    dlp.insert("progress", total_download_progress.to_string());
+                                    dlp.insert("total", combined_download_total.to_string());
                                     dlp.insert("speed", net_speed.to_string());
                                     dlp.insert("disk", disk_speed.to_string());
                                     // Include install progress in same event to avoid flickering
-                                    dlp.insert("install_progress", install_current.to_string());
-                                    dlp.insert("install_total", install_total.to_string());
+                                    dlp.insert("install_progress", total_install_progress.to_string());
+                                    dlp.insert("install_total", combined_install_total.to_string());
                                     // Phase: 0=idle, 1=verifying, 2=downloading, 3=installing, 4=validating, 5=moving
                                     dlp.insert("phase", phase.to_string());
                                     h4.emit("download_progress", dlp.clone()).unwrap();
@@ -324,6 +331,9 @@ pub fn run_game_download(
                         ok = false;
                         break;
                     }
+                    // After manifest completes, add its size to cumulative progress
+                    cumulative_download.fetch_add(e.compressed_size.parse::<u64>().unwrap_or(0), std::sync::atomic::Ordering::SeqCst);
+                    cumulative_install.fetch_add(e.decompressed_size.parse::<u64>().unwrap_or(0), std::sync::atomic::Ordering::SeqCst);
                 }
                 if ok {
                     h4.emit("download_complete", ()).unwrap();
