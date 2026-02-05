@@ -93,30 +93,33 @@ function formatStatus(status: QueueJobView['status'], isPaused: boolean): string
     }
 }
 
-/* Format phase to human-readable label */
-function formatPhase(phase: DownloadPhase | undefined): string {
+/* Format download phase - only Verifying (when resuming) or Downloading */
+function formatDownloadPhase(phase: DownloadPhase | undefined): string {
+    return phase === 'verifying' ? 'Verifying' : 'Downloading';
+}
+
+/* Format install phase substatus */
+function formatInstallPhase(phase: DownloadPhase | undefined): string {
     switch (phase) {
-        case 'verifying': return 'Verifying';
-        case 'downloading': return 'Downloading';
-        case 'installing': return 'Installing';
-        case 'extracting': return 'Extracting';
         case 'validating': return 'Validating';
         case 'moving': return 'Moving';
-        case 'idle': return 'Idle';
-        default: return 'Downloading';
+        case 'extracting': return 'Extracting';
+        default: return 'Installing';
     }
 }
 
-/* Get phase color class */
-function getPhaseColor(phase: DownloadPhase | undefined): string {
+/* Get download phase color class */
+function getDownloadPhaseColor(phase: DownloadPhase | undefined): string {
+    return phase === 'verifying' ? 'text-yellow-400' : 'text-blue-400';
+}
+
+/* Get install phase color class */
+function getInstallPhaseColor(phase: DownloadPhase | undefined): string {
     switch (phase) {
-        case 'verifying': return 'text-yellow-400';
-        case 'downloading': return 'text-blue-400';
-        case 'installing': return 'text-green-400';
-        case 'extracting': return 'text-purple-400';
-        case 'validating': return 'text-cyan-400';
-        case 'moving': return 'text-orange-400';
-        default: return 'text-blue-400';
+        case 'validating': return 'text-yellow-400';
+        case 'moving': return 'text-purple-400';
+        case 'extracting': return 'text-cyan-400';
+        default: return 'text-green-400';
     }
 }
 
@@ -690,9 +693,9 @@ export default function DownloadsPage({
                                                     ) : (
                                                         <div className="flex items-center gap-3">
                                                             {/* Phase indicator */}
-                                                            <div className={`flex items-center gap-1.5 ${getPhaseColor(currentPhase)}`}>
+                                                            <div className={`flex items-center gap-1.5 ${getDownloadPhaseColor(currentPhase)}`}>
                                                                 <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-                                                                <span className="font-medium">{formatPhase(currentPhase)}</span>
+                                                                <span className="font-medium">{formatDownloadPhase(currentPhase)}</span>
                                                             </div>
                                                             {/* Progress bytes */}
                                                             <div className="text-gray-400">
@@ -725,8 +728,11 @@ export default function DownloadsPage({
                                             {hasInstallProgress && (
                                                 <div className="mb-2">
                                                     <div className="flex items-center justify-between mb-1">
-                                                        <div className="text-xs text-gray-400">
-                                                            <span className="uppercase tracking-wider">Installing</span>
+                                                        <div className={`flex items-center gap-1.5 text-xs ${getInstallPhaseColor(currentPhase)}`}>
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+                                                            <span className="font-medium uppercase tracking-wider">Installing</span>
+                                                            <span className="text-gray-500">•</span>
+                                                            <span className="font-medium">{formatInstallPhase(currentPhase)}</span>
                                                         </div>
                                                         <div className="text-sm text-gray-300 font-medium">
                                                             {installProgress.toFixed(1)}%

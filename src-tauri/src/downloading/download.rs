@@ -284,12 +284,14 @@ pub fn run_game_download(
                 // Track cumulative progress from completed manifests
                 let cumulative_download = Arc::new(std::sync::atomic::AtomicU64::new(0));
                 let cumulative_install = Arc::new(std::sync::atomic::AtomicU64::new(0));
+                let total_manifests = urls.len();
                 let mut ok = true;
-                for e in urls.clone() {
+                for (manifest_idx, e) in urls.clone().into_iter().enumerate() {
                     let h4 = h4.clone();
                     let cancel_token = cancel_token.clone();
                     let cumulative_download = cumulative_download.clone();
                     let cumulative_install = cumulative_install.clone();
+                    let is_last_manifest = manifest_idx == total_manifests - 1;
                     let rslt = run_async_command(async {
                         <Game as Sophon>::download(
                             e.file_url.clone(),
@@ -317,7 +319,9 @@ pub fn run_game_download(
                                     dlp.insert("install_progress", total_install_progress.to_string());
                                     dlp.insert("install_total", combined_install_total.to_string());
                                     // Phase: 0=idle, 1=verifying, 2=downloading, 3=installing, 4=validating, 5=moving
-                                    dlp.insert("phase", phase.to_string());
+                                    // Override phase 5 (moving) to phase 2 (downloading) if not on last manifest
+                                    let effective_phase = if phase == 5 && !is_last_manifest { 2 } else { phase };
+                                    dlp.insert("phase", effective_phase.to_string());
                                     h4.emit("download_progress", dlp.clone()).unwrap();
                                     drop(dlp);
                                 }
