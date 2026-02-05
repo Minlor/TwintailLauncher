@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+pub mod connection_monitor;
 pub mod download;
 pub mod misc;
 pub mod preload;

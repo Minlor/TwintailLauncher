@@ -137,6 +137,9 @@ pub fn run() {
                     *q = Some(queue_handle);
                 }
 
+                // Start connection monitor for auto-pause/resume on connectivity changes
+                crate::downloading::connection_monitor::start_connection_monitor(handle.clone());
+
                 load_manifests(handle);
                 init_tray(handle).unwrap();
                 // Initialize the listeners

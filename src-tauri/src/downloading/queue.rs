@@ -55,6 +55,7 @@ pub struct QueueJobView {
 pub struct QueueStatePayload {
     pub max_concurrent: usize,
     pub paused: bool,
+    pub auto_paused: bool,
     pub running: Vec<QueueJobView>,
     pub queued: Vec<QueueJobView>,
     pub completed: Vec<QueueJobView>,
@@ -154,6 +155,25 @@ impl DownloadQueueHandle {
     pub fn clear_completed(&self) {
         let _ = self.tx.send(QueueCommand::ClearCompleted);
     }
+
+    /// Auto-pause the queue due to connection loss
+    pub fn auto_pause(&self) {
+        let _ = self.tx.send(QueueCommand::AutoPause);
+    }
+
+    /// Auto-resume the queue if it was auto-paused (not manually paused)
+    pub fn auto_resume(&self) -> bool {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let _ = self.tx.send(QueueCommand::AutoResume(tx));
+        rx.recv().unwrap_or(false)
+    }
+
+    /// Check if the queue is auto-paused
+    pub fn is_auto_paused(&self) -> bool {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let _ = self.tx.send(QueueCommand::IsAutoPaused(tx));
+        rx.recv().unwrap_or(false)
+    }
 }
 
 pub enum QueueCommand {
@@ -170,6 +190,9 @@ pub enum QueueCommand {
     GetState(mpsc::Sender<QueueStatePayload>),
     ResumeJob(String, mpsc::Sender<bool>),
     ClearCompleted,
+    AutoPause,
+    AutoResume(mpsc::Sender<bool>),
+    IsAutoPaused(mpsc::Sender<bool>),
     Shutdown,
 }
 
@@ -184,6 +207,7 @@ fn emit_queue_state(
     app: &AppHandle,
     max_concurrent: usize,
     paused: bool,
+    auto_paused: bool,
     active: &HashMap<String, QueueJobView>,
     queued: &VecDeque<QueueJobView>,
     completed: &VecDeque<QueueJobView>,
@@ -193,6 +217,7 @@ fn emit_queue_state(
     let payload = QueueStatePayload {
         max_concurrent,
         paused,
+        auto_paused,
         running: active.values().cloned().collect(),
         queued: queued.iter().cloned().collect(),
         completed: completed.iter().cloned().collect(),
@@ -213,6 +238,7 @@ pub fn start_download_queue_worker(
     std::thread::spawn(move || {
         let mut max_concurrent = initial_max_concurrent.max(1);
         let mut paused = false;
+        let mut auto_paused = false; // True if paused due to connection loss (not manual)
         let mut activating = false; // Flag to prevent auto-pause during job activation
         let mut queued: VecDeque<QueueJob> = VecDeque::new();
         let mut queued_views: VecDeque<QueueJobView> = VecDeque::new();
@@ -267,16 +293,7 @@ pub fn start_download_queue_worker(
                         }
                     };
                 }
-                emit_queue_state(
-                    &app,
-                    max_concurrent,
-                    paused,
-                    &active,
-                    &queued_views,
-                    &completed_views,
-                    &paused_jobs,
-                    &pausing_installs,
-                );
+                emit_queue_state(&app, max_concurrent, paused, auto_paused, &active, &queued_views, &completed_views, &paused_jobs, &pausing_installs);
             }
 
             // Only auto-start next job if not paused
@@ -304,16 +321,7 @@ pub fn start_download_queue_worker(
                     // Clear the activating flag since the new job is now starting
                     activating = false;
 
-                    emit_queue_state(
-                        &app,
-                        max_concurrent,
-                        paused,
-                        &active,
-                        &queued_views,
-                        &completed_views,
-                        &paused_jobs,
-                        &pausing_installs,
-                    );
+                    emit_queue_state(&app, max_concurrent, paused, auto_paused, &active, &queued_views, &completed_views, &paused_jobs, &pausing_installs);
 
                     let app2 = app.clone();
                     let done_tx2 = done_tx.clone();
@@ -341,42 +349,17 @@ pub fn start_download_queue_worker(
                             status: QueueJobStatus::Queued,
                         });
                         queued.push_back(job);
-                        emit_queue_state(
-                            &app,
-                            max_concurrent,
-                            paused,
-                            &active,
-                            &queued_views,
-                            &completed_views,
-                            &paused_jobs,
-                            &pausing_installs,
-                        );
+                        emit_queue_state(&app, max_concurrent, paused, auto_paused, &active, &queued_views, &completed_views, &paused_jobs, &pausing_installs);
                     }
                     QueueCommand::SetMaxConcurrent(n) => {
                         max_concurrent = n.max(1);
-                        emit_queue_state(
-                            &app,
-                            max_concurrent,
-                            paused,
-                            &active,
-                            &queued_views,
-                            &completed_views,
-                            &paused_jobs,
-                            &pausing_installs,
-                        );
+                        emit_queue_state(&app, max_concurrent, paused, auto_paused, &active, &queued_views, &completed_views, &paused_jobs, &pausing_installs);
                     }
                     QueueCommand::SetPaused(p) => {
                         paused = p;
-                        emit_queue_state(
-                            &app,
-                            max_concurrent,
-                            paused,
-                            &active,
-                            &queued_views,
-                            &completed_views,
-                            &paused_jobs,
-                            &pausing_installs,
-                        );
+                        // Clear auto_paused when user manually changes pause state
+                        if !p { auto_paused = false; }
+                        emit_queue_state(&app, max_concurrent, paused, auto_paused, &active, &queued_views, &completed_views, &paused_jobs, &pausing_installs);
                     }
                     QueueCommand::SetPausing(install_id, is_pausing) => {
                         if is_pausing {
@@ -384,16 +367,7 @@ pub fn start_download_queue_worker(
                         } else {
                             pausing_installs.remove(&install_id);
                         }
-                        emit_queue_state(
-                            &app,
-                            max_concurrent,
-                            paused,
-                            &active,
-                            &queued_views,
-                            &completed_views,
-                            &paused_jobs,
-                            &pausing_installs,
-                        );
+                        emit_queue_state(&app, max_concurrent, paused, auto_paused, &active, &queued_views, &completed_views, &paused_jobs, &pausing_installs);
                     }
                     QueueCommand::MoveUp(job_id, reply) => {
                         let mut success = false;
@@ -402,16 +376,7 @@ pub fn start_download_queue_worker(
                                 queued.swap(idx, idx - 1);
                                 queued_views.swap(idx, idx - 1);
                                 success = true;
-                                emit_queue_state(
-                                    &app,
-                                    max_concurrent,
-                                    paused,
-                                    &active,
-                                    &queued_views,
-                                    &completed_views,
-                                    &paused_jobs,
-                                    &pausing_installs,
-                                );
+                                emit_queue_state(&app, max_concurrent, paused, auto_paused, &active, &queued_views, &completed_views, &paused_jobs, &pausing_installs);
                             }
                         }
                         let _ = reply.send(success);
@@ -423,16 +388,7 @@ pub fn start_download_queue_worker(
                                 queued.swap(idx, idx + 1);
                                 queued_views.swap(idx, idx + 1);
                                 success = true;
-                                emit_queue_state(
-                                    &app,
-                                    max_concurrent,
-                                    paused,
-                                    &active,
-                                    &queued_views,
-                                    &completed_views,
-                                    &paused_jobs,
-                                    &pausing_installs,
-                                );
+                                emit_queue_state(&app, max_concurrent, paused, auto_paused, &active, &queued_views, &completed_views, &paused_jobs, &pausing_installs);
                             }
                         }
                         let _ = reply.send(success);
@@ -443,16 +399,7 @@ pub fn start_download_queue_worker(
                             queued.remove(idx);
                             queued_views.remove(idx);
                             success = true;
-                            emit_queue_state(
-                                &app,
-                                max_concurrent,
-                                paused,
-                                &active,
-                                &queued_views,
-                                &completed_views,
-                                &paused_jobs,
-                                &pausing_installs,
-                            );
+                            emit_queue_state(&app, max_concurrent, paused, auto_paused, &active, &queued_views, &completed_views, &paused_jobs, &pausing_installs);
                         }
                         let _ = reply.send(success);
                     }
@@ -470,16 +417,7 @@ pub fn start_download_queue_worker(
                             }
                         }
                         if removed_any {
-                            emit_queue_state(
-                                &app,
-                                max_concurrent,
-                                paused,
-                                &active,
-                                &queued_views,
-                                &completed_views,
-                                &paused_jobs,
-                                &pausing_installs,
-                            );
+                            emit_queue_state(&app, max_concurrent, paused, auto_paused, &active, &queued_views, &completed_views, &paused_jobs, &pausing_installs);
                         }
                         let _ = reply.send(removed_any);
                     }
@@ -492,16 +430,7 @@ pub fn start_download_queue_worker(
                             queued.insert(insert_pos, job);
                             queued_views.insert(insert_pos, view);
                             success = true;
-                            emit_queue_state(
-                                &app,
-                                max_concurrent,
-                                paused,
-                                &active,
-                                &queued_views,
-                                &completed_views,
-                                &paused_jobs,
-                                &pausing_installs,
-                            );
+                            emit_queue_state(&app, max_concurrent, paused, auto_paused, &active, &queued_views, &completed_views, &paused_jobs, &pausing_installs);
                         }
                         let _ = reply.send(success);
                     }
@@ -525,16 +454,7 @@ pub fn start_download_queue_worker(
                             queued_views.push_front(view);
                             activating = true; // Prevent auto-pause when current job is cancelled
                             paused = false; // Unpause to start this job
-                            emit_queue_state(
-                                &app,
-                                max_concurrent,
-                                paused,
-                                &active,
-                                &queued_views,
-                                &completed_views,
-                                &paused_jobs,
-                                &pausing_installs,
-                            );
+                            emit_queue_state(&app, max_concurrent, paused, auto_paused, &active, &queued_views, &completed_views, &paused_jobs, &pausing_installs);
                         }
                         let _ = reply.send(install_id);
                     }
@@ -543,6 +463,7 @@ pub fn start_download_queue_worker(
                         let payload = QueueStatePayload {
                             max_concurrent,
                             paused,
+                            auto_paused,
                             running: active.values().cloned().collect(),
                             queued: queued_views.iter().cloned().collect(),
                             completed: completed_views.iter().cloned().collect(),
@@ -561,32 +482,35 @@ pub fn start_download_queue_worker(
                                 queued_views.push_front(view);
                                 paused = false; // Unpause to start this job
                                 success = true;
-                                emit_queue_state(
-                                    &app,
-                                    max_concurrent,
-                                    paused,
-                                    &active,
-                                    &queued_views,
-                                    &completed_views,
-                                    &paused_jobs,
-                                    &pausing_installs,
-                                );
+                                emit_queue_state(&app, max_concurrent, paused, auto_paused, &active, &queued_views, &completed_views, &paused_jobs, &pausing_installs);
                             }
                         }
                         let _ = reply.send(success);
                     }
                     QueueCommand::ClearCompleted => {
                         completed_views.clear();
-                        emit_queue_state(
-                            &app,
-                            max_concurrent,
-                            paused,
-                            &active,
-                            &queued_views,
-                            &completed_views,
-                            &paused_jobs,
-                            &pausing_installs,
-                        );
+                        emit_queue_state(&app, max_concurrent, paused, auto_paused, &active, &queued_views, &completed_views, &paused_jobs, &pausing_installs);
+                    }
+                    QueueCommand::AutoPause => {
+                        // Auto-pause due to connection loss - only if not already paused
+                        if !paused {
+                            paused = true;
+                            auto_paused = true;
+                            emit_queue_state(&app, max_concurrent, paused, auto_paused, &active, &queued_views, &completed_views, &paused_jobs, &pausing_installs);
+                        }
+                    }
+                    QueueCommand::AutoResume(reply) => {
+                        // Only resume if we auto-paused (not manually paused)
+                        let success = if auto_paused {
+                            auto_paused = false;
+                            paused = false;
+                            emit_queue_state(&app, max_concurrent, paused, auto_paused, &active, &queued_views, &completed_views, &paused_jobs, &pausing_installs);
+                            true
+                        } else { false };
+                        let _ = reply.send(success);
+                    }
+                    QueueCommand::IsAutoPaused(reply) => {
+                        let _ = reply.send(auto_paused);
                     }
                     QueueCommand::Shutdown => break,
                 },
