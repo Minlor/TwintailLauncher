@@ -553,6 +553,7 @@ export default class App extends React.Component<any, any> {
                         setCurrentInstall={this.setCurrentInstall}
                         gamesinfo={this.state.gamesinfo}
                         installSettings={this.state.installSettings}
+                        gameManifest={this.state.gameManifest}
                         setCurrentGame={this.setCurrentGame}
                         fetchInstallSettings={this.fetchInstallSettings}
                         installGameSwitches={this.state.installGameSwitches}

@@ -3,7 +3,7 @@ import { POPUPS } from "../popups/POPUPS";
 import { PAGES } from "../pages/PAGES";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
-import { Folder, Play, Wrench, Trash2, Sliders, Box, Monitor } from "lucide-react";
+import { Folder, Play, Wrench, Trash2, Sliders, Box, Monitor, Copy, ExternalLink } from "lucide-react";
 import { SettingsLayout } from "./ui/SettingsLayout";
 import { SettingsSidebar, SettingsTab } from "./ui/SettingsSidebar";
 import { SettingsSection, ModernToggle, ModernInput, ModernPathInput, ModernSelect, SettingsCard } from "./ui/SettingsComponents";
@@ -20,6 +20,7 @@ interface GameSettingsProps {
     setOpenPopup: (popup: POPUPS) => void;
     setCurrentPage: (page: PAGES) => void;
     installSettings: any;
+    gameManifest: any;
     fetchInstallSettings: (id: string) => void;
     prefetchedSwitches: any;
     prefetchedFps: any;
@@ -33,6 +34,7 @@ export default function GameSettings({
     setOpenPopup,
     setCurrentPage,
     installSettings,
+    gameManifest,
     fetchInstallSettings,
     prefetchedSwitches,
     prefetchedFps: _prefetchedFps,
@@ -42,6 +44,7 @@ export default function GameSettings({
     imageVersion = 0
 }: GameSettingsProps) {
     const [activeTab, setActiveTab] = useState("general");
+    const [authkeyCopied, setAuthkeyCopied] = useState(false);
 
     // Find the install info from the installs list provided by parent or fetch additional info if needed.
     // However, installSettings usually contains the basic info. 
@@ -145,6 +148,8 @@ export default function GameSettings({
         return installInfo?.game_icon || installSettings.game_icon;
     }, [installs, installSettings.id, installSettings.game_icon]);
 
+    const gameBiz = gameManifest?.biz || "";
+
     return (
         <SettingsLayout
             title={installSettings.name || "Game Settings"}
@@ -207,6 +212,32 @@ export default function GameSettings({
                                         >
                                             Configure
                                         </button>
+                                    </SettingsCard>
+                                )}
+                               {(() => { console.log("gameBiz:", gameBiz); return gameBiz.startsWith("hk4e"); })() && (
+                                    <SettingsCard className="flex flex-col gap-3">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex flex-col">
+                                                <span className="font-medium text-white">Wish History</span>
+                                                <span className="text-sm text-zinc-400">Copy your authkey to view wish history and pity tracking.</span>
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    invoke("copy_authkey", { id: installSettings.id }).then(() => {
+                                                        setAuthkeyCopied(true);
+                                                        setTimeout(() => setAuthkeyCopied(false), 2000);
+                                                    }).catch((e) => console.error("Failed to copy authkey:", e));
+                                                }}
+                                                className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors border border-white/5 shrink-0"
+                                            >
+                                                <Copy className="w-4 h-4" />
+                                                {authkeyCopied ? "Copied!" : "Copy Authkey"}
+                                            </button>
+                                        </div>
+                                        <a href="https://aivo.minlor.net/hoyo" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 transition-colors">
+                                            <ExternalLink className="w-3 h-3" />
+                                            Sync and view your wish history at aivo.minlor.net/hoyo
+                                        </a>
                                     </SettingsCard>
                                 )}
                             </div>

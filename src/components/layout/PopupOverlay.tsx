@@ -51,6 +51,7 @@ export type PopupOverlayProps = {
   // Install settings
   gamesinfo: any[];
   installSettings: any;
+  gameManifest: any;
   setCurrentGame: (biz: string) => void;
   fetchInstallSettings: (installId: string) => Promise<any> | any;
   installGameSwitches: any;
@@ -90,6 +91,7 @@ export default function PopupOverlay(props: PopupOverlayProps) {
     setCurrentInstall,
     gamesinfo,
     installSettings,
+    gameManifest,
     setCurrentGame,
     fetchInstallSettings,
     installGameSwitches,
@@ -176,6 +178,7 @@ export default function PopupOverlay(props: PopupOverlayProps) {
           <GameSettings
             installedRunners={installedRunners}
             installSettings={installSettings}
+            gameManifest={gameManifest}
             setOpenPopup={setOpenPopup}
             fetchInstallSettings={fetchInstallSettings}
             prefetchedSwitches={installGameSwitches}
