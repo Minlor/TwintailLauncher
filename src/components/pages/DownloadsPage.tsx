@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { invoke } from '@tauri-apps/api/core';
 import type {
     DownloadJobProgress,
@@ -511,31 +512,28 @@ export default function DownloadsPage({
             className="flex-1 flex flex-col h-full overflow-hidden animate-fadeIn"
             style={{ willChange: 'opacity', backfaceVisibility: 'hidden', transform: 'translateZ(0)' }}
         >
-            {/* Hover Tooltip */}
-            {hoveredIndex !== null && mousePos && speedHistory[hoveredIndex] && (
+            {/* Hover Tooltip - portaled to body to avoid transform containing block offset */}
+            {hoveredIndex !== null && mousePos && speedHistory[hoveredIndex] && createPortal(
                 (() => {
                     const tooltipWidth = 220;
                     const tooltipHeight = 90;
-                    const padding = 12;
-                    let left = mousePos.x + 15;
-                    let top = mousePos.y - 80;
+                    const padding = 8;
+                    let left = mousePos.x + 20;
+                    let top = mousePos.y - tooltipHeight - 8;
 
                     if (left + tooltipWidth + padding > window.innerWidth) {
-                        left = Math.max(padding, mousePos.x - tooltipWidth - 15);
+                        left = Math.max(padding, mousePos.x - tooltipWidth - 8);
                     }
-                    if (top < padding) top = padding;
-                    if (top + tooltipHeight + padding > window.innerHeight) {
-                        top = Math.max(padding, window.innerHeight - tooltipHeight - padding);
-                    }
+                    if (top < padding) top = mousePos.y + 8;
 
                     const sample = speedHistory[hoveredIndex];
                     return (
                         <div
-                            className="fixed z-50 bg-gray-900/98 border border-gray-700 rounded-lg px-3 py-2 shadow-2xl pointer-events-none"
+                            className="fixed z-50 bg-zinc-900/95 backdrop-blur-sm border border-white/10 rounded-xl px-3 py-2 shadow-2xl ring-1 ring-white/5 pointer-events-none"
                             style={{ left: `${left}px`, top: `${top}px`, minWidth: tooltipWidth }}
                         >
                             <div className="text-xs space-y-1.5 min-w-[180px]">
-                                <div className="border-b border-gray-700 pb-1.5 mb-1.5">
+                                <div className="border-b border-white/5 pb-1.5 mb-1.5">
                                     <div className="flex items-center gap-1.5 text-orange-400 font-medium">
                                         <DownloadCloud className="w-3 h-3" />
                                         <span className="truncate">{currentJob?.name ?? 'Download'}</span>
@@ -552,7 +550,8 @@ export default function DownloadsPage({
                             </div>
                         </div>
                     );
-                })()
+                })(),
+                document.body
             )}
 
             {/* Page Header */}
