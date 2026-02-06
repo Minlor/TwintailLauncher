@@ -483,7 +483,7 @@ export default function GameSettings({
                                     </button>
                                 )}
 
-                                {gameBiz.startsWith("hk4e") && (
+                                {gameBiz && !gameBiz.startsWith("wuwa") && !gameBiz.startsWith("pgr") && (
                                     <button
                                         onClick={() => {
                                             invoke("copy_authkey", { id: installSettings.id }).then(() => {
