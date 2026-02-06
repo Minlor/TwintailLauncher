@@ -3,7 +3,7 @@ import { POPUPS } from "../popups/POPUPS";
 import { PAGES } from "../pages/PAGES";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
-import { Folder, Play, Wrench, Trash2, Sliders, Box, Monitor, Copy, ExternalLink } from "lucide-react";
+import { Folder, Play, Wrench, Trash2, Sliders, Box, Monitor, Copy } from "lucide-react";
 import { SettingsLayout } from "./ui/SettingsLayout";
 import { SettingsSidebar, SettingsTab } from "./ui/SettingsSidebar";
 import { SettingsSection, ModernToggle, ModernInput, ModernPathInput, ModernSelect, SettingsCard } from "./ui/SettingsComponents";
@@ -212,32 +212,6 @@ export default function GameSettings({
                                         >
                                             Configure
                                         </button>
-                                    </SettingsCard>
-                                )}
-                               {(() => { console.log("gameBiz:", gameBiz); return gameBiz.startsWith("hk4e"); })() && (
-                                    <SettingsCard className="flex flex-col gap-3">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex flex-col">
-                                                <span className="font-medium text-white">Wish History</span>
-                                                <span className="text-sm text-zinc-400">Copy your authkey to view wish history and pity tracking.</span>
-                                            </div>
-                                            <button
-                                                onClick={() => {
-                                                    invoke("copy_authkey", { id: installSettings.id }).then(() => {
-                                                        setAuthkeyCopied(true);
-                                                        setTimeout(() => setAuthkeyCopied(false), 2000);
-                                                    }).catch((e) => console.error("Failed to copy authkey:", e));
-                                                }}
-                                                className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors border border-white/5 shrink-0"
-                                            >
-                                                <Copy className="w-4 h-4" />
-                                                {authkeyCopied ? "Copied!" : "Copy Authkey"}
-                                            </button>
-                                        </div>
-                                        <a href="https://aivo.minlor.net/hoyo" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 transition-colors">
-                                            <ExternalLink className="w-3 h-3" />
-                                            Sync and view your wish history at aivo.minlor.net/hoyo
-                                        </a>
                                     </SettingsCard>
                                 )}
                             </div>
@@ -505,6 +479,24 @@ export default function GameSettings({
                                         <div className="flex flex-col">
                                             <span className="font-bold">Add to Desktop</span>
                                             <span className="text-xs text-zinc-400">Create shortcut</span>
+                                        </div>
+                                    </button>
+                                )}
+
+                                {gameBiz.startsWith("hk4e") && (
+                                    <button
+                                        onClick={() => {
+                                            invoke("copy_authkey", { id: installSettings.id }).then(() => {
+                                                setAuthkeyCopied(true);
+                                                setTimeout(() => setAuthkeyCopied(false), 2000);
+                                            }).catch((e) => console.error("Failed to copy authkey:", e));
+                                        }}
+                                        className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left"
+                                    >
+                                        <Copy className="w-6 h-6 text-purple-400" />
+                                        <div className="flex flex-col">
+                                            <span className="font-bold">{authkeyCopied ? "Copied!" : "Copy Authkey"}</span>
+                                            <span className="text-xs text-zinc-400">Sync and view your wish history at <span className="text-purple-400">aivo.minlor.net/hoyo</span></span>
                                         </div>
                                     </button>
                                 )}
