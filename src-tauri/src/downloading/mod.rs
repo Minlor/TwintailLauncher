@@ -42,6 +42,15 @@ pub struct XXMIDownloadPayload {
     pub is_update: bool,
 }
 
+/// Payload for extras downloads (jadeite, fps unlock, xxmi variants)
+#[derive(Debug, Clone)]
+pub struct ExtrasDownloadPayload {
+    pub path: String,
+    pub package_id: String,
+    pub package_type: String,
+    pub update_mode: bool,
+}
+
 /// Unified payload enum for all queue job types
 #[derive(Debug, Clone)]
 pub enum QueueJobPayload {
@@ -51,6 +60,7 @@ pub enum QueueJobPayload {
     #[cfg(target_os = "linux")]
     Steamrt(SteamrtDownloadPayload),
     XXMI(XXMIDownloadPayload),
+    Extras(ExtrasDownloadPayload),
 }
 
 impl QueueJobPayload {
@@ -63,6 +73,7 @@ impl QueueJobPayload {
             #[cfg(target_os = "linux")]
             QueueJobPayload::Steamrt(_) => "steamrt".to_string(),
             QueueJobPayload::XXMI(_) => "xxmi".to_string(),
+            QueueJobPayload::Extras(p) => p.package_type.clone(),
         }
     }
 
@@ -79,6 +90,19 @@ impl QueueJobPayload {
                     "XXMI Update".to_string()
                 } else {
                     "XXMI Modding Tool".to_string()
+                }
+            }
+            QueueJobPayload::Extras(p) => {
+                match p.package_type.as_str() {
+                    "v5.0.1-hotfix" | "jadeite" => "Jadeite".to_string(),
+                    "keqing_unlock" => "FPS Unlocker".to_string(),
+                    "xxmi" => "XXMI".to_string(),
+                    "gimi" => "XXMI - GIMI".to_string(),
+                    "srmi" => "XXMI - SRMI".to_string(),
+                    "zzmi" => "XXMI - ZZMI".to_string(),
+                    "himi" => "XXMI - HIMI".to_string(),
+                    "wwmi" => "XXMI - WWMI".to_string(),
+                    _ => p.package_type.clone(),
                 }
             }
         }

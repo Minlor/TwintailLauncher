@@ -29,10 +29,11 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::DownloadState;
-#[cfg(target_os = "linux")]
+use crate::downloading::ExtrasDownloadPayload;
 use crate::downloading::queue::QueueJobKind;
+use crate::downloading::QueueJobPayload;
 #[cfg(target_os = "linux")]
-use crate::downloading::{QueueJobPayload, RunnerDownloadPayload};
+use crate::downloading::RunnerDownloadPayload;
 #[cfg(target_os = "linux")]
 use crate::utils::db_manager::{
     create_installed_runner, get_installed_runner_info_by_version,
@@ -325,13 +326,7 @@ pub fn add_install(
             if gm.biz == "bh3_global" {
                 use_jadeite = true;
                 let jadeite = Path::new(&gs.jadeite_path).to_path_buf();
-                crate::downloading::misc::download_or_update_extra(
-                    &app,
-                    jadeite.clone(),
-                    "jadeite".to_string(),
-                    "v5.0.1-hotfix".to_string(),
-                    false,
-                );
+                enqueue_extras_download(&app, jadeite.to_str().unwrap().to_string(), "jadeite".to_string(), "v5.0.1-hotfix".to_string(), false);
             }
         }
         let gbg = g.assets.game_background.clone(); /*if g.assets.game_live_background.is_some() {
@@ -664,13 +659,7 @@ pub fn update_install_use_jadeite(app: AppHandle, id: String, enabled: bool) -> 
         let p = Path::new(&settings.jadeite_path).to_path_buf();
         update_install_use_jadeite_by_id(&app, m.id, enabled);
         if enabled {
-            crate::downloading::misc::download_or_update_extra(
-                &app,
-                p.clone(),
-                "jadeite".to_string(),
-                "v5.0.1-hotfix".to_string(),
-                false,
-            );
+            enqueue_extras_download(&app, p.to_str().unwrap().to_string(), "jadeite".to_string(), "v5.0.1-hotfix".to_string(), false);
         }
         Some(true)
     } else {
@@ -686,50 +675,12 @@ pub fn update_install_use_xxmi(app: AppHandle, id: String, enabled: bool) -> Opt
     if manifest.is_some() {
         let m = manifest.unwrap();
         let p = Path::new(&settings.xxmi_path).to_path_buf();
+        let ps = p.to_str().unwrap().to_string();
         update_install_use_xxmi_by_id(&app, m.id.clone(), enabled);
         if enabled {
-            crate::downloading::misc::download_or_update_extra(
-                &app,
-                p.clone(),
-                "xxmi".to_string(),
-                "xxmi".to_string(),
-                false,
-            );
-            crate::downloading::misc::download_or_update_extra(
-                &app,
-                p.clone(),
-                "xxmi".to_string(),
-                "gimi".to_string(),
-                false,
-            );
-            crate::downloading::misc::download_or_update_extra(
-                &app,
-                p.clone(),
-                "xxmi".to_string(),
-                "srmi".to_string(),
-                false,
-            );
-            crate::downloading::misc::download_or_update_extra(
-                &app,
-                p.clone(),
-                "xxmi".to_string(),
-                "zzmi".to_string(),
-                false,
-            );
-            crate::downloading::misc::download_or_update_extra(
-                &app,
-                p.clone(),
-                "xxmi".to_string(),
-                "himi".to_string(),
-                false,
-            );
-            crate::downloading::misc::download_or_update_extra(
-                &app,
-                p.clone(),
-                "xxmi".to_string(),
-                "wwmi".to_string(),
-                false,
-            );
+            for pkg_type in ["xxmi", "gimi", "srmi", "zzmi", "himi", "wwmi"] {
+                enqueue_extras_download(&app, ps.clone(), "xxmi".to_string(), pkg_type.to_string(), false);
+            }
         }
         Some(true)
     } else {
@@ -747,13 +698,7 @@ pub fn update_install_use_fps_unlock(app: AppHandle, id: String, enabled: bool) 
         let p = Path::new(&settings.fps_unlock_path).to_path_buf();
         update_install_use_fps_unlock_by_id(&app, m.id, enabled);
         if enabled {
-            crate::downloading::misc::download_or_update_extra(
-                &app,
-                p.clone(),
-                "keqingunlock".to_string(),
-                "keqing_unlock".to_string(),
-                false,
-            );
+            enqueue_extras_download(&app, p.to_str().unwrap().to_string(), "keqingunlock".to_string(), "keqing_unlock".to_string(), false);
         }
         Some(true)
     } else {
@@ -771,13 +716,7 @@ pub fn update_install_fps_value(app: AppHandle, id: String, fps: String) -> Opti
         let p = Path::new(&settings.fps_unlock_path).to_path_buf();
         update_install_fps_value_by_id(&app, m.id, fps);
         if m.use_fps_unlock {
-            crate::downloading::misc::download_or_update_extra(
-                &app,
-                p.clone(),
-                "keqingunlock".to_string(),
-                "keqing_unlock".to_string(),
-                false,
-            );
+            enqueue_extras_download(&app, p.to_str().unwrap().to_string(), "keqingunlock".to_string(), "keqing_unlock".to_string(), false);
         }
         Some(true)
     } else {
@@ -1787,6 +1726,13 @@ pub fn remove_shortcut(app: AppHandle, install_id: String, shortcut_type: String
             _ => {}
         }
     };
+}
+
+/// Enqueue an extras download via the queue system so it appears in the Downloads page.
+fn enqueue_extras_download(app: &AppHandle, path: String, package_id: String, package_type: String, update_mode: bool) {
+    let state = app.state::<DownloadState>();
+    let q = state.queue.lock().unwrap().clone();
+    if let Some(queue) = q { queue.enqueue(QueueJobKind::ExtrasDownload, QueueJobPayload::Extras(ExtrasDownloadPayload { path, package_id, package_type, update_mode })); }
 }
 
 /// Cancels any active or queued downloads for an installation and cleans up state.

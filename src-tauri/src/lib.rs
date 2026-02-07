@@ -124,6 +124,10 @@ pub fn run() {
                         (QueueJobKind::RunnerDownload, QueueJobPayload::Runner(p)) => crate::downloading::misc::run_runner_download(app, p, job.id),
                         #[cfg(target_os = "linux")]
                         (QueueJobKind::SteamrtDownload, QueueJobPayload::Steamrt(p)) => crate::downloading::misc::run_steamrt_download(app, p, job.id),
+                        (QueueJobKind::ExtrasDownload, QueueJobPayload::Extras(p)) => {
+                            let path = std::path::PathBuf::from(&p.path);
+                            if crate::downloading::misc::download_or_update_extra(&app, path, p.package_id, p.package_type, p.update_mode, Some(job.id)) { QueueJobOutcome::Completed } else { QueueJobOutcome::Failed }
+                        }
                         // Mismatch between kind and payload - should never happen
                         _ => QueueJobOutcome::Failed,
                     }

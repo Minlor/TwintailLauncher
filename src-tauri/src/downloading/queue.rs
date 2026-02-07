@@ -20,6 +20,7 @@ pub enum QueueJobKind {
     RunnerDownload,
     SteamrtDownload,
     XxmiDownload,
+    ExtrasDownload,
 }
 
 #[derive(Debug)]

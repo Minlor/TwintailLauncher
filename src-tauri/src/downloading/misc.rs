@@ -1,25 +1,25 @@
-use crate::utils::{compare_version, db_manager::get_settings, empty_dir, find_package_version, prevent_exit, run_async_command};
+use crate::utils::{compare_version,db_manager::get_settings,empty_dir,find_package_version,prevent_exit,run_async_command};
 use fischl::download::Extras;
 use std::collections::HashMap;
 use std::fs;
-use std::path::{Path, PathBuf};
-use tauri::{AppHandle, Emitter};
-use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+use std::path::{Path,PathBuf};
+use tauri::{AppHandle,Emitter};
+use tauri_plugin_dialog::{DialogExt,MessageDialogButtons,MessageDialogKind};
 
 #[cfg(target_os = "linux")]
 use crate::DownloadState;
 #[cfg(target_os = "linux")]
-use crate::downloading::queue::{QueueJobKind, QueueJobOutcome};
+use crate::downloading::queue::{QueueJobKind,QueueJobOutcome};
 #[cfg(target_os = "linux")]
-use crate::downloading::{QueueJobPayload, RunnerDownloadPayload, SteamrtDownloadPayload};
+use crate::downloading::{QueueJobPayload,RunnerDownloadPayload,SteamrtDownloadPayload};
 #[cfg(target_os = "linux")]
 use crate::utils::db_manager::update_installed_runner_is_installed_by_version;
 #[cfg(target_os = "linux")]
 use crate::utils::send_notification;
 #[cfg(target_os = "linux")]
-use fischl::compat::{Compat, check_steamrt_update, download_steamrt};
+use fischl::compat::{Compat,check_steamrt_update,download_steamrt};
 #[cfg(target_os = "linux")]
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc,Mutex};
 #[cfg(target_os = "linux")]
 use tauri::Manager;
 
@@ -220,69 +220,76 @@ pub fn check_extras_update(app: &AppHandle) {
         let ver_wwmi = wwmi.join("VERSION.txt");
 
         if ver_jadeite.exists() {
-            download_or_update_extra(app, jadeite, "jadeite".to_string(), "v5.0.1-hotfix".to_string(), true);
+            download_or_update_extra(app, jadeite, "jadeite".to_string(), "v5.0.1-hotfix".to_string(), true, None);
         } else if jadeite.exists() && fs::read_dir(&jadeite).ok().and_then(|mut d| d.next()).is_some() {
             empty_dir(&jadeite).unwrap();
-            download_or_update_extra(app, jadeite, "jadeite".to_string(), "v5.0.1-hotfix".to_string(), false);
+            download_or_update_extra(app, jadeite, "jadeite".to_string(), "v5.0.1-hotfix".to_string(), false, None);
         }
 
         if ver_fpsunlock.exists() {
-            download_or_update_extra(app, fpsunlock, "keqingunlock".to_string(), "keqing_unlock".to_string(), true);
+            download_or_update_extra(app, fpsunlock, "keqingunlock".to_string(), "keqing_unlock".to_string(), true, None);
         } else if fpsunlock.exists() && fs::read_dir(&fpsunlock).ok().and_then(|mut d| d.next()).is_some() {
             empty_dir(&fpsunlock).unwrap();
-            download_or_update_extra(app, fpsunlock, "keqingunlock".to_string(), "keqing_unlock".to_string(), false);
+            download_or_update_extra(app, fpsunlock, "keqingunlock".to_string(), "keqing_unlock".to_string(), false, None);
         }
 
         if ver_xxmi.exists() {
-            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "xxmi".to_string(), true);
+            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "xxmi".to_string(), true, None);
         } else if xxmi.exists() && fs::read_dir(&xxmi).ok().and_then(|mut d| d.next()).is_some() {
             empty_dir(&xxmi).unwrap();
-            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "xxmi".to_string(), false);
+            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "xxmi".to_string(), false, None);
         }
 
         if ver_gimi.exists() {
-            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "gimi".to_string(), true);
+            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "gimi".to_string(), true, None);
         } else if gimi.exists() && fs::read_dir(&gimi).ok().and_then(|mut d| d.next()).is_some() {
             empty_dir(&gimi).unwrap();
-            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "gimi".to_string(), false);
+            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "gimi".to_string(), false, None);
         }
 
         if ver_srmi.exists() {
-            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "srmi".to_string(), true);
+            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "srmi".to_string(), true, None);
         } else if srmi.exists() && fs::read_dir(&srmi).ok().and_then(|mut d| d.next()).is_some() {
             empty_dir(&srmi).unwrap();
-            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "srmi".to_string(), false);
+            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "srmi".to_string(), false, None);
         }
 
         if ver_zzmi.exists() {
-            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "zzmi".to_string(), true);
+            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "zzmi".to_string(), true, None);
         } else if zzmi.exists() && fs::read_dir(&zzmi).ok().and_then(|mut d| d.next()).is_some() {
             empty_dir(&zzmi).unwrap();
-            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "zzmi".to_string(), false);
+            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "zzmi".to_string(), false, None);
         }
 
         if ver_himi.exists() {
-            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "himi".to_string(), true);
+            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "himi".to_string(), true, None);
         } else if himi.exists() && fs::read_dir(&himi).ok().and_then(|mut d| d.next()).is_some() {
             empty_dir(&himi).unwrap();
-            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "himi".to_string(), false);
+            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "himi".to_string(), false, None);
         }
 
         if ver_wwmi.exists() {
-            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "wwmi".to_string(), true);
+            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "wwmi".to_string(), true, None);
         } else if wwmi.exists() && fs::read_dir(&wwmi).ok().and_then(|mut d| d.next()).is_some() {
             empty_dir(&wwmi).unwrap();
-            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "wwmi".to_string(), false);
+            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "wwmi".to_string(), false, None);
         }
     }
 }
 
-pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: String, package_type: String, update_mode: bool) {
+/// Download or update an extra package (jadeite, fps unlock, xxmi variants).
+/// When job_id is None, runs in a fire-and-forget thread (used by check_extras_update at startup).
+/// When job_id is Some, runs synchronously and returns success/failure (used by queue worker).
+pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: String, package_type: String, update_mode: bool, job_id: Option<String>) -> bool {
+    if job_id.is_none() {
+        let app = app.clone();
+        let path = path.clone();
+        std::thread::spawn(move || { download_or_update_extra(&app, path, package_id, package_type, update_mode, Some(String::new())); });
+        return true;
+    }
+    let app = app.clone();
     if update_mode {
         if fs::read_dir(&path).unwrap().next().is_some() {
-            let app = app.clone();
-            let path = path.clone();
-            std::thread::spawn(move || {
                 let manifest = Extras::fetch_ttl_manifest(package_id.clone());
                 if let Some(m) = manifest {
                     if m.retcode != 0 {
@@ -292,11 +299,11 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                             .show(move |_action| {
                                 app.emit("update_complete", package_id.clone()).unwrap();
                             });
-                        return;
+                        return false;
                     } else {
                         let ap = if package_type.as_str() == "xxmi" || package_id.as_str() == "jadeite" || package_id == "keqingunlock" { path.clone() } else { path.join(&package_type) };
                         let ver_path = if package_id == "keqingunlock" || package_id == "jadeite" || package_type == "xxmi" { path.join("VERSION.txt") } else { path.join(package_type.clone()).join("VERSION.txt") };
-                        if !ver_path.exists() { return; }
+                        if !ver_path.exists() { return false; }
                         let pkg_type = if package_id == "keqingunlock" || package_id == "jadeite" { package_id.as_str() } else { package_type.as_str() };
                         let local_ver = find_package_version(ver_path.clone(), &pkg_type);
                         if local_ver.is_some() {
@@ -334,6 +341,7 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                                         }
                                         app.emit("update_complete", package_id.clone()).unwrap();
                                         prevent_exit(&app, false);
+                                        return true;
                                     } else {
                                         app.dialog().message(format!("Error occurred while trying to update {package_id}! Please retry later.").as_str()).title("TwintailLauncher")
                                             .kind(MessageDialogKind::Error)
@@ -343,26 +351,25 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                                                 app.emit("update_complete", package_id.clone()).unwrap();
                                                 empty_dir(&path).unwrap();
                                             });
+                                        return false;
                                     }
                                 }
                             }
                         }
                     }
                 }
-            });
         }
+        return true; // Nothing to update
     } else {
         let ap = if package_type.as_str() == "gimi" || package_type.as_str() == "srmi" || package_type.as_str() == "zzmi" || package_type.as_str() == "himi" || package_type.as_str() == "wwmi" { path.join(&package_type) } else { path.clone() };
         let entries: Vec<_> = fs::read_dir(&ap).ok().map(|r| r.filter_map(|e| e.ok()).collect()).unwrap_or_default();
         let is_effectively_empty = if package_type == "xxmi" { entries.iter().all(|e| { let name = e.file_name(); e.path().is_dir() && (name == "gimi" || name == "srmi" || name == "zzmi" || name == "himi" || name == "wwmi") }) } else { entries.is_empty() || entries.iter().all(|e| e.file_name().to_str().unwrap().contains("Mods") || e.file_name().to_str().unwrap().contains("ShaderCache") || e.file_name() == "d3dx_user.ini") };
         if is_effectively_empty {
-            let app = app.clone();
-            let path = path.clone();
-            std::thread::spawn(move || {
                 let mut dlpayload = HashMap::new();
                 dlpayload.insert("name", package_id.clone().chars().next().map(|first| first.to_uppercase().collect::<String>() + &package_id[first.len_utf8()..]).unwrap_or_default());
                 dlpayload.insert("progress", "0".to_string());
                 dlpayload.insert("total", "1000".to_string());
+                if let Some(ref jid) = job_id { if !jid.is_empty() { dlpayload.insert("job_id", jid.clone()); } }
                 app.emit("download_progress", dlpayload.clone()).unwrap();
                 prevent_exit(&app, true);
 
@@ -400,6 +407,7 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                     }
                     app.emit("download_complete", package_id.clone()).unwrap();
                     prevent_exit(&app, false);
+                    return true;
                 } else {
                     app.dialog().message(format!("Error occurred while trying to download {package_id}! Please retry later.").as_str()).title("TwintailLauncher")
                         .kind(MessageDialogKind::Error)
@@ -409,8 +417,9 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                             app.emit("download_complete", package_id.clone()).unwrap();
                             empty_dir(&path).unwrap();
                         });
+                    return false;
                 }
-            });
         }
+        return true; // Already downloaded
     }
 }
