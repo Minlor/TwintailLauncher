@@ -56,11 +56,7 @@ pub fn start_connection_monitor(app: AppHandle) {
 
 /// Check if we have internet connectivity by trying multiple endpoints
 async fn check_connectivity() -> bool {
-    let endpoints = [
-        "https://raw.githubusercontent.com/nicewrld/tw/refs/heads/stable/README.md",
-        "https://api.github.com/zen",
-        "https://www.google.com/generate_204",
-    ];
+    let endpoints = ["https://raw.githubusercontent.com/twintailteam/twintaillauncher/refs/heads/stable/README.md", "https://api.github.com/zen", "https://www.google.com/generate_204"];
 
     let client = match reqwest::Client::builder().timeout(Duration::from_secs(5)).build() {
         Ok(c) => c,
@@ -69,9 +65,7 @@ async fn check_connectivity() -> bool {
 
     for endpoint in endpoints {
         match client.head(endpoint).send().await {
-            Ok(response) => {
-                if response.status().is_success() || response.status().as_u16() == 204 { return true; }
-            }
+            Ok(response) => { if response.status().is_success() || response.status().as_u16() == 204 { return true; } }
             Err(_) => continue,
         }
     }

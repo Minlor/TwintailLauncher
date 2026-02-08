@@ -26,24 +26,14 @@ pub fn register_download_handler(app: &AppHandle) {
         } else {
             let h4 = a.clone();
             std::thread::spawn(move || {
-                let job_id = format!(
-                    "direct_download_{}",
-                    std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_millis()
-                );
+                let job_id = format!("direct_download_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis());
                 let _ = run_game_download(h4, payload, job_id);
             });
         }
     });
 }
 
-pub fn run_game_download(
-    h4: AppHandle,
-    payload: DownloadGamePayload,
-    job_id: String,
-) -> QueueJobOutcome {
+pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: String) -> QueueJobOutcome {
     let job_id = Arc::new(job_id);
     let install = match get_install_info_by_id(&h4, payload.install.clone()) {
         Some(v) => v,
@@ -56,27 +46,13 @@ pub fn run_game_download(
 
     let mm = get_manifest(&h4, gid.filename);
     if let Some(gm) = mm {
-        let version = if payload.is_latest.is_some() {
-            gm.game_versions
-                .iter()
-                .filter(|e| e.metadata.version == gm.latest_version)
-                .collect::<Vec<&GameVersion>>()
-        } else {
-            gm.game_versions
-                .iter()
-                .filter(|e| e.metadata.version == install.version)
-                .collect::<Vec<&GameVersion>>()
-        };
+        let version = if payload.is_latest.is_some() { gm.game_versions.iter().filter(|e| e.metadata.version == gm.latest_version).collect::<Vec<&GameVersion>>() } else { gm.game_versions.iter().filter(|e| e.metadata.version == install.version).collect::<Vec<&GameVersion>>() };
         let picked = match version.get(0) {
             Some(v) => *v,
             None => return QueueJobOutcome::Failed,
         };
 
-        let instn = if payload.is_latest.is_some() {
-            Arc::new(picked.metadata.versioned_name.clone())
-        } else {
-            Arc::new(install.name.clone())
-        };
+        let instn = if payload.is_latest.is_some() { Arc::new(picked.metadata.versioned_name.clone()) } else { Arc::new(install.name.clone()) };
         let inna = instn.clone();
         let dlpayload = Arc::new(Mutex::new(HashMap::new()));
 
@@ -100,9 +76,7 @@ pub fn run_game_download(
         let verified_files = {
             let state = h4.state::<DownloadState>();
             let mut vf = state.verified_files.lock().unwrap();
-            vf.entry(payload.install.clone())
-                .or_insert_with(|| Arc::new(Mutex::new(std::collections::HashSet::new())))
-                .clone()
+            vf.entry(payload.install.clone()).or_insert_with(|| Arc::new(Mutex::new(std::collections::HashSet::new()))).clone()
         };
 
         let mut success = false;
@@ -111,31 +85,13 @@ pub fn run_game_download(
             "DOWNLOAD_MODE_FILE" => {
                 let install_dir = Path::new(&install.directory);
                 let downloading_marker = install_dir.join("downloading");
-                if !install_dir.exists() {
-                    std::fs::create_dir_all(install_dir).unwrap_or_default();
-                }
-                if !downloading_marker.exists() {
-                    std::fs::create_dir(&downloading_marker).unwrap_or_default();
-                }
+                if !install_dir.exists() { std::fs::create_dir_all(install_dir).unwrap_or_default(); }
+                if !downloading_marker.exists() { std::fs::create_dir(&downloading_marker).unwrap_or_default(); }
 
-                let urls = picked
-                    .game
-                    .full
-                    .iter()
-                    .map(|v| v.file_url.clone())
-                    .collect::<Vec<String>>();
-                let _ = picked
-                    .game
-                    .full
-                    .iter()
-                    .map(|x| x.compressed_size.parse::<u64>().unwrap())
-                    .sum::<u64>();
+                let urls = picked.game.full.iter().map(|v| v.file_url.clone()).collect::<Vec<String>>();
                 let cancel_token = cancel_token.clone();
                 let rslt = run_async_command(async {
-                    <Game as Zipped>::download(
-                        urls.clone(),
-                        install.directory.clone(),
-                        {
+                    <Game as Zipped>::download(urls.clone(), install.directory.clone(), {
                             let dlpayload = dlpayload.clone();
                             let h4 = h4.clone();
                             let instn = instn.clone();
@@ -155,8 +111,7 @@ pub fn run_game_download(
                         },
                         Some(cancel_token),
                         None,
-                    )
-                    .await
+                    ).await
                 });
                 if rslt {
                     // Get first entry in the list, and start extraction
@@ -165,16 +120,9 @@ pub fn run_game_download(
                     let fnn = tmpf.last().unwrap().to_string();
                     let ap = Path::new(&install.directory).to_path_buf();
                     let aps = ap.to_str().unwrap().to_string();
-                    let parts = urls
-                        .into_iter()
-                        .map(|e| {
-                            e.split('/')
-                                .collect::<Vec<&str>>()
-                                .last()
-                                .unwrap()
-                                .to_string()
-                        })
-                        .collect::<Vec<String>>();
+                    let parts = urls.into_iter().map(|e| {
+                            e.split('/').collect::<Vec<&str>>().last().unwrap().to_string()
+                    }).collect::<Vec<String>>();
 
                     if fnn.ends_with(".001") {
                         let r = assemble_multipart_archive(parts, aps);
@@ -183,11 +131,7 @@ pub fn run_game_download(
                             let far = ap.join(aar).to_str().unwrap().to_string();
 
                             // Extraction stage (Steam-like "Installing files")
-                            let ext = extract_archive_with_progress(
-                                far,
-                                install.directory.clone(),
-                                false,
-                                {
+                            let ext = extract_archive_with_progress(far, install.directory.clone(), false, {
                                     let dlpayload = dlpayload.clone();
                                     let h4 = h4.clone();
                                     let instn = instn.clone();
@@ -203,17 +147,10 @@ pub fn run_game_download(
                                 },
                             );
                             if ext {
-                                if downloading_marker.exists() {
-                                    std::fs::remove_dir(&downloading_marker).unwrap_or_default();
-                                }
+                                if downloading_marker.exists() { std::fs::remove_dir(&downloading_marker).unwrap_or_default(); }
                                 h4.emit("download_complete", ()).unwrap();
                                 prevent_exit(&h4, false);
-                                send_notification(
-                                    &h4,
-                                    format!("Download of {inn} complete.", inn = inna.to_string())
-                                        .as_str(),
-                                    None,
-                                );
+                                send_notification(&h4, format!("Download of {inn} complete.", inn = inna.to_string()).as_str(), None);
                                 success = true;
                             }
                         }
@@ -237,17 +174,10 @@ pub fn run_game_download(
                                 }
                             });
                         if ext {
-                            if downloading_marker.exists() {
-                                std::fs::remove_dir(&downloading_marker).unwrap_or_default();
-                            }
+                            if downloading_marker.exists() { std::fs::remove_dir(&downloading_marker).unwrap_or_default(); }
                             h4.emit("download_complete", ()).unwrap();
                             prevent_exit(&h4, false);
-                            send_notification(
-                                &h4,
-                                format!("Download of {inn} complete.", inn = inna.to_string())
-                                    .as_str(),
-                                None,
-                            );
+                            send_notification(&h4, format!("Download of {inn} complete.", inn = inna.to_string()).as_str(), None);
                             success = true;
                         }
                     }
@@ -260,29 +190,10 @@ pub fn run_game_download(
                 if !install_dir.exists() { std::fs::create_dir_all(install_dir).unwrap_or_default(); }
                 if !downloading_marker.exists() { std::fs::create_dir(&downloading_marker).unwrap_or_default(); }
 
-                let biz = if payload.biz.is_empty() {
-                    gm.biz.clone()
-                } else {
-                    payload.biz.clone()
-                };
-                let region = if payload.region.is_empty() {
-                    install.region_code.clone()
-                } else {
-                    payload.region.clone()
-                };
+                let biz = if payload.biz.is_empty() { gm.biz.clone() } else { payload.biz.clone() };
+                let region = if payload.region.is_empty() { install.region_code.clone() } else { payload.region.clone() };
 
-                let urls = if biz == "bh3_global" {
-                    picked
-                        .game
-                        .full
-                        .clone()
-                        .iter()
-                        .filter(|e| e.region_code.clone().unwrap() == region)
-                        .cloned()
-                        .collect::<Vec<FullGameFile>>()
-                } else {
-                    picked.game.full.clone()
-                };
+                let urls = if biz == "bh3_global" { picked.game.full.clone().iter().filter(|e| e.region_code.clone().unwrap() == region).cloned().collect::<Vec<FullGameFile>>() } else { picked.game.full.clone() };
                 // Pre-calculate combined totals across all manifest files
                 let combined_download_total: u64 = urls.iter().map(|e| e.compressed_size.parse::<u64>().unwrap_or(0)).sum();
                 let combined_install_total: u64 = urls.iter().map(|e| e.decompressed_size.parse::<u64>().unwrap_or(0)).sum();
@@ -298,11 +209,7 @@ pub fn run_game_download(
                     let cumulative_install = cumulative_install.clone();
                     let is_last_manifest = manifest_idx == total_manifests - 1;
                     let rslt = run_async_command(async {
-                        <Game as Sophon>::download(
-                            e.file_url.clone(),
-                            e.file_path.clone(),
-                            install.directory.clone(),
-                            {
+                        <Game as Sophon>::download(e.file_url.clone(), e.file_path.clone(), install.directory.clone(), {
                                 let dlpayload = dlpayload.clone();
                                 let instn = instn.clone();
                                 let job_id = job_id.clone();
@@ -333,13 +240,9 @@ pub fn run_game_download(
                             },
                             Some(cancel_token),
                             Some(verified_files.clone()),
-                        )
-                        .await
+                        ).await
                     });
-                    if !rslt {
-                        ok = false;
-                        break;
-                    }
+                    if !rslt { ok = false;break; }
                     // After manifest completes, add its size to cumulative progress
                     cumulative_download.fetch_add(e.compressed_size.parse::<u64>().unwrap_or(0), std::sync::atomic::Ordering::SeqCst);
                     cumulative_install.fetch_add(e.decompressed_size.parse::<u64>().unwrap_or(0), std::sync::atomic::Ordering::SeqCst);
@@ -363,11 +266,7 @@ pub fn run_game_download(
                 let manifest = urls.get(0).unwrap();
                 let cancel_token = cancel_token.clone();
                 let rslt = run_async_command(async {
-                    <Game as Kuro>::download(
-                        manifest.to_owned(),
-                        picked.metadata.res_list_url.clone(),
-                        install.directory.clone(),
-                        {
+                    <Game as Kuro>::download(manifest.to_owned(), picked.metadata.res_list_url.clone(), install.directory.clone(), {
                             let dlpayload = dlpayload.clone();
                             let h4 = h4.clone();
                             let instn = instn.clone();
@@ -390,8 +289,7 @@ pub fn run_game_download(
                         },
                         Some(cancel_token),
                         Some(verified_files.clone()),
-                    )
-                    .await
+                    ).await
                 });
                 if rslt {
                     if downloading_marker.exists() { std::fs::remove_dir(&downloading_marker).unwrap_or_default(); }
@@ -416,9 +314,7 @@ pub fn run_game_download(
             let state = h4.state::<DownloadState>();
             let tokens = state.tokens.lock().unwrap();
             if let Some(token) = tokens.get(&payload.install) {
-                if token.load(Ordering::Relaxed) {
-                    cancelled = true;
-                }
+                if token.load(Ordering::Relaxed) { cancelled = true; }
             }
         }
 
@@ -436,12 +332,7 @@ pub fn run_game_download(
             prevent_exit(&h4, false);
             return QueueJobOutcome::Cancelled;
         }
-
-        if success {
-            QueueJobOutcome::Completed
-        } else {
-            QueueJobOutcome::Failed
-        }
+        if success { QueueJobOutcome::Completed } else { QueueJobOutcome::Failed }
     } else {
         eprintln!("Failed to download game!");
         QueueJobOutcome::Failed

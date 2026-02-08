@@ -9,13 +9,10 @@ use crate::utils::db_manager::{
     update_settings_third_party_repo_update,
 };
 use crate::utils::repo_manager::get_manifest;
-use crate::utils::{
-    block_telemetry, get_mi_path_from_game, send_notification,
-};
+use crate::utils::{block_telemetry, get_mi_path_from_game, send_notification, };
 use std::fs;
 use std::path::Path;
 use tauri::{AppHandle, Manager};
-use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_opener::OpenerExt;
 
 #[tauri::command]
@@ -25,9 +22,7 @@ pub async fn list_settings(app: AppHandle) -> Option<String> {
     if settings.is_some() {
         let s = settings.unwrap();
         // Ensure fischl's global limiter is synced with persisted settings.
-        fischl::utils::downloader::set_global_download_speed_limit_kib(
-            s.download_speed_limit.max(0) as u64,
-        );
+        fischl::utils::downloader::set_global_download_speed_limit_kib(s.download_speed_limit.max(0) as u64, );
         let stringified = serde_json::to_string(&s).unwrap();
         Some(stringified)
     } else {
@@ -173,36 +168,20 @@ pub fn update_settings_manifests_hide(app: AppHandle, enabled: bool) -> Option<b
 
 #[tauri::command]
 pub fn block_telemetry_cmd(app: AppHandle) -> Option<bool> {
-    let path = app
-        .path()
-        .app_data_dir()
-        .unwrap()
-        .join(".telemetry_blocked");
+    let path = app.path().app_data_dir().unwrap().join(".telemetry_blocked");
     if !path.exists() {
         fs::write(&path, ".").unwrap();
         block_telemetry(&app);
         Some(true)
     } else {
         block_telemetry(&app);
-        app.notification()
-            .builder()
-            .icon("dialog-information")
-            .title("TwintailLauncher")
-            .body("Updated and fixed telemetry server block.")
-            .show()
-            .unwrap();
+        send_notification(&app, "Updated and fixed telemetry server block.", None);
         None
     }
 }
 
 #[tauri::command]
-pub fn open_folder(
-    app: AppHandle,
-    manifest_id: String,
-    install_id: String,
-    runner_version: String,
-    path_type: String,
-) {
+pub fn open_folder(app: AppHandle, manifest_id: String, install_id: String, runner_version: String, path_type: String) {
     match path_type.as_str() {
         "mods" => {
             let settings = get_settings(&app);
@@ -217,46 +196,24 @@ pub fn open_folder(
                 if fp.exists() {
                     match app.opener().reveal_item_in_dir(fp.as_path()) {
                         Ok(_) => {}
-                        Err(_e) => {
-                            send_notification(
-                                &app,
-                                "Directory opening failed, try again later!",
-                                None,
-                            );
-                        }
+                        Err(_e) => { send_notification(&app, "Directory opening failed, try again later!", None); }
                     }
-                } else {
-                    send_notification(
-                        &app,
-                        "XXMI is not downloaded or folder structure is corrupt! Can not open the folder.",
-                        None,
-                    );
-                };
+                } else { send_notification(&app, "XXMI is not downloaded or folder structure is corrupt! Can not open the folder.", None); };
             }
         }
         "install" => {
             let install = get_install_info_by_id(&app, install_id);
             if install.is_some() {
                 let i = install.unwrap();
-                let fp = Path::new(&i.directory).join("game.log");
+                let dm = get_manifest_info_by_id(&app, i.manifest_id).unwrap();
+                let gm = get_manifest(&app, dm.filename).unwrap();
+                let fp = Path::new(&i.directory).join(gm.paths.exe_filename);
                 if fp.exists() {
                     match app.opener().reveal_item_in_dir(fp.as_path()) {
                         Ok(_) => {}
-                        Err(_e) => {
-                            send_notification(
-                                &app,
-                                "Directory opening failed, try again later!",
-                                None,
-                            );
-                        }
+                        Err(_e) => { send_notification(&app, "Directory opening failed, try again later!", None); }
                     }
-                } else {
-                    send_notification(
-                        &app,
-                        "Can not open game directory, Please run the game once!",
-                        None,
-                    );
-                };
+                } else { send_notification(&app, "Can not open game directory, Please try again later!", None); };
             }
         }
         "runner" => {
@@ -267,21 +224,9 @@ pub fn open_folder(
                 if fp.exists() {
                     match app.opener().reveal_item_in_dir(fp.as_path()) {
                         Ok(_) => {}
-                        Err(_e) => {
-                            send_notification(
-                                &app,
-                                "Directory opening failed, try again later!",
-                                None,
-                            );
-                        }
+                        Err(_e) => { send_notification(&app, "Directory opening failed, try again later!", None); }
                     }
-                } else {
-                    send_notification(
-                        &app,
-                        "Can not open runner directory, Is runner downloaded properly?",
-                        None,
-                    );
-                };
+                } else { send_notification(&app, "Can not open runner directory, Is runner downloaded properly?", None); };
             }
         }
         "runner_global" => {
@@ -292,21 +237,9 @@ pub fn open_folder(
                 if fp.exists() {
                     match app.opener().reveal_item_in_dir(fp.as_path()) {
                         Ok(_) => {}
-                        Err(_e) => {
-                            send_notification(
-                                &app,
-                                "Directory opening failed, try again later!",
-                                None,
-                            );
-                        }
+                        Err(_e) => { send_notification(&app, "Directory opening failed, try again later!", None); }
                     }
-                } else {
-                    send_notification(
-                        &app,
-                        "Can not open runner directory, Is runner downloaded properly?",
-                        None,
-                    );
-                }
+                } else { send_notification(&app, "Can not open runner directory, Is runner downloaded properly?", None); }
             }
         }
         "runner_prefix" => {
@@ -317,21 +250,9 @@ pub fn open_folder(
                 if fp.exists() {
                     match app.opener().reveal_item_in_dir(fp.as_path()) {
                         Ok(_) => {}
-                        Err(_e) => {
-                            send_notification(
-                                &app,
-                                "Directory opening failed, try again later!",
-                                None,
-                            );
-                        }
+                        Err(_e) => { send_notification(&app, "Directory opening failed, try again later!", None); }
                     }
-                } else {
-                    send_notification(
-                        &app,
-                        "Can not open runner prefix directory, Is runner prefix initialized?",
-                        None,
-                    );
-                };
+                } else { send_notification(&app, "Can not open runner prefix directory, Is runner prefix initialized?", None); };
             }
         }
         _ => {}
@@ -342,8 +263,6 @@ pub fn open_folder(
 pub fn open_uri(app: AppHandle, uri: String) {
     match app.opener().open_url(uri, None::<&str>) {
         Ok(_) => {}
-        Err(_e) => {
-            send_notification(&app, "Opening URL in browser failed!", None);
-        }
+        Err(_e) => { send_notification(&app, "Opening URL in browser failed!", None); }
     }
 }

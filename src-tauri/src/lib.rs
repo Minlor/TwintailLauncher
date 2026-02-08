@@ -23,11 +23,9 @@ use crate::commands::runners::{add_installed_runner, get_installed_runner_by_id,
 use crate::commands::network::check_network_connectivity;
 
 #[cfg(target_os = "linux")]
-use crate::downloading::misc::register_runner_download_handler;
-#[cfg(target_os = "linux")]
 use crate::utils::{deprecate_jadeite, sync_installed_runners, is_flatpak, block_telemetry};
 #[cfg(target_os = "linux")]
-use crate::downloading::misc::{download_or_update_steamrt, register_steamrt_download_handler};
+use crate::downloading::misc::{download_or_update_steamrt};
 
 mod utils;
 mod commands;
@@ -35,7 +33,7 @@ mod downloading;
 
 pub struct DownloadState {
     pub tokens: Mutex<HashMap<String, Arc<AtomicBool>>>,
-    pub queue: Mutex<Option<crate::downloading::queue::DownloadQueueHandle>>,
+    pub queue: Mutex<Option<downloading::queue::DownloadQueueHandle>>,
     pub verified_files: Mutex<HashMap<String, Arc<Mutex<std::collections::HashSet<String>>>>>,
 }
 
@@ -75,10 +73,7 @@ pub fn run() {
                 use tauri::Listener;
                 let h = handle.clone();
                 let h2 = handle.clone();
-                let callback_id = format!("unsupported_arch_{}", std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_millis());
+                let callback_id = format!("unsupported_arch_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis());
                 let callback_id_clone = callback_id.clone();
                 
                 handle.listen("dialog_response", move |event| {
@@ -97,15 +92,7 @@ pub fn run() {
                         }
                     }
                 });
-                
-                show_dialog_with_callback(
-                    &h2,
-                    "warning",
-                    "Unsupported Architecture",
-                    "TwintailLauncher does not support ARM based architectures. Flatpak required ARM builds to be provided but they are not supported!",
-                    Some(vec!["Exit"]),
-                    Some(&callback_id),
-                );
+                show_dialog_with_callback(&h2, "warning", "Unsupported Architecture", "TwintailLauncher does not support ARM based architectures. Flatpak required ARM builds to be provided but they are not supported!", Some(vec!["Exit"]), Some(&callback_id), );
             }
 
             #[cfg(target_arch = "x86_64")]
@@ -126,7 +113,7 @@ pub fn run() {
                         (QueueJobKind::SteamrtDownload, QueueJobPayload::Steamrt(p)) => crate::downloading::misc::run_steamrt_download(app, p, job.id),
                         (QueueJobKind::ExtrasDownload, QueueJobPayload::Extras(p)) => {
                             let path = std::path::PathBuf::from(&p.path);
-                            if crate::downloading::misc::download_or_update_extra(&app, path, p.package_id, p.package_type, p.update_mode, Some(job.id)) { QueueJobOutcome::Completed } else { QueueJobOutcome::Failed }
+                            if downloading::misc::download_or_update_extra(&app, path, p.package_id, p.package_type, p.update_mode, Some(job.id)) { QueueJobOutcome::Completed } else { QueueJobOutcome::Failed }
                         }
                         // Mismatch between kind and payload - should never happen
                         _ => QueueJobOutcome::Failed,
@@ -142,8 +129,7 @@ pub fn run() {
                 }
 
                 // Start connection monitor for auto-pause/resume on connectivity changes
-                crate::downloading::connection_monitor::start_connection_monitor(handle.clone());
-
+                downloading::connection_monitor::start_connection_monitor(handle.clone());
                 load_manifests(handle);
                 init_tray(handle).unwrap();
                 // Initialize the listeners
@@ -152,11 +138,6 @@ pub fn run() {
                 register_update_handler(handle);
                 register_repair_handler(handle);
                 register_preload_handler(handle);
-                #[cfg(target_os = "linux")]
-                {
-                    register_runner_download_handler(handle);
-                    register_steamrt_download_handler(handle);
-                }
 
                 if args::get_launch_install().is_some() {
                     let id = args::get_launch_install().unwrap();

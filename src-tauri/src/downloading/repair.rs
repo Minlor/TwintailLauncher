@@ -26,30 +26,17 @@ pub fn register_repair_handler(app: &AppHandle) {
         } else {
             let h5 = a.clone();
             std::thread::spawn(move || {
-                let job_id = format!(
-                    "direct_repair_{}",
-                    std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_millis()
-                );
+                let job_id = format!("direct_repair_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis());
                 let _ = run_game_repair(h5, payload, job_id);
             });
         }
     });
 }
 
-pub fn run_game_repair(
-    h5: AppHandle,
-    payload: DownloadGamePayload,
-    job_id: String,
-) -> QueueJobOutcome {
+pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: String) -> QueueJobOutcome {
     let job_id = Arc::new(job_id);
     let install = get_install_info_by_id(&h5, payload.install);
-    if install.is_none() {
-        eprintln!("Failed to find installation for repair!");
-        return QueueJobOutcome::Failed;
-    }
+    if install.is_none() { eprintln!("Failed to find installation for repair!");return QueueJobOutcome::Failed; }
 
     let i = install.unwrap();
     let lm = match get_manifest_info_by_id(&h5, i.manifest_id.clone()) {
@@ -61,11 +48,7 @@ pub fn run_game_repair(
         None => return QueueJobOutcome::Failed,
     };
 
-    let version = gm
-        .game_versions
-        .iter()
-        .filter(|e| e.metadata.version == i.version)
-        .collect::<Vec<&GameVersion>>();
+    let version = gm.game_versions.iter().filter(|e| e.metadata.version == i.version).collect::<Vec<&GameVersion>>();
     let picked = match version.get(0) {
         Some(v) => *v,
         None => return QueueJobOutcome::Failed,
@@ -89,9 +72,7 @@ pub fn run_game_repair(
     {
         // Set prefix in repair state by emptying the directory
         let prefix_path = std::path::Path::new(&i.runner_prefix);
-        if prefix_path.exists() && !gm.extra.compat_overrides.install_to_prefix {
-            empty_dir(prefix_path).unwrap();
-        }
+        if prefix_path.exists() && !gm.extra.compat_overrides.install_to_prefix { empty_dir(prefix_path).unwrap(); }
     }
 
     match picked.metadata.download_mode.as_str() {
@@ -102,48 +83,18 @@ pub fn run_game_repair(
         }
         // HoYoverse sophon chunk mode
         "DOWNLOAD_MODE_CHUNK" => {
-            let biz = if payload.biz.is_empty() {
-                gm.biz.clone()
-            } else {
-                payload.biz.clone()
-            };
-            let region = if payload.region.is_empty() {
-                i.region_code.clone()
-            } else {
-                payload.region.clone()
-            };
+            let biz = if payload.biz.is_empty() { gm.biz.clone() } else { payload.biz.clone() };
+            let region = if payload.region.is_empty() { i.region_code.clone() } else { payload.region.clone() };
 
-            let urls = if biz == "bh3_global" {
-                picked
-                    .game
-                    .full
-                    .clone()
-                    .iter()
-                    .filter(|e| e.region_code.clone().unwrap() == region)
-                    .cloned()
-                    .collect::<Vec<FullGameFile>>()
-            } else {
-                picked.game.full.clone()
-            };
+            let urls = if biz == "bh3_global" { picked.game.full.clone().iter().filter(|e| e.region_code.clone().unwrap() == region).cloned().collect::<Vec<FullGameFile>>() } else { picked.game.full.clone() };
             urls.into_iter().for_each(|e| {
                 run_async_command(async {
-                    <Game as Sophon>::repair_game(
-                        e.file_url.clone(),
-                        e.file_path.clone(),
-                        i.directory.clone(),
-                        false,
-                        {
+                    <Game as Sophon>::repair_game(e.file_url.clone(), e.file_path.clone(), i.directory.clone(), false, {
                             let dlpayload = dlpayload.clone();
                             let instn = instn.clone();
                             let tmp = tmp.clone();
                             let job_id = job_id.clone();
-                            move |download_current,
-                                  download_total,
-                                  install_current,
-                                  install_total,
-                                  net_speed,
-                                  disk_speed,
-                                  phase| {
+                            move |download_current, download_total, install_current, install_total, net_speed, disk_speed, phase| {
                                 let mut dlp = dlpayload.lock().unwrap();
                                 let instn = instn.clone();
                                 let tmp = tmp.clone();
@@ -162,35 +113,20 @@ pub fn run_game_repair(
                                 drop(dlp);
                             }
                         },
-                    )
-                    .await
+                    ).await
                 });
             });
             // We finished the loop emit complete
             h5.emit("repair_complete", ()).unwrap();
             prevent_exit(&h5, false);
-            send_notification(
-                &h5,
-                format!("Repair of {inn} complete.", inn = i.name).as_str(),
-                None,
-            );
+            send_notification(&h5, format!("Repair of {inn} complete.", inn = i.name).as_str(), None);
         }
         // KuroGame only
         "DOWNLOAD_MODE_RAW" => {
-            let urls = picked
-                .game
-                .full
-                .iter()
-                .map(|v| v.file_url.clone())
-                .collect::<Vec<String>>();
+            let urls = picked.game.full.iter().map(|v| v.file_url.clone()).collect::<Vec<String>>();
             let manifest = urls.get(0).unwrap();
             let rslt = run_async_command(async {
-                <Game as Kuro>::repair_game(
-                    manifest.to_owned(),
-                    picked.metadata.res_list_url.clone(),
-                    i.directory.clone(),
-                    false,
-                    {
+                <Game as Kuro>::repair_game(manifest.to_owned(), picked.metadata.res_list_url.clone(), i.directory.clone(), false, {
                         let dlpayload = dlpayload.clone();
                         let job_id = job_id.clone();
                         move |download_current, download_total, install_current, install_total, net_speed, disk_speed, phase| {
@@ -209,43 +145,19 @@ pub fn run_game_repair(
                             drop(dlp);
                         }
                     },
-                )
-                .await
+                ).await
             });
             if rslt {
                 h5.emit("repair_complete", ()).unwrap();
                 prevent_exit(&h5, false);
-                send_notification(
-                    &h5,
-                    format!("Repair of {inn} complete.", inn = i.name).as_str(),
-                    None,
-                );
+                send_notification(&h5, format!("Repair of {inn} complete.", inn = i.name).as_str(), None);
                 #[cfg(target_os = "linux")]
-                crate::utils::apply_patch(
-                    &h5,
-                    std::path::Path::new(&i.directory.clone())
-                        .to_str()
-                        .unwrap()
-                        .to_string(),
-                    "aki".to_string(),
-                    "add".to_string(),
-                );
+                crate::utils::apply_patch(&h5, std::path::Path::new(&i.directory.clone()).to_str().unwrap().to_string(), "aki".to_string(), "add".to_string());
             } else {
                 // Show error dialog using React dialog system
-                show_dialog(
-                    &h5,
-                    "warning",
-                    "TwintailLauncher",
-                    &format!(
-                        "Error occurred while trying to repair {}\nPlease try again!",
-                        i.name
-                    ),
-                    Some(vec!["Ok"]),
-                );
+                show_dialog(&h5, "warning", "TwintailLauncher", &format!("Error occurred while trying to repair {}\nPlease try again!", i.name), Some(vec!["Ok"]));
                 let dir = std::path::Path::new(&i.directory).join("repairing");
-                if dir.exists() {
-                    std::fs::remove_dir_all(dir).unwrap_or_default();
-                }
+                if dir.exists() { std::fs::remove_dir_all(dir).unwrap_or_default(); }
                 prevent_exit(&h5, false);
                 h5.emit("repair_complete", ()).unwrap();
             }
@@ -253,6 +165,5 @@ pub fn run_game_repair(
         // Fallback mode
         _ => {}
     }
-
     QueueJobOutcome::Completed
 }

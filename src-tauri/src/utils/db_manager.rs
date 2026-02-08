@@ -27,18 +27,10 @@ pub async fn init_db(app: &AppHandle) {
 
     if !conn_url.exists() {
         fs::create_dir_all(&data_path).unwrap();
-
-        if !Sqlite::database_exists(conn_url.to_str().unwrap())
-            .await
-            .unwrap()
-        {
-            Sqlite::create_database(conn_url.to_str().unwrap())
-                .await
-                .unwrap();
+        if !Sqlite::database_exists(conn_url.to_str().unwrap()).await.unwrap() {
+            Sqlite::create_database(conn_url.to_str().unwrap()).await.unwrap();
             #[cfg(debug_assertions)]
-            {
-                println!("Database does not exist... Creating new one for you!");
-            }
+            println!("Database does not exist... Creating new one for you!");
         }
     }
 
@@ -188,9 +180,7 @@ pub async fn init_db(app: &AppHandle) {
     if !manifests_dir.exists() {
         fs::create_dir_all(&manifests_dir).unwrap();
         #[cfg(debug_assertions)]
-        {
-            println!("Manifests directory does not exist... Creating new one for you!");
-        }
+        println!("Manifests directory does not exist... Creating new one for you!");
         setup_official_repository(&app, &manifests_dir);
         setup_compatibility_repository(&app, &manifests_dir);
     } else {
@@ -205,15 +195,7 @@ pub fn get_settings(app: &AppHandle) -> Option<GlobalSettings> {
     let mut rslt = vec![];
 
     run_async_command(async {
-        let db = app
-            .state::<DbInstances>()
-            .0
-            .lock()
-            .await
-            .get("db")
-            .unwrap()
-            .clone();
-
+        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
         let query = query("SELECT * FROM settings WHERE id = 1");
         rslt = query.fetch_all(&db).await.unwrap();
     });
@@ -233,41 +215,21 @@ pub fn get_settings(app: &AppHandle) -> Option<GlobalSettings> {
             default_dxvk_path: rslt.get(0).unwrap().get("default_dxvk_path"),
             default_mangohud_config_path: rslt.get(0).unwrap().get("default_mangohud_config_path"),
         };
-
         Some(rsltt)
-    } else {
-        None
-    }
+    } else { None }
 }
 
 pub fn update_settings_third_party_repo_update(app: &AppHandle, enabled: bool) {
     run_async_command(async {
-        let db = app
-            .state::<DbInstances>()
-            .0
-            .lock()
-            .await
-            .get("db")
-            .unwrap()
-            .clone();
-
-        let query =
-            query("UPDATE settings SET 'third_party_repo_updates' = $1 WHERE id = 1").bind(enabled);
+        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let query = query("UPDATE settings SET 'third_party_repo_updates' = $1 WHERE id = 1").bind(enabled);
         query.execute(&db).await.unwrap();
     });
 }
 
 pub fn update_settings_default_game_location(app: &AppHandle, path: String) {
     run_async_command(async {
-        let db = app
-            .state::<DbInstances>()
-            .0
-            .lock()
-            .await
-            .get("db")
-            .unwrap()
-            .clone();
-
+        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
         let query = query("UPDATE settings SET 'default_game_path' = $1 WHERE id = 1").bind(path);
         query.execute(&db).await.unwrap();
     });
@@ -275,15 +237,7 @@ pub fn update_settings_default_game_location(app: &AppHandle, path: String) {
 
 pub fn update_settings_default_xxmi_location(app: &AppHandle, path: String) {
     run_async_command(async {
-        let db = app
-            .state::<DbInstances>()
-            .0
-            .lock()
-            .await
-            .get("db")
-            .unwrap()
-            .clone();
-
+        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
         let query = query("UPDATE settings SET 'xxmi_path' = $1 WHERE id = 1").bind(path);
         query.execute(&db).await.unwrap();
     });
@@ -291,15 +245,7 @@ pub fn update_settings_default_xxmi_location(app: &AppHandle, path: String) {
 
 pub fn update_settings_default_fps_unlock_location(app: &AppHandle, path: String) {
     run_async_command(async {
-        let db = app
-            .state::<DbInstances>()
-            .0
-            .lock()
-            .await
-            .get("db")
-            .unwrap()
-            .clone();
-
+        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
         let query = query("UPDATE settings SET 'fps_unlock_path' = $1 WHERE id = 1").bind(path);
         query.execute(&db).await.unwrap();
     });
@@ -307,15 +253,7 @@ pub fn update_settings_default_fps_unlock_location(app: &AppHandle, path: String
 
 pub fn update_settings_default_jadeite_location(app: &AppHandle, path: String) {
     run_async_command(async {
-        let db = app
-            .state::<DbInstances>()
-            .0
-            .lock()
-            .await
-            .get("db")
-            .unwrap()
-            .clone();
-
+        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
         let query = query("UPDATE settings SET 'jadeite_path' = $1 WHERE id = 1").bind(path);
         query.execute(&db).await.unwrap();
     });
@@ -323,32 +261,15 @@ pub fn update_settings_default_jadeite_location(app: &AppHandle, path: String) {
 
 pub fn update_settings_default_prefix_location(app: &AppHandle, path: String) {
     run_async_command(async {
-        let db = app
-            .state::<DbInstances>()
-            .0
-            .lock()
-            .await
-            .get("db")
-            .unwrap()
-            .clone();
-
-        let query =
-            query("UPDATE settings SET 'default_runner_prefix_path' = $1 WHERE id = 1").bind(path);
+        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let query = query("UPDATE settings SET 'default_runner_prefix_path' = $1 WHERE id = 1").bind(path);
         query.execute(&db).await.unwrap();
     });
 }
 
 pub fn update_settings_default_runner_location(app: &AppHandle, path: String) {
     run_async_command(async {
-        let db = app
-            .state::<DbInstances>()
-            .0
-            .lock()
-            .await
-            .get("db")
-            .unwrap()
-            .clone();
-
+        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
         let query = query("UPDATE settings SET 'default_runner_path' = $1 WHERE id = 1").bind(path);
         query.execute(&db).await.unwrap();
     });

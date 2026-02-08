@@ -85,13 +85,7 @@ impl QueueJobPayload {
             QueueJobPayload::Runner(p) => p.runner_version.clone(),
             #[cfg(target_os = "linux")]
             QueueJobPayload::Steamrt(_) => "SteamLinuxRuntime 3".to_string(),
-            QueueJobPayload::XXMI(p) => {
-                if p.is_update {
-                    "XXMI Update".to_string()
-                } else {
-                    "XXMI Modding Tool".to_string()
-                }
-            }
+            QueueJobPayload::XXMI(_) => "XXMI Modding Tool".to_string(),
             QueueJobPayload::Extras(p) => {
                 match p.package_type.as_str() {
                     "v5.0.1-hotfix" | "jadeite" => "Jadeite".to_string(),
@@ -102,6 +96,8 @@ impl QueueJobPayload {
                     "zzmi" => "XXMI - ZZMI".to_string(),
                     "himi" => "XXMI - HIMI".to_string(),
                     "wwmi" => "XXMI - WWMI".to_string(),
+                    "ssmi" => "XXMI - SSMI".to_string(),
+                    "efmi" => "XXMI - EFMI".to_string(),
                     _ => p.package_type.clone(),
                 }
             }

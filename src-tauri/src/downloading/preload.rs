@@ -22,24 +22,14 @@ pub fn register_preload_handler(app: &AppHandle) {
         } else {
             let h5 = a.clone();
             std::thread::spawn(move || {
-                let job_id = format!(
-                    "direct_preload_{}",
-                    std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_millis()
-                );
+                let job_id = format!("direct_preload_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis());
                 let _ = run_game_preload(h5, payload, job_id);
             });
         }
     });
 }
 
-pub fn run_game_preload(
-    h5: AppHandle,
-    payload: DownloadGamePayload,
-    job_id: String,
-) -> QueueJobOutcome {
+pub fn run_game_preload(h5: AppHandle, payload: DownloadGamePayload, job_id: String) -> QueueJobOutcome {
     let job_id = Arc::new(job_id);
     let install = match get_install_info_by_id(&h5, payload.install) {
         Some(v) => v,
@@ -57,12 +47,7 @@ pub fn run_game_preload(
             let tmp = Arc::new(h5.clone());
 
             let pmd = picked.metadata.unwrap();
-            let instn = Arc::new(
-                install
-                    .name
-                    .replace(install.version.as_str(), pmd.version.as_str())
-                    .clone(),
-            );
+            let instn = Arc::new(install.name.replace(install.version.as_str(), pmd.version.as_str()).clone(), );
             let dlpayload = Arc::new(Mutex::new(HashMap::new()));
 
             let mut dlp = dlpayload.lock().unwrap();
@@ -84,36 +69,19 @@ pub fn run_game_preload(
                 // HoYoverse sophon chunk mode
                 "DOWNLOAD_MODE_CHUNK" => {
                     let pg = picked.game.unwrap();
-                    let urls = pg
-                        .diff
-                        .iter()
-                        .filter(|e| e.original_version.as_str() == install.version.clone().as_str())
-                        .collect::<Vec<&DiffGameFile>>();
+                    let urls = pg.diff.iter().filter(|e| e.original_version.as_str() == install.version.clone().as_str()).collect::<Vec<&DiffGameFile>>();
 
                     if urls.is_empty() {
                         h5.emit("preload_complete", ()).unwrap();
                         prevent_exit(&h5, false);
                     } else {
-                        let total_size: u64 = urls
-                            .clone()
-                            .into_iter()
-                            .map(|e| e.decompressed_size.parse::<u64>().unwrap())
-                            .sum();
+                        let total_size: u64 = urls.clone().into_iter().map(|e| e.decompressed_size.parse::<u64>().unwrap()).sum();
                         let available = available(install.directory.clone());
-                        let has_space = if let Some(av) = available {
-                            av >= total_size
-                        } else {
-                            false
-                        };
+                        let has_space = if let Some(av) = available { av >= total_size } else { false };
                         if has_space {
                             urls.into_iter().for_each(|e| {
                                 run_async_command(async {
-                                    <Game as Sophon>::preload(
-                                        e.file_url.to_owned(),
-                                        install.version.clone(),
-                                        e.file_hash.to_owned(),
-                                        install.directory.clone(),
-                                        {
+                                    <Game as Sophon>::preload(e.file_url.to_owned(), install.version.clone(), e.file_hash.to_owned(), install.directory.clone(), {
                                             let dlpayload = dlpayload.clone();
                                             let tmp = tmp.clone();
                                             let instn = instn.clone();
@@ -138,17 +106,12 @@ pub fn run_game_preload(
                                                 drop(dlp);
                                             }
                                         },
-                                    )
-                                    .await
+                                    ).await
                                 });
                             });
                             h5.emit("preload_complete", ()).unwrap();
                             prevent_exit(&h5, false);
-                            send_notification(
-                                &h5,
-                                format!("Predownload for {inn} complete.", inn = instn).as_str(),
-                                None,
-                            );
+                            send_notification(&h5, format!("Predownload for {inn} complete.", inn = instn).as_str(), None);
                         } else {
                             h5.dialog().message(format!("Unable to predownload update for {inn} as there is not enough free space, please make sure there is enough free space for predownload!", inn = install.name).as_str()).title("TwintailLauncher")
                                         .kind(MessageDialogKind::Warning)
@@ -159,36 +122,19 @@ pub fn run_game_preload(
                 // KuroGame only
                 "DOWNLOAD_MODE_RAW" => {
                     let pg = picked.game.unwrap();
-                    let urls = pg
-                        .diff
-                        .iter()
-                        .filter(|e| e.original_version.as_str() == install.version.clone().as_str())
-                        .collect::<Vec<&DiffGameFile>>();
+                    let urls = pg.diff.iter().filter(|e| e.original_version.as_str() == install.version.clone().as_str()).collect::<Vec<&DiffGameFile>>();
                     let manifest = urls.get(0).unwrap();
 
                     if urls.is_empty() {
                         h5.emit("preload_complete", ()).unwrap();
                         prevent_exit(&h5, false);
                     } else {
-                        let total_size: u64 = urls
-                            .clone()
-                            .into_iter()
-                            .map(|e| e.decompressed_size.parse::<u64>().unwrap())
-                            .sum();
+                        let total_size: u64 = urls.clone().into_iter().map(|e| e.decompressed_size.parse::<u64>().unwrap()).sum();
                         let available = available(install.directory.clone());
-                        let has_space = if let Some(av) = available {
-                            av >= total_size
-                        } else {
-                            false
-                        };
+                        let has_space = if let Some(av) = available { av >= total_size } else { false };
                         if has_space {
                             let rslt = run_async_command(async {
-                                <Game as Kuro>::preload(
-                                    manifest.file_url.clone(),
-                                    manifest.file_hash.clone(),
-                                    pmd.res_list_url.clone(),
-                                    install.directory.clone(),
-                                    {
+                                <Game as Kuro>::preload(manifest.file_url.clone(), manifest.file_hash.clone(), pmd.res_list_url.clone(), install.directory.clone(), {
                                         let dlpayload = dlpayload.clone();
                                         let tmp = tmp.clone();
                                         let instn = instn.clone();
@@ -211,18 +157,12 @@ pub fn run_game_preload(
                                             drop(dlp);
                                         }
                                     },
-                                )
-                                .await
+                                ).await
                             });
                             if rslt {
                                 h5.emit("preload_complete", ()).unwrap();
                                 prevent_exit(&h5, false);
-                                send_notification(
-                                    &h5,
-                                    format!("Predownload for {inn} complete.", inn = instn)
-                                        .as_str(),
-                                    None,
-                                );
+                                send_notification(&h5, format!("Predownload for {inn} complete.", inn = instn).as_str(), None);
                             } else {
                                         h5.dialog().message(format!("Error occurred while trying to predownload {inn}\nPlease try again!", inn = install.name).as_str()).title("TwintailLauncher")
                                             .kind(MessageDialogKind::Warning)

@@ -34,10 +34,7 @@ pub fn list_installed_runners(app: AppHandle) -> Option<String> {
 
         if repos.is_some() {
             let repository = repos.unwrap();
-            let d: Vec<&LauncherRunner> = repository
-                .iter()
-                .filter(|r| !r.version.to_ascii_lowercase().contains("dxvk"))
-                .collect::<_>();
+            let d: Vec<&LauncherRunner> = repository.iter().filter(|r| !r.version.to_ascii_lowercase().contains("dxvk")).collect::<_>();
             let stringified = serde_json::to_string(&d).unwrap();
             Some(stringified)
         } else {
@@ -78,11 +75,7 @@ pub fn get_installed_runner_by_version(app: AppHandle, runner_version: String) -
 
 #[allow(unused_variables)]
 #[tauri::command]
-pub fn update_installed_runner_install_status(
-    app: AppHandle,
-    version: String,
-    is_installed: bool,
-) -> Option<bool> {
+pub fn update_installed_runner_install_status(app: AppHandle, version: String, is_installed: bool) -> Option<bool> {
     #[cfg(target_os = "linux")]
     {
         let manifest = get_installed_runner_info_by_version(&app, version.clone());
@@ -103,98 +96,47 @@ pub fn update_installed_runner_install_status(
 
 #[allow(unused_variables)]
 #[tauri::command]
-pub fn add_installed_runner(
-    app: AppHandle,
-    runner_url: String,
-    runner_version: String,
-) -> Option<bool> {
+pub fn add_installed_runner(app: AppHandle, runner_url: String, runner_version: String) -> Option<bool> {
     if runner_url.is_empty() || runner_version.is_empty() {
         None
     } else {
         #[cfg(target_os = "linux")]
         {
             let gs = get_settings(&app).unwrap();
-            let rm = get_compatibility(
-                &app,
-                &runner_from_runner_version(runner_version.as_str().to_string()).unwrap(),
-            )
-            .unwrap();
-            let rv = rm
-                .versions
-                .into_iter()
-                .filter(|v| v.version.as_str() == runner_version.as_str())
-                .collect::<Vec<_>>();
+            let rm = get_compatibility(&app, &runner_from_runner_version(runner_version.as_str().to_string()).unwrap()).unwrap();
+            let rv = rm.versions.into_iter().filter(|v| v.version.as_str() == runner_version.as_str()).collect::<Vec<_>>();
             let runnerp = rv.get(0).unwrap().to_owned();
             let runner_path = Path::new(&gs.default_runner_path).join(runner_version.clone());
-            if !runner_path.exists() {
-                fs::create_dir_all(&runner_path).unwrap();
-            }
+            if !runner_path.exists() { fs::create_dir_all(&runner_path).unwrap(); }
             let ir = get_installed_runner_info_by_version(&app, runner_version.clone());
 
             // Empty folder download
-            if fs::read_dir(runner_path.as_path())
-                .unwrap()
-                .next()
-                .is_none()
-            {
+            if fs::read_dir(runner_path.as_path()).unwrap().next().is_none() {
                 // Determine the download URL based on architecture
                 let mut dl_url = runnerp.url.clone();
                 if let Some(urls) = runnerp.urls {
                     #[cfg(target_arch = "x86_64")]
-                    {
-                        dl_url = urls.x86_64;
-                    }
+                    { dl_url = urls.x86_64; }
                     #[cfg(target_arch = "aarch64")]
-                    {
-                        dl_url = if urls.aarch64.is_empty() {
-                            runnerp.url.clone()
-                        } else {
-                            urls.aarch64
-                        };
-                    }
+                    { dl_url = if urls.aarch64.is_empty() { runnerp.url.clone() } else { urls.aarch64 }; }
                 }
 
                 // Enqueue the download job
                 let state = app.state::<DownloadState>();
                 let q = state.queue.lock().unwrap().clone();
                 if let Some(queue) = q {
-                    queue.enqueue(
-                        QueueJobKind::RunnerDownload,
-                        QueueJobPayload::Runner(RunnerDownloadPayload {
+                    queue.enqueue(QueueJobKind::RunnerDownload, QueueJobPayload::Runner(RunnerDownloadPayload {
                             runner_version: runner_version.clone(),
                             runner_url: dl_url,
                             runner_path: runner_path.to_str().unwrap().to_string(),
-                        }),
-                    );
+                    }));
                 }
 
                 // Create/update database entry (will be marked as installed by the download job on completion)
-                if ir.is_some() {
-                    update_installed_runner_is_installed_by_version(
-                        &app,
-                        runner_version.clone(),
-                        false, // Mark as not installed until download completes
-                    );
-                } else {
-                    create_installed_runner(
-                        &app,
-                        runner_version.clone(),
-                        false, // Mark as not installed until download completes
-                        runner_path.to_str().unwrap().to_string(),
-                    )
-                    .unwrap();
-                }
+                if ir.is_some() { update_installed_runner_is_installed_by_version(&app, runner_version.clone(), false); } else { create_installed_runner(&app, runner_version.clone(), false, runner_path.to_str().unwrap().to_string(), ).unwrap(); }
                 Some(true)
             } else {
-                send_notification(
-                    &app,
-                    format!(
-                        "Runner {runn} already installed!",
-                        runn = runner_version.clone().as_str().to_string()
-                    )
-                    .as_str(),
-                    None,
-                );
+                send_notification(&app, format!("Runner {runn} already installed!", runn = runner_version.clone().as_str().to_string()).as_str(), None);
                 Some(false)
             }
         }
@@ -212,26 +154,12 @@ pub fn remove_installed_runner(app: AppHandle, runner_version: String) -> Option
     } else {
         let gs = get_settings(&app).unwrap();
         let runner_path = Path::new(&gs.default_runner_path).join(runner_version.clone());
-        if !runner_path.exists() {
-            fs::create_dir_all(&runner_path).unwrap();
-        }
+        if !runner_path.exists() { fs::create_dir_all(&runner_path).unwrap(); }
 
-        if fs::read_dir(runner_path.as_path())
-            .unwrap()
-            .next()
-            .is_some()
-        {
+        if fs::read_dir(runner_path.as_path()).unwrap().next().is_some() {
             fs::remove_dir_all(runner_path.as_path()).unwrap();
             update_installed_runner_is_installed_by_version(&app, runner_version.clone(), false);
-            send_notification(
-                &app,
-                format!(
-                    "Successfully removed {runn} runner.",
-                    runn = runner_version.as_str().to_string()
-                )
-                .as_str(),
-                None,
-            );
+            send_notification(&app, format!("Successfully removed {runn} runner.", runn = runner_version.as_str().to_string()).as_str(), None);
 
             // Set installations using the removed runner to first available one as fallback
             let installs = get_installs(&app);
@@ -242,41 +170,22 @@ pub fn remove_installed_runner(app: AppHandle, runner_version: String) -> Option
                         let available_runners = get_installed_runners(&app);
                         if available_runners.is_some() {
                             let avr = available_runners.unwrap();
-                            let filtered_runners =
-                                avr.iter().filter(|r| r.is_installed).collect::<Vec<_>>();
+                            let filtered_runners = avr.iter().filter(|r| r.is_installed).collect::<Vec<_>>();
                             let first = filtered_runners.get(0).unwrap();
-                            update_install_runner_version_by_id(
-                                &app,
-                                i.id.clone(),
-                                first.version.clone(),
-                            );
-                            update_install_runner_location_by_id(
-                                &app,
-                                i.id,
-                                first.runner_path.clone(),
-                            );
+                            update_install_runner_version_by_id(&app, i.id.clone(), first.version.clone());
+                            update_install_runner_location_by_id(&app, i.id, first.runner_path.clone());
                         }
                     }
                 }
             }
             Some(true)
         } else {
-            send_notification(
-                &app,
-                format!(
-                    "Runner {runn} is not installed!",
-                    runn = runner_version.as_str().to_string()
-                )
-                .as_str(),
-                None,
-            );
+            send_notification(&app, format!("Runner {runn} is not installed!", runn = runner_version.as_str().to_string()).as_str(), None);
             Some(false)
         }
     }
 }
 
-/// Check if SteamRT (Steam Linux Runtime) is installed
-/// Returns true if the steamrt directory exists and is not empty
 #[allow(unused_variables)]
 #[tauri::command]
 pub fn is_steamrt_installed(app: AppHandle) -> bool {
@@ -287,16 +196,8 @@ pub fn is_steamrt_installed(app: AppHandle) -> bool {
             None => return false,
         };
         let steamrt_path = Path::new(&gs.default_runner_path).join("steamrt");
-
-        if !steamrt_path.exists() {
-            return false;
-        }
-
-        // Check if directory has contents (not empty)
-        match fs::read_dir(&steamrt_path) {
-            Ok(mut entries) => entries.next().is_some(),
-            Err(_) => false,
-        }
+        if !steamrt_path.exists() { return false; }
+        match fs::read_dir(&steamrt_path) { Ok(mut entries) => entries.next().is_some(), Err(_) => false }
     }
     #[cfg(target_os = "windows")]
     {

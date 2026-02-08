@@ -14,17 +14,9 @@ pub struct NetworkStatus {
 pub async fn check_network_connectivity() -> NetworkStatus {
     // Use a small, reliable endpoint - GitHub's raw content or similar
     // We'll try multiple endpoints in case one is blocked
-    let endpoints = [
-        "https://raw.githubusercontent.com/nicewrld/tw/refs/heads/stable/README.md",
-        "https://api.github.com/zen",
-        "https://www.google.com/generate_204",
-    ];
+    let endpoints = ["https://raw.githubusercontent.com/twintailteam/twintaillauncher/refs/heads/stable/README.md", "https://api.github.com/zen", "https://www.google.com/generate_204"];
 
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
-        .build()
-        .unwrap_or_else(|_| reqwest::Client::new());
-
+    let client = reqwest::Client::builder().timeout(Duration::from_secs(10)).build().unwrap_or_else(|_| reqwest::Client::new());
     for endpoint in endpoints {
         let start = Instant::now();
 
@@ -49,13 +41,9 @@ pub async fn check_network_connectivity() -> NetworkStatus {
                     }
                 }
             }
-            Err(_) => {
-                // Try next endpoint
-                continue;
-            }
+            Err(_) => { continue; }
         }
     }
-
     // All endpoints failed
     NetworkStatus {
         status: "offline".to_string(),

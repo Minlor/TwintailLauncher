@@ -23,13 +23,6 @@ use std::sync::{Arc,Mutex};
 #[cfg(target_os = "linux")]
 use tauri::Manager;
 
-/// Register steamrt download handler
-/// SteamRT downloads are now enqueued via the queue system
-#[cfg(target_os = "linux")]
-pub fn register_steamrt_download_handler(_app: &AppHandle) {
-    // SteamRT downloads are enqueued directly, no event listener needed
-}
-
 /// Check if SteamRT needs to be downloaded or updated, and enqueue the job
 #[cfg(target_os = "linux")]
 pub fn download_or_update_steamrt(app: &AppHandle) {
@@ -37,9 +30,7 @@ pub fn download_or_update_steamrt(app: &AppHandle) {
     if let Some(s) = gs {
         let rp = Path::new(&s.default_runner_path);
         let steamrt = rp.join("steamrt");
-        if !steamrt.exists() {
-            if let Err(e) = fs::create_dir_all(&steamrt) { send_notification(&app, format!("Failed to prepare SteamLinuxRuntime directory. {} - Please fix the error and restart the app!", e.to_string()).as_str(), None); return; }
-        }
+        if !steamrt.exists() { if let Err(e) = fs::create_dir_all(&steamrt) { send_notification(&app, format!("Failed to prepare SteamLinuxRuntime directory. {} - Please fix the error and restart the app!", e.to_string()).as_str(), None); return; } }
 
         let steamrt_path = steamrt.to_str().unwrap().to_string();
 
@@ -76,7 +67,6 @@ pub fn run_steamrt_download(app: AppHandle, payload: SteamrtDownloadPayload, job
     let steamrt_path = PathBuf::from(&payload.steamrt_path);
     let event_name = if payload.is_update { "update_progress" } else { "download_progress" };
     let complete_event = if payload.is_update { "update_complete" } else { "download_complete" };
-
     {
         let mut dlp = dlpayload.lock().unwrap();
         dlp.insert("job_id".to_string(), job_id.to_string());
@@ -122,7 +112,6 @@ pub fn run_steamrt_download(app: AppHandle, payload: SteamrtDownloadPayload, job
                              }
                          }).await
     });
-
     prevent_exit(&app, false);
 
     if success {
@@ -137,13 +126,6 @@ pub fn run_steamrt_download(app: AppHandle, payload: SteamrtDownloadPayload, job
         app.emit(complete_event, String::from("SteamLinuxRuntime 3")).unwrap();
         QueueJobOutcome::Failed
     }
-}
-
-/// Register runner download handler
-/// Runner downloads are enqueued directly from install.rs and runners.rs
-#[cfg(target_os = "linux")]
-pub fn register_runner_download_handler(_app: &AppHandle) {
-    // Runner downloads are enqueued directly, no event listener needed
 }
 
 /// Run the actual runner/proton download (called by queue worker)
@@ -183,7 +165,6 @@ pub fn run_runner_download(app: AppHandle, payload: RunnerDownloadPayload, job_i
             }
         }).await
     });
-
     prevent_exit(&app, false);
 
     if success {
@@ -313,10 +294,7 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                             if let Some(p) = pkg {
                                 if compare_version(lv.as_str(), p.version.as_str()).is_lt() {
                                     if package_type == "xxmi" {
-                                        for file in &p.file_list {
-                                            let f_path = path.join(file);
-                                            if f_path.exists() { let _ = fs::remove_file(f_path); }
-                                        }
+                                        for file in &p.file_list { let f_path = path.join(file);if f_path.exists() { let _ = fs::remove_file(f_path); } }
                                     } else { empty_dir(&ap).unwrap(); }
                                     prevent_exit(&app, true);
                                     let dl = run_async_command(async {
@@ -359,7 +337,7 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                     }
                 }
         }
-        return true; // Nothing to update
+        true // Nothing to update
     } else {
         let ap = if package_type.as_str() == "gimi" || package_type.as_str() == "srmi" || package_type.as_str() == "zzmi" || package_type.as_str() == "himi" || package_type.as_str() == "wwmi" { path.join(&package_type) } else { path.clone() };
         let entries: Vec<_> = fs::read_dir(&ap).ok().map(|r| r.filter_map(|e| e.ok()).collect()).unwrap_or_default();
@@ -420,6 +398,6 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                     return false;
                 }
         }
-        return true; // Already downloaded
+        true // Already downloaded
     }
 }

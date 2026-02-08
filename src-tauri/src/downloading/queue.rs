@@ -104,9 +104,7 @@ impl DownloadQueueHandle {
     /// Remove all jobs for an install_id from the queue (only queued, not running)
     pub fn remove_by_install_id(&self, install_id: String) -> bool {
         let (tx, rx) = std::sync::mpsc::channel();
-        let _ = self
-            .tx
-            .send(QueueCommand::RemoveByInstallId(install_id, tx));
+        let _ = self.tx.send(QueueCommand::RemoveByInstallId(install_id, tx));
         rx.recv().unwrap_or(false)
     }
 
@@ -125,9 +123,7 @@ impl DownloadQueueHandle {
     /// Reorder by moving a job to a specific position (0 = front of queue)
     pub fn reorder(&self, job_id: String, new_position: usize) -> bool {
         let (tx, rx) = std::sync::mpsc::channel();
-        let _ = self
-            .tx
-            .send(QueueCommand::Reorder(job_id, new_position, tx));
+        let _ = self.tx.send(QueueCommand::Reorder(job_id, new_position, tx));
         rx.recv().unwrap_or(false)
     }
 
@@ -147,9 +143,7 @@ impl DownloadQueueHandle {
 
     /// Mark an install as "pausing" (transitioning to paused state)
     pub fn set_pausing(&self, install_id: String, is_pausing: bool) {
-        let _ = self
-            .tx
-            .send(QueueCommand::SetPausing(install_id, is_pausing));
+        let _ = self.tx.send(QueueCommand::SetPausing(install_id, is_pausing));
     }
 
     /// Clear all completed items from the history
@@ -204,17 +198,7 @@ pub enum QueueJobOutcome {
     Cancelled,
 }
 
-fn emit_queue_state(
-    app: &AppHandle,
-    max_concurrent: usize,
-    paused: bool,
-    auto_paused: bool,
-    active: &HashMap<String, QueueJobView>,
-    queued: &VecDeque<QueueJobView>,
-    completed: &VecDeque<QueueJobView>,
-    paused_jobs: &HashMap<String, QueueJobView>,
-    pausing_installs: &HashSet<String>,
-) {
+fn emit_queue_state(app: &AppHandle, max_concurrent: usize, paused: bool, auto_paused: bool, active: &HashMap<String, QueueJobView>, queued: &VecDeque<QueueJobView>, completed: &VecDeque<QueueJobView>, paused_jobs: &HashMap<String, QueueJobView>, pausing_installs: &HashSet<String>) {
     let payload = QueueStatePayload {
         max_concurrent,
         paused,
@@ -228,11 +212,7 @@ fn emit_queue_state(
     let _ = app.emit("download_queue_state", payload);
 }
 
-pub fn start_download_queue_worker(
-    app: AppHandle,
-    initial_max_concurrent: usize,
-    run_job: fn(AppHandle, QueueJob) -> QueueJobOutcome,
-) -> DownloadQueueHandle {
+pub fn start_download_queue_worker(app: AppHandle, initial_max_concurrent: usize, run_job: fn(AppHandle, QueueJob) -> QueueJobOutcome) -> DownloadQueueHandle {
     let (tx, rx) = mpsc::channel::<QueueCommand>();
     let (done_tx, done_rx) = mpsc::channel::<(String, QueueJobOutcome)>();
 
@@ -300,24 +280,13 @@ pub fn start_download_queue_worker(
             // Only auto-start next job if not paused
             if !paused {
                 while active.len() < max_concurrent {
-                    let Some(job) = queued.pop_front() else {
-                        break;
-                    };
-                    let Some(mut view) = queued_views.pop_front() else {
-                        break;
-                    };
+                    let Some(job) = queued.pop_front() else { break; };
+                    let Some(mut view) = queued_views.pop_front() else { break; };
 
                     view.status = QueueJobStatus::Running;
                     let job_id = job.id.clone();
                     active.insert(job_id.clone(), view);
-                    active_jobs.insert(
-                        job_id.clone(),
-                        QueueJob {
-                            id: job.id.clone(),
-                            kind: job.kind,
-                            payload: job.payload.clone(),
-                        },
-                    );
+                    active_jobs.insert(job_id.clone(), QueueJob { id: job.id.clone(), kind: job.kind, payload: job.payload.clone() });
 
                     // Clear the activating flag since the new job is now starting
                     activating = false;
@@ -363,11 +332,7 @@ pub fn start_download_queue_worker(
                         emit_queue_state(&app, max_concurrent, paused, auto_paused, &active, &queued_views, &completed_views, &paused_jobs, &pausing_installs);
                     }
                     QueueCommand::SetPausing(install_id, is_pausing) => {
-                        if is_pausing {
-                            pausing_installs.insert(install_id);
-                        } else {
-                            pausing_installs.remove(&install_id);
-                        }
+                        if is_pausing { pausing_installs.insert(install_id); } else { pausing_installs.remove(&install_id); }
                         emit_queue_state(&app, max_concurrent, paused, auto_paused, &active, &queued_views, &completed_views, &paused_jobs, &pausing_installs);
                     }
                     QueueCommand::MoveUp(job_id, reply) => {
@@ -416,9 +381,7 @@ pub fn start_download_queue_worker(
                                 queued.remove(i);
                                 queued_views.remove(i);
                                 removed_any = true;
-                            } else {
-                                i += 1;
-                            }
+                            } else { i += 1; }
                         }
 
                         // Also remove from paused jobs
@@ -435,17 +398,13 @@ pub fn start_download_queue_worker(
                                 removed_job_ids.push(completed_views[j].id.clone());
                                 completed_views.remove(j);
                                 removed_any = true;
-                            } else {
-                                j += 1;
-                            }
+                            } else { j += 1; }
                         }
 
                         // Remove from active immediately
                         let mut active_to_remove = Vec::new();
                         for (jid, v) in active.iter() {
-                            if v.install_id == install_id {
-                                active_to_remove.push(jid.clone());
-                            }
+                            if v.install_id == install_id { active_to_remove.push(jid.clone()); }
                         }
                         for jid in active_to_remove {
                             active.remove(&jid);
@@ -455,9 +414,7 @@ pub fn start_download_queue_worker(
                         }
 
                         if removed_any {
-                            for jid in removed_job_ids {
-                                let _ = app.emit("download_removed", jid);
-                            }
+                            for jid in removed_job_ids { let _ = app.emit("download_removed", jid); }
                             emit_queue_state(&app, max_concurrent, paused, auto_paused, &active, &queued_views, &completed_views, &paused_jobs, &pausing_installs);
                         }
                         let _ = reply.send(removed_any);
@@ -560,6 +517,5 @@ pub fn start_download_queue_worker(
             }
         }
     });
-
     DownloadQueueHandle { tx }
 }
