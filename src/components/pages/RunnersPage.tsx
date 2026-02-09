@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { ArrowLeft, AtomIcon, DownloadCloud, FolderOpen, Trash2, Check, Settings, Shield, Box, Monitor } from "lucide-react";
+import { ArrowLeft, AtomIcon, DownloadCloud, FolderOpen, Trash2, Check } from "lucide-react";
 import { PAGES } from "./PAGES";
-import { SettingsSidebar, SettingsTab } from "../settings/ui/SettingsSidebar";
-import { SettingsSection } from "../settings/ui/SettingsComponents";
+import { SettingsSidebar, SettingsTab } from "../sidebar/SettingsSidebar.tsx";
+import { SettingsSection } from "../common/SettingsComponents.tsx";
 
 interface RunnerVersion {
     version: string;

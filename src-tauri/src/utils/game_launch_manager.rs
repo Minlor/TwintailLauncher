@@ -7,13 +7,11 @@ use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Error};
-#[cfg(target_os = "linux")]
-use tauri::Listener;
 
 #[cfg(target_os = "linux")]
 use crate::utils::repo_manager::get_compatibility;
 #[cfg(target_os = "linux")]
-use crate::utils::{empty_dir, get_steam_appid, is_runner_lower, is_using_overriden_runner, runner_from_runner_version, update_steam_compat_config};
+use crate::utils::{get_steam_appid, is_runner_lower, is_using_overriden_runner, runner_from_runner_version, update_steam_compat_config};
 #[cfg(target_os = "linux")]
 use crate::utils::{show_dialog, show_dialog_with_callback};
 #[cfg(target_os = "linux")]
@@ -46,28 +44,7 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
     let appid = get_steam_appid();
 
     if !steamrtp.exists() {
-        let appc = app.clone();
-        let steamrtpp_clone = steamrtpp.clone();
-        let callback_id = format!("steamrt_redownload_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis());
-        let callback_id_clone = callback_id.clone();
-
-        app.listen("dialog_response", move |event: tauri::Event| {
-            #[derive(serde::Deserialize)]
-            struct DialogResponse {
-                callback_id: String,
-                button_index: usize,
-            }
-            if let Ok(response) = serde_json::from_str::<DialogResponse>(event.payload()) {
-                if response.callback_id == callback_id_clone {
-                    if response.button_index == 0 {
-                        // "Redownload" clicked
-                        let _ = empty_dir(&steamrtpp_clone);
-                        crate::downloading::misc::download_or_update_steamrt(&appc);
-                    }
-                }
-            }
-        });
-        show_dialog_with_callback(app, "warning", "TwintailLauncher", "SteamLinuxRuntime is corrupted! Pressing \"Redownload\" button will redownload SteamLinuxRuntime.", Some(vec!["Redownload", "Cancel"]), Some(&callback_id));
+        show_dialog_with_callback(app, "warning", "TwintailLauncher", "SteamLinuxRuntime is corrupted! Pressing \"Redownload\" button will redownload SteamLinuxRuntime.", Some(vec!["Redownload", "Cancel"]), Some("dialog_no_steamrt"));
         return Ok(false);
     }
 

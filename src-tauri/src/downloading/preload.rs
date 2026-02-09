@@ -3,13 +3,12 @@ use crate::downloading::{DownloadGamePayload, QueueJobPayload};
 use crate::downloading::queue::{QueueJobKind, QueueJobOutcome};
 use crate::utils::db_manager::{get_install_info_by_id, get_manifest_info_by_id};
 use crate::utils::repo_manager::get_manifest;
-use crate::utils::{models::DiffGameFile, prevent_exit, run_async_command, send_notification};
+use crate::utils::{models::DiffGameFile, run_async_command, send_notification, show_dialog};
 use fischl::download::game::{Game, Kuro, Sophon};
 use fischl::utils::free_space::available;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Listener, Manager};
-use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
 pub fn register_preload_handler(app: &AppHandle) {
     let a = app.clone();
@@ -58,13 +57,11 @@ pub fn run_game_preload(h5: AppHandle, payload: DownloadGamePayload, job_id: Str
 
             h5.emit("preload_progress", dlp.clone()).unwrap();
             drop(dlp);
-            prevent_exit(&h5, true);
 
             match pmd.download_mode.as_str() {
                 // Generic zipped mode, Variety per game
                 "DOWNLOAD_MODE_FILE" => {
                     h5.emit("preload_complete", ()).unwrap();
-                    prevent_exit(&h5, false);
                 }
                 // HoYoverse sophon chunk mode
                 "DOWNLOAD_MODE_CHUNK" => {
@@ -73,7 +70,6 @@ pub fn run_game_preload(h5: AppHandle, payload: DownloadGamePayload, job_id: Str
 
                     if urls.is_empty() {
                         h5.emit("preload_complete", ()).unwrap();
-                        prevent_exit(&h5, false);
                     } else {
                         let total_size: u64 = urls.clone().into_iter().map(|e| e.decompressed_size.parse::<u64>().unwrap()).sum();
                         let available = available(install.directory.clone());
@@ -110,12 +106,10 @@ pub fn run_game_preload(h5: AppHandle, payload: DownloadGamePayload, job_id: Str
                                 });
                             });
                             h5.emit("preload_complete", ()).unwrap();
-                            prevent_exit(&h5, false);
                             send_notification(&h5, format!("Predownload for {inn} complete.", inn = instn).as_str(), None);
                         } else {
-                            h5.dialog().message(format!("Unable to predownload update for {inn} as there is not enough free space, please make sure there is enough free space for predownload!", inn = install.name).as_str()).title("TwintailLauncher")
-                                        .kind(MessageDialogKind::Warning)
-                                        .buttons(MessageDialogButtons::OkCustom("Ok".to_string())).show(move |_action| { prevent_exit(&h5, false); h5.emit("preload_complete", ()).unwrap(); });
+                            show_dialog(&h5,"warning", "TwintailLauncher", format!("Unable to predownload update for {inn} as there is not enough free space, please make sure there is enough free space for predownload!", inn = install.name).as_str(), Some(vec!["Ok"]));
+                            h5.emit("preload_complete", ()).unwrap();
                         }
                     }
                 }
@@ -127,7 +121,6 @@ pub fn run_game_preload(h5: AppHandle, payload: DownloadGamePayload, job_id: Str
 
                     if urls.is_empty() {
                         h5.emit("preload_complete", ()).unwrap();
-                        prevent_exit(&h5, false);
                     } else {
                         let total_size: u64 = urls.clone().into_iter().map(|e| e.decompressed_size.parse::<u64>().unwrap()).sum();
                         let available = available(install.directory.clone());
@@ -161,23 +154,16 @@ pub fn run_game_preload(h5: AppHandle, payload: DownloadGamePayload, job_id: Str
                             });
                             if rslt {
                                 h5.emit("preload_complete", ()).unwrap();
-                                prevent_exit(&h5, false);
                                 send_notification(&h5, format!("Predownload for {inn} complete.", inn = instn).as_str(), None);
                             } else {
-                                        h5.dialog().message(format!("Error occurred while trying to predownload {inn}\nPlease try again!", inn = install.name).as_str()).title("TwintailLauncher")
-                                            .kind(MessageDialogKind::Warning)
-                                            .buttons(MessageDialogButtons::OkCustom("Ok".to_string()))
-                                            .show(move |_action| {
-                                                let dir = std::path::Path::new(&install.directory).join("patching");
-                                                if dir.exists() { std::fs::remove_dir_all(dir).unwrap_or_default(); }
-                                                prevent_exit(&h5, false);
-                                                h5.emit("preload_complete", ()).unwrap();
-                                            });
-                                    }
+                                show_dialog(&h5,"warning", "TwintailLauncher", format!("Error occurred while trying to predownload {inn}\nPlease try again!", inn = install.name).as_str(), Some(vec!["Ok"]));
+                                let dir = std::path::Path::new(&install.directory).join("patching");
+                                if dir.exists() { std::fs::remove_dir_all(dir).unwrap_or_default(); }
+                                h5.emit("preload_complete", ()).unwrap();
+                            }
                         } else {
-                            h5.dialog().message(format!("Unable to predownload update for {inn} as there is not enough free space, please make sure there is enough free space for the update!", inn = install.name).as_str()).title("TwintailLauncher")
-                                        .kind(MessageDialogKind::Warning)
-                                        .buttons(MessageDialogButtons::OkCustom("Ok".to_string())).show(move |_action| { prevent_exit(&h5, false); h5.emit("preload_complete", ()).unwrap(); });
+                            show_dialog(&h5,"warning", "TwintailLauncher", format!("Unable to predownload update for {inn} as there is not enough free space, please make sure there is enough free space for predownload!", inn = install.name).as_str(), Some(vec!["Ok"]));
+                            h5.emit("preload_complete", ()).unwrap();
                         }
                     }
                 }

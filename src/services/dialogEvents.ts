@@ -14,12 +14,8 @@ export type ShowDialogFn = (payload: DialogPayload) => void;
  * Registers a listener for the 'show_dialog' event emitted from Rust.
  * Returns an unlisten function to clean up the listener.
  */
-export async function registerDialogListener(
-    showDialog: ShowDialogFn
-): Promise<UnlistenFn> {
-    return await listen<DialogPayload>("show_dialog", (event) => {
-        showDialog(event.payload);
-    });
+export async function registerDialogListener(showDialog: ShowDialogFn): Promise<UnlistenFn> {
+    return await listen<DialogPayload>("show_dialog", (event) => {showDialog(event.payload);});
 }
 
 /**

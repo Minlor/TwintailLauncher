@@ -26,39 +26,20 @@ export default function DialogEventHandler() {
                 // Map Rust payload to React dialog options
                 const buttons = payload.buttons?.map((label: string, index: number) => ({
                     label,
-                    variant:
-                        index === (payload.buttons?.length || 1) - 1
-                            ? ("primary" as const)
-                            : ("secondary" as const),
-                    onClick: callbackId
-                        ? () => emitDialogResponse(callbackId, index)
-                        : undefined,
+                    variant: index === (payload.buttons?.length || 1) - 1 ? ("primary" as const) : ("secondary" as const),
+                    onClick: callbackId ? () => emitDialogResponse(callbackId, index) : undefined,
                 })) || [{
                     label: "OK",
                     variant: "primary" as const,
-                    onClick: callbackId
-                        ? () => emitDialogResponse(callbackId, 0)
-                        : undefined,
+                    onClick: callbackId ? () => emitDialogResponse(callbackId, 0) : undefined,
                 }];
-
-                showDialog({
-                    type: payload.dialog_type,
-                    title: payload.title,
-                    message: payload.message,
-                    buttons,
-                    onClose: callbackId
-                        ? (buttonIndex) => emitDialogResponse(callbackId, buttonIndex)
-                        : undefined,
-                });
+                showDialog({type: payload.dialog_type, title: payload.title, message: payload.message, buttons, onClose: callbackId ? (buttonIndex) => emitDialogResponse(callbackId, buttonIndex) : undefined,});
             });
         };
 
         register();
-
         return () => {
-            if (unlisten) {
-                unlisten();
-            }
+            if (unlisten) {unlisten();}
         };
     }, [showDialog]);
 

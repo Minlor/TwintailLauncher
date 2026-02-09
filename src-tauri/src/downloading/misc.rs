@@ -1,10 +1,9 @@
-use crate::utils::{compare_version,db_manager::get_settings,empty_dir,find_package_version,prevent_exit,run_async_command};
+use crate::utils::{compare_version, db_manager::get_settings, empty_dir, find_package_version, run_async_command, show_dialog_with_callback};
 use fischl::download::Extras;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path,PathBuf};
 use tauri::{AppHandle,Emitter};
-use tauri_plugin_dialog::{DialogExt,MessageDialogButtons,MessageDialogKind};
 
 #[cfg(target_os = "linux")]
 use crate::DownloadState;
@@ -31,7 +30,6 @@ pub fn download_or_update_steamrt(app: &AppHandle) {
         let rp = Path::new(&s.default_runner_path);
         let steamrt = rp.join("steamrt");
         if !steamrt.exists() { if let Err(e) = fs::create_dir_all(&steamrt) { send_notification(&app, format!("Failed to prepare SteamLinuxRuntime directory. {} - Please fix the error and restart the app!", e.to_string()).as_str(), None); return; } }
-
         let steamrt_path = steamrt.to_str().unwrap().to_string();
 
         if fs::read_dir(&steamrt).unwrap().next().is_none() {
@@ -77,7 +75,6 @@ pub fn run_steamrt_download(app: AppHandle, payload: SteamrtDownloadPayload, job
         dlp.insert("disk".to_string(), "0".to_string());
         app.emit(event_name, dlp.clone()).unwrap();
     }
-    prevent_exit(&app, true);
 
     let success = run_async_command(async {
         download_steamrt(steamrt_path.clone(), steamrt_path.clone(), "steamrt3".to_string(), "latest-public-beta".to_string(), {
@@ -97,32 +94,27 @@ pub fn run_steamrt_download(app: AppHandle, payload: SteamrtDownloadPayload, job
                 app.emit(&event_name, dlp.clone()).unwrap();
             }
         }, {
-                             let app = app.clone();
-                             let dlpayload = dlpayload.clone();
-                             let job_id = job_id.clone();
-                             let event_name = event_name.to_string();
-                             move |current, total| {
-                                 let mut dlp = dlpayload.lock().unwrap();
-                                 dlp.insert("job_id".to_string(), job_id.to_string());
-                                 dlp.insert("name".to_string(), "SteamLinuxRuntime 3".to_string());
-                                 dlp.insert("install_progress".to_string(), current.to_string());
-                                 dlp.insert("install_total".to_string(), total.to_string());
-                                 dlp.insert("phase".to_string(), "3".to_string()); // installing phase
-                                 app.emit(&event_name, dlp.clone()).unwrap();
-                             }
-                         }).await
+            let app = app.clone();
+            let dlpayload = dlpayload.clone();
+            let job_id = job_id.clone();
+            let event_name = event_name.to_string();
+            move |current, total| {
+                let mut dlp = dlpayload.lock().unwrap();
+                dlp.insert("job_id".to_string(), job_id.to_string());
+                dlp.insert("name".to_string(), "SteamLinuxRuntime 3".to_string());
+                dlp.insert("install_progress".to_string(), current.to_string());
+                dlp.insert("install_total".to_string(), total.to_string());
+                dlp.insert("phase".to_string(), "3".to_string()); // installing phase
+                app.emit(&event_name, dlp.clone()).unwrap();
+            }
+        }).await
     });
-    prevent_exit(&app, false);
 
     if success {
         app.emit(complete_event, String::from("SteamLinuxRuntime 3")).unwrap();
         QueueJobOutcome::Completed
     } else {
-        app.dialog().message(if payload.is_update { "Error occurred while trying to update SteamLinuxRuntime! Please restart the application to retry." } else { "Error occurred while trying to download SteamLinuxRuntime! Please restart the application to retry." })
-            .title("TwintailLauncher")
-            .kind(MessageDialogKind::Error)
-            .buttons(MessageDialogButtons::OkCustom("Ok".to_string()))
-            .show(move |_action| { let _ = empty_dir(steamrt_path.as_path()); });
+        show_dialog_with_callback(&app, "error", "TwintailLauncher", if payload.is_update { "Error occurred while trying to update SteamLinuxRuntime! Please restart the application to retry." } else { "Error occurred while trying to download SteamLinuxRuntime! Please restart the application to retry." }, Some(vec!["Ok"]), Some("dialog_steamrt_dl_fail"));
         app.emit(complete_event, String::from("SteamLinuxRuntime 3")).unwrap();
         QueueJobOutcome::Failed
     }
@@ -133,7 +125,6 @@ pub fn run_steamrt_download(app: AppHandle, payload: SteamrtDownloadPayload, job
 pub fn run_runner_download(app: AppHandle, payload: RunnerDownloadPayload, job_id: String) -> QueueJobOutcome {
     let job_id = Arc::new(job_id);
     let dlpayload: Arc<Mutex<HashMap<String, String>>> = Arc::new(Mutex::new(HashMap::new()));
-
     let runner_name = payload.runner_version.clone();
     {
         let mut dlp = dlpayload.lock().unwrap();
@@ -145,7 +136,6 @@ pub fn run_runner_download(app: AppHandle, payload: RunnerDownloadPayload, job_i
         dlp.insert("disk".to_string(), "0".to_string());
         app.emit("download_progress", dlp.clone()).unwrap();
     }
-    prevent_exit(&app, true);
 
     let success = run_async_command(async {
         Compat::download_runner(payload.runner_url.clone(), payload.runner_path.clone(), true, {
@@ -165,15 +155,15 @@ pub fn run_runner_download(app: AppHandle, payload: RunnerDownloadPayload, job_i
             }
         }).await
     });
-    prevent_exit(&app, false);
 
     if success {
-        // Mark the runner as installed in the database
         update_installed_runner_is_installed_by_version(&app, payload.runner_version.clone(), true);
         app.emit("download_complete", payload.runner_version.clone()).unwrap();
         QueueJobOutcome::Completed
     } else {
+        show_dialog_with_callback(&app, "error", "TwintailLauncher", format!("Error occurred while trying to download {runner_name}! Please retry later.").as_str(), Some(vec!["Ok"]), Some("dialog_runner_dl_fail"));
         app.emit("download_complete", payload.runner_version.clone()).unwrap();
+        let _ = empty_dir(payload.runner_path.clone());
         QueueJobOutcome::Failed
     }
 }
@@ -274,12 +264,8 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                 let manifest = Extras::fetch_ttl_manifest(package_id.clone());
                 if let Some(m) = manifest {
                     if m.retcode != 0 {
-                        app.dialog().message(format!("Error occurred while trying to update {package_id}! Please retry later.").as_str()).title("TwintailLauncher")
-                            .kind(MessageDialogKind::Error)
-                            .buttons(MessageDialogButtons::OkCustom("Ok".to_string()))
-                            .show(move |_action| {
-                                app.emit("update_complete", package_id.clone()).unwrap();
-                            });
+                        show_dialog_with_callback(&app, "error", "TwintailLauncher", format!("Error occurred while trying to update {package_id}! Please retry later.").as_str(), Some(vec!["Ok"]), Some("dialog_extra_dl_fail"));
+                        app.emit("update_complete", package_id.clone()).unwrap();
                         return false;
                     } else {
                         let ap = if package_type.as_str() == "xxmi" || package_id.as_str() == "jadeite" || package_id == "keqingunlock" { path.clone() } else { path.join(&package_type) };
@@ -294,16 +280,18 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                             if let Some(p) = pkg {
                                 if compare_version(lv.as_str(), p.version.as_str()).is_lt() {
                                     if package_type == "xxmi" {
-                                        for file in &p.file_list { let f_path = path.join(file);if f_path.exists() { let _ = fs::remove_file(f_path); } }
+                                        for file in &p.file_list {
+                                            let f_path = path.join(file);
+                                            if f_path.exists() { let _ = fs::remove_file(f_path); }
+                                        }
                                     } else { empty_dir(&ap).unwrap(); }
-                                    prevent_exit(&app, true);
                                     let dl = run_async_command(async {
                                         let needs_extract = if package_type.as_str() == "keqing_unlock" || package_type.as_str() == "xxmi" { false } else { true };
-                                        let needs_append = if package_type.as_str() == "gimi" || package_type.as_str() == "srmi" || package_type.as_str() == "zzmi" || package_type.as_str() == "himi" || package_type.as_str() == "wwmi" { true } else { false };
+                                        let needs_append = if package_type.as_str() == "gimi" || package_type.as_str() == "srmi" || package_type.as_str() == "zzmi" || package_type.as_str() == "himi" || package_type.as_str() == "wwmi" || package_type.as_str() == "ssmi" || package_type.as_str() == "efmi" { true } else { false };
                                         Extras::download_extra_package(package_id.clone(), package_type.clone(), needs_extract, false, needs_append, ap.as_path().to_str().unwrap().parse().unwrap(), |_current, _total| {}).await
                                     });
                                     if dl {
-                                        if package_type.as_str() == "gimi" || package_type.as_str() == "srmi" || package_type.as_str() == "zzmi" || package_type.as_str() == "himi" || package_type.as_str() == "wwmi" {
+                                        if package_type.as_str() == "gimi" || package_type.as_str() == "srmi" || package_type.as_str() == "zzmi" || package_type.as_str() == "himi" || package_type.as_str() == "wwmi" || package_type.as_str() == "ssmi" || package_type.as_str() == "efmi" {
                                             for mi in ["gimi", "srmi", "zzmi", "wwmi", "himi"] {
                                                 for lib in ["d3d11.dll", "d3dcompiler_47.dll"] {
                                                     let linkedpath = path.join(mi).join(lib);
@@ -318,17 +306,11 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                                             }
                                         }
                                         app.emit("update_complete", package_id.clone()).unwrap();
-                                        prevent_exit(&app, false);
                                         return true;
                                     } else {
-                                        app.dialog().message(format!("Error occurred while trying to update {package_id}! Please retry later.").as_str()).title("TwintailLauncher")
-                                            .kind(MessageDialogKind::Error)
-                                            .buttons(MessageDialogButtons::OkCustom("Ok".to_string()))
-                                            .show(move |_action| {
-                                                prevent_exit(&app, false);
-                                                app.emit("update_complete", package_id.clone()).unwrap();
-                                                empty_dir(&path).unwrap();
-                                            });
+                                        show_dialog_with_callback(&app, "error", "TwintailLauncher", format!("Error occurred while trying to update {package_id}! Please retry later.").as_str(), Some(vec!["Ok"]), Some("dialog_extra_dl_fail"));
+                                        app.emit("update_complete", package_id.clone()).unwrap();
+                                        empty_dir(&path).unwrap();
                                         return false;
                                     }
                                 }
@@ -339,9 +321,9 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
         }
         true // Nothing to update
     } else {
-        let ap = if package_type.as_str() == "gimi" || package_type.as_str() == "srmi" || package_type.as_str() == "zzmi" || package_type.as_str() == "himi" || package_type.as_str() == "wwmi" { path.join(&package_type) } else { path.clone() };
+        let ap = if package_type.as_str() == "gimi" || package_type.as_str() == "srmi" || package_type.as_str() == "zzmi" || package_type.as_str() == "himi" || package_type.as_str() == "wwmi" || package_type.as_str() == "ssmi" || package_type.as_str() == "efmi" { path.join(&package_type) } else { path.clone() };
         let entries: Vec<_> = fs::read_dir(&ap).ok().map(|r| r.filter_map(|e| e.ok()).collect()).unwrap_or_default();
-        let is_effectively_empty = if package_type == "xxmi" { entries.iter().all(|e| { let name = e.file_name(); e.path().is_dir() && (name == "gimi" || name == "srmi" || name == "zzmi" || name == "himi" || name == "wwmi") }) } else { entries.is_empty() || entries.iter().all(|e| e.file_name().to_str().unwrap().contains("Mods") || e.file_name().to_str().unwrap().contains("ShaderCache") || e.file_name() == "d3dx_user.ini") };
+        let is_effectively_empty = if package_type == "xxmi" { entries.iter().all(|e| { let name = e.file_name(); e.path().is_dir() && (name == "gimi" || name == "srmi" || name == "zzmi" || name == "himi" || name == "wwmi" || name == "ssmi" || name == "efmi") }) } else { entries.is_empty() || entries.iter().all(|e| e.file_name().to_str().unwrap().contains("Mods") || e.file_name().to_str().unwrap().contains("ShaderCache") || e.file_name() == "d3dx_user.ini") };
         if is_effectively_empty {
                 let mut dlpayload = HashMap::new();
                 dlpayload.insert("name", package_id.clone().chars().next().map(|first| first.to_uppercase().collect::<String>() + &package_id[first.len_utf8()..]).unwrap_or_default());
@@ -349,12 +331,11 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                 dlpayload.insert("total", "1000".to_string());
                 if let Some(ref jid) = job_id { if !jid.is_empty() { dlpayload.insert("job_id", jid.clone()); } }
                 app.emit("download_progress", dlpayload.clone()).unwrap();
-                prevent_exit(&app, true);
 
                 if !ap.exists() { let _ = fs::create_dir_all(&ap); }
                 let dl = run_async_command(async {
                     let needs_extract = if package_type.as_str() == "keqing_unlock" || package_type.as_str() == "xxmi" { false } else { true };
-                    let needs_append = if package_type.as_str() == "gimi" || package_type.as_str() == "srmi" || package_type.as_str() == "zzmi" || package_type.as_str() == "himi" || package_type.as_str() == "wwmi" { true } else { false };
+                    let needs_append = if package_type.as_str() == "gimi" || package_type.as_str() == "srmi" || package_type.as_str() == "zzmi" || package_type.as_str() == "himi" || package_type.as_str() == "wwmi" || package_type.as_str() == "ssmi" || package_type.as_str() == "efmi" { true } else { false };
                     Extras::download_extra_package(package_id.clone(), package_type.clone(), needs_extract, false, needs_append, ap.as_path().to_str().unwrap().parse().unwrap(), {
                         let app = app.clone();
                         let pkg_id = package_id.clone();
@@ -369,7 +350,7 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                     }).await
                 });
                 if dl {
-                    if package_type.as_str() == "gimi" || package_type.as_str() == "srmi" || package_type.as_str() == "zzmi" || package_type.as_str() == "himi" || package_type.as_str() == "wwmi" {
+                    if package_type.as_str() == "gimi" || package_type.as_str() == "srmi" || package_type.as_str() == "zzmi" || package_type.as_str() == "himi" || package_type.as_str() == "wwmi" || package_type.as_str() == "ssmi" || package_type.as_str() == "efmi" {
                         for mi in ["gimi", "srmi", "zzmi", "wwmi", "himi"] {
                             for lib in ["d3d11.dll", "d3dcompiler_47.dll"] {
                                 let linkedpath = path.join(mi).join(lib);
@@ -384,17 +365,11 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                         }
                     }
                     app.emit("download_complete", package_id.clone()).unwrap();
-                    prevent_exit(&app, false);
                     return true;
                 } else {
-                    app.dialog().message(format!("Error occurred while trying to download {package_id}! Please retry later.").as_str()).title("TwintailLauncher")
-                        .kind(MessageDialogKind::Error)
-                        .buttons(MessageDialogButtons::OkCustom("Ok".to_string()))
-                        .show(move |_action| {
-                            prevent_exit(&app, false);
-                            app.emit("download_complete", package_id.clone()).unwrap();
-                            empty_dir(&path).unwrap();
-                        });
+                    show_dialog_with_callback(&app, "error", "TwintailLauncher", format!("Error occurred while trying to download {package_id}! Please retry later.").as_str(), Some(vec!["Ok"]), Some("dialog_extra_dl_fail"));
+                    app.emit("download_complete", package_id.clone()).unwrap();
+                    empty_dir(&path).unwrap();
                     return false;
                 }
         }

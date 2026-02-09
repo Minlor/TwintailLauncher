@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useCallback } from "react";
-import { isImagePreloaded, isVideoUrl, preloadImage, getPreloadedImage, isLinux } from "../../utils/imagePreloader";
+import React, {useCallback, useEffect, useRef} from "react";
+import {getPreloadedImage, isImagePreloaded, isLinux, isVideoUrl, preloadImage} from "../../utils/imagePreloader";
 
 interface BackgroundLayerProps {
   currentSrc: string;
@@ -190,7 +190,10 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
 
           // Start playback
           try {
-            element.play().catch(() => { });
+            if ("play" in element) {
+              element.play().catch(() => {
+              });
+            }
           } catch { /* ignore */ }
 
           // Remove old element AFTER a short delay to allow crossfade
@@ -207,7 +210,7 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
         // Wait for video to have enough data to show first frame
         // readyState 3 = HAVE_FUTURE_DATA, 4 = HAVE_ENOUGH_DATA
         const checkAndReveal = () => {
-          if (element.readyState >= 3) {
+          if ("readyState" in element && element.readyState >= 3) {
             revealVideo();
           } else {
             // Listen for canplay event (fires when readyState >= 3)
@@ -360,10 +363,8 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
 
     // Use transition-transform only (not transition-all) to prevent flash during scale change on WebKitGTK
     // Keep will-change-transform for GPU layer permanence
-    const baseClass = `w-full h-screen object-cover object-center absolute inset-0 transition-transform duration-300 ease-out will-change-transform ${transitioning ? "animate-bg-fade-in" : ""} ${(popupOpen || pageOpen) ? "scale-[1.03]" : ""}`;
-
     // Apply immediately without RAF delay to prevent black flash on WebKitGTK
-    el.className = baseClass;
+    el.className = `w-full h-screen object-cover object-center absolute inset-0 transition-transform duration-300 ease-out will-change-transform ${transitioning ? "animate-bg-fade-in" : ""} ${(popupOpen || pageOpen) ? "scale-[1.03]" : ""}`;
   }, [popupOpen, pageOpen, transitioning, currentSrc]);
 
   return (

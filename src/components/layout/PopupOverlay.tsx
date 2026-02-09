@@ -3,13 +3,12 @@ import { PAGES } from "../pages/PAGES";
 import { useEffect } from "react";
 import RepoManager from "../popups/repomanager/RepoManager";
 import AddRepo from "../popups/repomanager/AddRepo";
-import LauncherSettings from "../settings/LauncherSettings";
 import DownloadGame from "../popups/DownloadGame";
-import GameSettings from "../settings/GameSettings";
 import InstallDeleteConfirm from "../popups/settings/InstallDeleteConfirm";
 import FpsUnlockSettings from "../popups/settings/FpsUnlockSettings.tsx";
 import MangoHudSettings from "../popups/settings/MangoHudSettings.tsx";
 import XXMISettings from "../popups/settings/XXMISettings.tsx";
+import GameSettings from "../popups/settings/GameSettings.tsx";
 
 export type PopupOverlayProps = {
   openPopup: POPUPS;
@@ -73,7 +72,6 @@ export default function PopupOverlay(props: PopupOverlayProps) {
     setOpenPopup,
     reposList,
     fetchRepositories,
-    fetchSettings,
     globalSettings,
     downloadSizes,
     runnerVersions,
@@ -145,13 +143,6 @@ export default function PopupOverlay(props: PopupOverlayProps) {
           />
         )}
         {openPopup == POPUPS.ADDREPO && <AddRepo setOpenPopup={setOpenPopup} />}
-        {openPopup == POPUPS.SETTINGS && (
-          <LauncherSettings
-            fetchSettings={fetchSettings}
-            settings={globalSettings}
-            setOpenPopup={setOpenPopup}
-          />
-        )}
         {openPopup == POPUPS.DOWNLOADGAME && (
           <DownloadGame
             fetchDownloadSizes={fetchDownloadSizes}

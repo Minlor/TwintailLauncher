@@ -3,10 +3,7 @@ use crate::downloading::queue::{QueueJobKind, QueueJobOutcome};
 use crate::downloading::{DownloadGamePayload, QueueJobPayload};
 use crate::utils::db_manager::{get_install_info_by_id, get_manifest_info_by_id};
 use crate::utils::repo_manager::get_manifest;
-use crate::utils::{
-    models::{FullGameFile, GameVersion},
-    prevent_exit, run_async_command, send_notification, show_dialog,
-};
+use crate::utils::{models::{FullGameFile, GameVersion}, run_async_command, send_notification, show_dialog};
 use fischl::download::game::{Game, Kuro, Sophon};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -66,7 +63,6 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
 
     h5.emit("repair_progress", dlp.clone()).unwrap();
     drop(dlp);
-    prevent_exit(&h5, true);
 
     #[cfg(target_os = "linux")]
     {
@@ -79,7 +75,6 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
         // Generic zipped mode, Variety per game
         "DOWNLOAD_MODE_FILE" => {
             h5.emit("repair_complete", ()).unwrap();
-            prevent_exit(&h5, false);
         }
         // HoYoverse sophon chunk mode
         "DOWNLOAD_MODE_CHUNK" => {
@@ -118,7 +113,6 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
             });
             // We finished the loop emit complete
             h5.emit("repair_complete", ()).unwrap();
-            prevent_exit(&h5, false);
             send_notification(&h5, format!("Repair of {inn} complete.", inn = i.name).as_str(), None);
         }
         // KuroGame only
@@ -149,16 +143,13 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
             });
             if rslt {
                 h5.emit("repair_complete", ()).unwrap();
-                prevent_exit(&h5, false);
                 send_notification(&h5, format!("Repair of {inn} complete.", inn = i.name).as_str(), None);
                 #[cfg(target_os = "linux")]
                 crate::utils::apply_patch(&h5, std::path::Path::new(&i.directory.clone()).to_str().unwrap().to_string(), "aki".to_string(), "add".to_string());
             } else {
-                // Show error dialog using React dialog system
                 show_dialog(&h5, "warning", "TwintailLauncher", &format!("Error occurred while trying to repair {}\nPlease try again!", i.name), Some(vec!["Ok"]));
                 let dir = std::path::Path::new(&i.directory).join("repairing");
                 if dir.exists() { std::fs::remove_dir_all(dir).unwrap_or_default(); }
-                prevent_exit(&h5, false);
                 h5.emit("repair_complete", ()).unwrap();
             }
         }

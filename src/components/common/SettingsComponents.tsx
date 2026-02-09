@@ -1,7 +1,7 @@
 import React from "react";
 import { ChevronDown, FolderOpen } from "lucide-react";
 import { open } from '@tauri-apps/plugin-dialog';
-import HelpTooltip from "../../common/HelpTooltip";
+import HelpTooltip from "./HelpTooltip.tsx";
 
 // --- Card Components ---
 
@@ -44,8 +44,7 @@ export const ModernToggle = ({ label, description, checked, onChange, ...props }
                 className={`
                     w-12 h-7 rounded-full transition-all duration-300 relative flex items-center shadow-inner cursor-pointer
                     ${checked ? "bg-purple-600 shadow-[0_0_15px_rgba(147,51,234,0.4)]" : "bg-zinc-800"}
-                `}
-            >
+                `}>
                 <div className={`
                     w-5 h-5 rounded-full bg-white shadow-md transform transition-all duration-300 absolute
                     ${checked ? "translate-x-6" : "translate-x-1"}
@@ -97,7 +96,7 @@ export const ModernInput = ({ label, description, helpText, value, onChange, onB
                             (e.target as HTMLInputElement).blur();
                         }
                     }}
-                    className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-zinc-600 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/30 transition-all font-mono text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-zinc-600 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/30 transition-all font-mono text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none leading-[1.5] [-webkit-line-box-contain:glyphs]"
                 />
             </div>
         </SettingsCard>
@@ -159,12 +158,11 @@ export const ModernPathInput = ({ label, description, value, onChange, folder = 
                                 (e.target as HTMLInputElement).blur();
                             }
                         }}
-                        className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-zinc-600 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/30 transition-all font-mono text-sm truncate"
+                        className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-zinc-600 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/30 transition-all font-mono text-sm truncate leading-[1.5] [-webkit-line-box-contain:glyphs]"
                     />
                     <button
                         onClick={handleBrowse}
-                        className="bg-zinc-800 hover:bg-zinc-700 text-white p-2.5 rounded-lg border border-white/5 transition-colors"
-                    >
+                        className="bg-zinc-800 hover:bg-zinc-700 text-white p-2.5 rounded-lg border border-white/5 transition-colors">
                         <FolderOpen className="w-5 h-5" />
                     </button>
                 </div>

@@ -14,10 +14,7 @@ use crate::utils::db_manager::{
 use crate::utils::game_launch_manager::launch;
 use crate::utils::repo_manager::get_manifest;
 use crate::utils::shortcuts::remove_desktop_shortcut;
-use crate::utils::{
-    AddInstallRsp, DownloadSizesRsp, ResumeStatesRsp, apply_xxmi_tweaks, copy_dir_all,
-    generate_cuid, get_mi_path_from_game, models::GameVersion, prevent_exit, send_notification,
-};
+use crate::utils::{AddInstallRsp, DownloadSizesRsp, ResumeStatesRsp, apply_xxmi_tweaks, copy_dir_all, generate_cuid, get_mi_path_from_game, models::GameVersion, send_notification, show_dialog};
 use fischl::utils::free_space::available;
 use fischl::utils::is_process_running;
 use fischl::utils::prettify_bytes;
@@ -35,18 +32,12 @@ use crate::downloading::QueueJobPayload;
 #[cfg(target_os = "linux")]
 use crate::downloading::RunnerDownloadPayload;
 #[cfg(target_os = "linux")]
-use crate::utils::db_manager::{
-    create_installed_runner, get_installed_runner_info_by_version,
-    update_install_shortcut_is_steam_by_id, update_installed_runner_is_installed_by_version,
-};
+use crate::utils::db_manager::{create_installed_runner, get_installed_runner_info_by_version, update_install_shortcut_is_steam_by_id, update_installed_runner_is_installed_by_version};
 use crate::utils::models::XXMISettings;
 #[cfg(target_os = "linux")]
 use crate::utils::repo_manager::get_compatibility;
 #[cfg(target_os = "linux")]
-use crate::utils::{
-    is_flatpak, run_async_command, runner_from_runner_version,
-    shortcuts::{add_desktop_shortcut, add_steam_shortcut, remove_steam_shortcut},
-};
+use crate::utils::{is_flatpak, run_async_command, runner_from_runner_version, shortcuts::{add_desktop_shortcut, add_steam_shortcut, remove_steam_shortcut}};
 #[cfg(target_os = "linux")]
 use fischl::compat::Compat;
 use sqlx::types::Json;
@@ -55,8 +46,6 @@ use std::sync::atomic::Ordering;
 use std::time::{SystemTime, UNIX_EPOCH};
 #[cfg(target_os = "linux")]
 use steam_shortcuts_util::{Shortcut, app_id_generator::calculate_app_id};
-#[cfg(target_os = "linux")]
-use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
 #[tauri::command]
 pub async fn list_installs(app: AppHandle) -> Option<String> {
@@ -254,7 +243,6 @@ pub async fn remove_install(app: AppHandle, id: String, wipe_prefix: bool) -> Op
         cancel_download_for_install(&app, &id);
 
         let install = get_install_info_by_id(&app, id.clone());
-
         if install.is_some() {
             let i = install.unwrap();
             let lm = get_manifest_info_by_id(&app, i.manifest_id.clone()).unwrap();
@@ -312,7 +300,6 @@ pub fn update_install_game_path(app: AppHandle, id: String, path: String) -> Opt
                     payload.insert("progress", "0".to_string());
                     payload.insert("total", "1000".to_string());
                     app1.emit("move_complete", &payload).unwrap();
-                    prevent_exit(&app1, false);
                     send_notification(&app1, format!("Moving of {inn}'s {intt} complete.", inn = install_name, intt = "Game").as_str(), None);
                 });
             }
@@ -351,7 +338,6 @@ pub fn update_install_runner_path(app: AppHandle, id: String, path: String) -> O
                     payload.insert("progress", "0".to_string());
                     payload.insert("total", "1000".to_string());
                     app1.emit("move_complete", &payload).unwrap();
-                    prevent_exit(&app1, false);
                     send_notification(&app1, format!("Moving of {inn}'s {intt} complete.", inn = install_name, intt = "Runner").as_str(), None);
                 });
             }
@@ -392,7 +378,6 @@ pub fn update_install_dxvk_path(app: AppHandle, id: String, path: String) -> Opt
                     payload.insert("progress", "0".to_string());
                     payload.insert("total", "1000".to_string());
                     app1.emit("move_complete", &payload).unwrap();
-                    prevent_exit(&app1, false);
                     send_notification(&app1, format!("Moving of {inn}'s {intt} complete.", inn = install_name, intt = "DXVK").as_str(), None);
                 });
             }
@@ -611,11 +596,7 @@ pub fn update_install_launch_cmd(app: AppHandle, id: String, cmd: String) -> Opt
 }
 
 #[tauri::command]
-pub fn update_install_preferred_background(
-    app: AppHandle,
-    id: String,
-    background: String,
-) -> Option<bool> {
+pub fn update_install_preferred_background(app: AppHandle, id: String, background: String) -> Option<bool> {
     let install = get_install_info_by_id(&app, id);
 
     if install.is_some() {
@@ -654,7 +635,6 @@ pub fn update_install_prefix_path(app: AppHandle, id: String, path: String) -> O
                     payload.insert("progress", "0".to_string());
                     payload.insert("total", "1000".to_string());
                     app1.emit("move_complete", &payload).unwrap();
-                    prevent_exit(&app1, false);
                     send_notification(&app1, format!("Moving of {inn}'s {intt} complete.", inn = install_name, intt = "Prefix").as_str(), None);
                 });
             }
@@ -789,7 +769,6 @@ pub fn update_install_dxvk_version(app: AppHandle, id: String, version: String) 
                     dlpayload.insert("progress", "0".to_string());
                     dlpayload.insert("total", "1000".to_string());
                     archandle.emit("download_progress", dlpayload.clone()).unwrap();
-                    prevent_exit(&*archandle, true);
 
                     let mut dl_url = dxp.url.clone(); // Always x86_64
                     if let Some(urls) = dxp.urls {
@@ -811,8 +790,7 @@ pub fn update_install_dxvk_version(app: AppHandle, id: String, version: String) 
                                 dlpayload.insert("total", total.to_string());
                                 archandle.emit("download_progress", dlpayload.clone()).unwrap();
                             }
-                        })
-                        .await
+                        }).await
                     });
                     if r0 {
                         let wine64 = if rm.paths.wine64.is_empty() { rm.paths.wine32 } else { rm.paths.wine64 };
@@ -821,18 +799,12 @@ pub fn update_install_dxvk_version(app: AppHandle, id: String, version: String) 
                         let r1 = Compat::remove_dxvk(winebin.clone(), rpp.as_str().to_string());
                         if r1.is_ok() { Compat::add_dxvk(winebin, rpp.as_str().to_string(), dxpp.to_str().unwrap().to_string(), false, ).unwrap();
                             archandle.emit("download_complete", ()).unwrap();
-                            prevent_exit(&*archandle, false);
                             send_notification(&*archandle, format!("Download of {dxvn} complete.", dxvn = dxvkv.as_str().to_string()).as_str(), None);
                         }
                     } else {
-                        archandle.dialog().message(format!("Error occurred while trying to download {dxvn} DXVK! Please retry later.", dxvn = dxvkv.as_str().to_string()).as_str()).title("TwintailLauncher")
-                                .kind(MessageDialogKind::Error)
-                                .buttons(MessageDialogButtons::OkCustom("Ok".to_string()))
-                                .show(move |_action| {
-                                    prevent_exit(&*archandle, false);
-                                    archandle.emit("download_complete", ()).unwrap();
-                                    if dxpp.exists() { fs::remove_dir_all(&dxpp).unwrap(); }
-                                });
+                        show_dialog(&*archandle, "error", "TwintailLauncher", format!("Error occurred while trying to download {dxvn} DXVK! Please retry later.", dxvn = dxvkv.as_str().to_string()).as_str(), Some(vec!["Ok"]));
+                        archandle.emit("download_complete", ()).unwrap();
+                        if dxpp.exists() { fs::remove_dir_all(&dxpp).unwrap(); }
                     }
                 }
             });

@@ -171,6 +171,7 @@ impl DownloadQueueHandle {
     }
 }
 
+#[allow(unused)]
 pub enum QueueCommand {
     Enqueue(QueueJob),
     SetMaxConcurrent(usize),

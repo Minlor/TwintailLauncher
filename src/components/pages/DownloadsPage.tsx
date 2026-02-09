@@ -70,9 +70,9 @@ const calculateETA = (totalBytes: number, progressBytes: number, speedHistory: T
 /* Format kind label */
 function formatKind(kind: QueueJobView['kind']): string {
     switch (kind) {
-        case 'game_download': return 'Download';
+        case 'game_download': return 'Game';
         case 'game_update': return 'Update';
-        case 'game_preload': return 'Preload';
+        case 'game_preload': return 'Predownload';
         case 'game_repair': return 'Repair';
         case 'runner_download': return 'Runner';
         case 'steamrt_download': return 'SteamRT';
@@ -714,9 +714,7 @@ export default function DownloadsPage({
                                             </div>
 
                                             <div className="w-full bg-white/10 rounded-full h-2 mb-2 overflow-hidden">
-                                                <div
-                                                    className={`h-2 rounded-full transition-all duration-500 ${isPaused ? 'bg-gray-500' : 'bg-blue-500'
-                                                        }`}
+                                                <div className={`h-2 rounded-full transition-all duration-500 ${isPaused ? 'bg-gray-500' : 'bg-blue-500'}`}
                                                     style={{
                                                         width: `${downloadProgress}%`,
                                                         boxShadow: isPaused ? 'none' : '0 0 10px rgba(59, 130, 246, 0.5)'
@@ -739,9 +737,7 @@ export default function DownloadsPage({
                                                         </div>
                                                     </div>
                                                     <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
-                                                        <div
-                                                            className={`h-2 rounded-full transition-all duration-500 ${isPaused ? 'bg-gray-500' : 'bg-green-500'
-                                                                }`}
+                                                        <div className={`h-2 rounded-full transition-all duration-500 ${isPaused ? 'bg-gray-500' : 'bg-green-500'}`}
                                                             style={{
                                                                 width: `${installProgress}%`,
                                                                 boxShadow: isPaused ? 'none' : '0 0 10px rgba(34, 197, 94, 0.5)'
@@ -837,9 +833,7 @@ export default function DownloadsPage({
                         flex items-center gap-4 p-3 rounded-lg border transition-all cursor-grab active:cursor-grabbing
                         ${isDragging ? 'opacity-50 scale-95' : 'opacity-100'}
                         ${isDragOver ? 'border-blue-500 bg-blue-900/20' : 'border-white/5 bg-white/5'}
-                        hover:bg-white/10
-                      `}
-                                        >
+                        hover:bg-white/10`}>
                                             {/* Drag Handle */}
                                             <div className="flex-shrink-0 text-gray-500 hover:text-gray-300">
                                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -873,16 +867,14 @@ export default function DownloadsPage({
                                                 <button
                                                     onClick={() => handleActivateJob(job.id)}
                                                     className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
-                                                    title="Start downloading this now"
-                                                >
+                                                    title="Start downloading this now">
                                                     Start Now
                                                 </button>
                                                 {index > 0 && (
                                                     <button
                                                         onClick={() => handleMoveUp(job.id)}
                                                         className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
-                                                        title="Move up"
-                                                    >
+                                                        title="Move up">
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                                                         </svg>
@@ -892,8 +884,7 @@ export default function DownloadsPage({
                                                     <button
                                                         onClick={() => handleMoveDown(job.id)}
                                                         className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
-                                                        title="Move down"
-                                                    >
+                                                        title="Move down">
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                                         </svg>
@@ -902,8 +893,7 @@ export default function DownloadsPage({
                                                 <button
                                                     onClick={() => handleRemove(job.id)}
                                                     className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-900/30 rounded transition-colors"
-                                                    title="Remove from queue"
-                                                >
+                                                    title="Remove from queue">
                                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                                     </svg>
@@ -925,8 +915,7 @@ export default function DownloadsPage({
                                 </h3>
                                 <button
                                     onClick={handleClearCompleted}
-                                    className="px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded transition-colors"
-                                >
+                                    className="px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded transition-colors">
                                     Clear All
                                 </button>
                             </div>

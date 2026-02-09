@@ -1,12 +1,12 @@
 import { useState, useMemo } from "react";
-import { POPUPS } from "../popups/POPUPS";
-import { PAGES } from "../pages/PAGES";
+import { POPUPS } from "../POPUPS.ts";
+import { PAGES } from "../../pages/PAGES.ts";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { Folder, Play, Wrench, Trash2, Sliders, Box, Monitor, Copy } from "lucide-react";
-import { SettingsLayout } from "./ui/SettingsLayout";
-import { SettingsSidebar, SettingsTab } from "./ui/SettingsSidebar";
-import { SettingsSection, ModernToggle, ModernInput, ModernPathInput, ModernSelect, SettingsCard } from "./ui/SettingsComponents";
+import { SettingsLayout } from "../../layout/SettingsLayout.tsx";
+import { SettingsSidebar, SettingsTab } from "../../sidebar/SettingsSidebar.tsx";
+import { SettingsSection, ModernToggle, ModernInput, ModernPathInput, ModernSelect, SettingsCard } from "../../common/SettingsComponents.tsx";
 
 
 // Helper for Steam Icon
@@ -45,43 +45,6 @@ export default function GameSettings({
 }: GameSettingsProps) {
     const [activeTab, setActiveTab] = useState("general");
     const [authkeyCopied, setAuthkeyCopied] = useState(false);
-
-    // Find the install info from the installs list provided by parent or fetch additional info if needed.
-    // However, installSettings usually contains the basic info. 
-    // It seems installSettings has `directory`, `name`, `id` etc. 
-    // We might need to check if `installSettings` has `game_background` or `game_icon`.
-    // In `DownloadGame` they were passed explicitly. Here we rely on `installSettings`.
-    // If they are missing, we might need to find them from a global list if available, but for now let's try using what's on installSettings.
-    // Wait, the props don't include the full installs list. 
-    // Let's assume `installSettings` has them or we can infer them.
-    // Actually, looking at `PopupOverlay.tsx` (which we viewed earlier), `installSettings` is passed from `App.tsx` state.
-    // In `App.tsx` (viewed way earlier), `installSettings` is populated by `fetch_install_settings`.
-    // Let's assume for now `installSettings` MIGHT NOT have the images directly if it's just settings.
-    // BUT `PopupOverlay` has `installs` prop. We should check if we can pass that down or if `GameSettings` should receive it.
-    // `GameSettings` component definition in `PopupOverlay` (line 185) does NOT pass `installs`.
-    // It passes `installedRunners`, `installSettings`, etc.
-    // We should check `installSettings` schema in backend... or just try to use what we have.
-    // If `installSettings` lacks images, we might need to update `PopupOverlay` to pass `installs` or `gamesinfo` to `GameSettings`.
-
-    // Let's optimistically assume `installSettings` has `game_icon` and `game_background`.
-    // If not, we will need to refactor `PopupOverlay`.
-
-    // Actually, I'll update `PopupOverlay` to pass `installs` to `GameSettings` in a separate step if needed. 
-    // For now, let's assume we can get it or update the props.
-
-    // Better yet, I will modify `GameSettings` to ACCEPT `installs` as a prop first, update `PopupOverlay` to pass it, ensuring we can find the right images.
-
-    // So this first step is: Update `GameSettings` to accept `installs` (or `gameInfo`?) and use it.
-    // But `GameSettings` export is default.
-
-    // Wait, I can't check `PopupOverlay` easily again without another view. 
-    // I recall `PopupOverlay` has `installs`. 
-    // I will add `installs` to `GameSettingsProps` and logic to find the current install's images.
-
-
-    // Use local state for immediate updates, similar to how Checks/Inputs worked
-    // But since we receive `installSettings` as a prop which updates on fetch, 
-    // we basically rely on the parent updating. 
 
     const tabs: SettingsTab[] = [
         { id: "general", label: "General", icon: Sliders, color: "blue" },
@@ -169,7 +132,6 @@ export default function GameSettings({
                                 description="Directory where the game is installed."
                                 value={`${installSettings.directory}`}
                                 onChange={(val) => handleUpdate("game_path", val)}
-                                helpText="Location where game is installed. Usually should be set where main game exe is located."
                             />
                             <div className="grid grid-cols-1 gap-4 mt-4">
                                 <ModernToggle
@@ -177,14 +139,12 @@ export default function GameSettings({
                                     description="Don't check for game updates on launch."
                                     checked={installSettings.ignore_updates}
                                     onChange={(val) => handleUpdate("skip_version_updates", val)}
-                                    helpText="Skip checking for game updates."
                                 />
                                 <ModernToggle
                                     label="Skip Hash Validation"
                                     description="Skip file verification during repairs (faster but less safe)."
                                     checked={installSettings.skip_hash_check}
                                     onChange={(val) => handleUpdate("skip_hash_valid", val)}
-                                    helpText="Skip validating files during game repair process, this will speed up the repair process significantly."
                                 />
                                 {prefetchedSwitches.xxmi && (
                                     <SettingsCard className="flex items-center justify-between">
@@ -194,8 +154,7 @@ export default function GameSettings({
                                         </div>
                                         <button
                                             onClick={() => setOpenPopup(POPUPS.XXMISETTINGS)}
-                                            className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors border border-white/5"
-                                        >
+                                            className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors border border-white/5">
                                             Configure
                                         </button>
                                     </SettingsCard>
@@ -208,8 +167,7 @@ export default function GameSettings({
                                         </div>
                                         <button
                                             onClick={() => setOpenPopup(POPUPS.FPSUNLOCKERSETTINGS)}
-                                            className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors border border-white/5"
-                                        >
+                                            className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors border border-white/5">
                                             Configure
                                         </button>
                                     </SettingsCard>
@@ -227,15 +185,13 @@ export default function GameSettings({
                                     value={installSettings.launch_args || ""}
                                     onChange={(e) => handleUpdate("launch_args", e.target.value)}
                                     placeholder="-dx11 -console"
-                                    helpText="Additional arguments to pass to the game. Each entry is separated with space."
                                 />
                                 <ModernInput
                                     label="Environment Variables"
                                     description="Environment variables set for the game process."
                                     value={installSettings.env_vars || ""}
                                     onChange={(e) => handleUpdate("env_vars", e.target.value)}
-                                    placeholder='DXVK_HUD="fps"'
-                                    helpText={`Pass extra variables to Proton.\nExamples:\n- DXVK_HUD=fps;\n-DXVK_HUD=fps,devinfo;PROTON_LOG=1;\n- DXVK_HUD="fps,devinfo";SOMEVAR="/path/to/something";`}
+                                    placeholder='DXVK_HUD=fps,devinfo;PROTON_LOG=1;SOMETHING="/path/to/thing";'
                                 />
                                 <ModernInput
                                     label="Pre-Launch Command"
@@ -265,39 +221,34 @@ export default function GameSettings({
                                         value={installSettings.runner_version || ""}
                                         options={installedRunners}
                                         onChange={(val) => handleUpdate("runner_version", val)}
-                                        helpText="Wine/Proton version used by this installation."
                                     />
                                     <button
                                         onClick={() => {
                                             setOpenPopup(POPUPS.NONE);
                                             setCurrentPage(PAGES.RUNNERS);
                                         }}
-                                        className="text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors text-left px-1 underline-offset-2 hover:underline"
-                                    >
+                                        className="text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors text-left px-1 underline-offset-2 hover:underline">
                                         → Manage Runners
                                     </button>
                                 </div>
                                 <ModernPathInput
                                     label="Runner Location"
-                                    description="Path to the runner binary/folder."
+                                    description="Path to Wine/Proton folder."
                                     value={`${installSettings.runner_path}`}
                                     onChange={(val) => handleUpdate("runner_path", val)}
-                                    helpText={`Location of the Wine/Proton runner. Usually points to directory containing "bin" or "files" directory.`}
                                 />
                                 <ModernPathInput
                                     label="Prefix Location"
-                                    description="Path to the Wine prefix."
+                                    description="Path to the Wine/Proton prefix."
                                     value={`${installSettings.runner_prefix}`}
                                     onChange={(val) => handleUpdate("prefix_path", val)}
-                                    helpText={`Location where Wine/Proton prefix is stored. Should point to directory where "system.reg" is stored.`}
                                 />
                                 {prefetchedSwitches.jadeite && (
                                     <ModernToggle
                                         label="Use Jadeite"
-                                        description="Enable Jadeite patch improvements."
+                                        description="Enable Jadeite patch."
                                         checked={installSettings.use_jadeite}
                                         onChange={(val) => handleUpdate("use_jadeite", val)}
-                                        helpText="Launch game using Jadeite patch."
                                     />
                                 )}
                                 <ModernToggle
@@ -305,7 +256,6 @@ export default function GameSettings({
                                     description="Enable Feral Interactive's GameMode."
                                     checked={installSettings.use_gamemode}
                                     onChange={(val) => handleUpdate("use_gamemode", val)}
-                                    helpText="Launch game using gamemode by FeralInteractive. You need it installed on your system for this to work!"
                                 />
                                 <SettingsCard className="flex items-center justify-between">
                                     <div className="flex flex-col">
@@ -314,8 +264,7 @@ export default function GameSettings({
                                     </div>
                                     <button
                                         onClick={() => setOpenPopup(POPUPS.MANGOHUDSETTINGS)}
-                                        className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors border border-white/5"
-                                    >
+                                        className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors border border-white/5">
                                         Configure
                                     </button>
                                 </SettingsCard>
@@ -336,8 +285,7 @@ export default function GameSettings({
                                             pathType: "install"
                                         });
                                     }}
-                                    className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left"
-                                >
+                                    className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
                                     <Folder className="w-6 h-6 text-purple-400" />
                                     <div className="flex flex-col">
                                         <span className="font-bold">Open Game Folder</span>
@@ -403,7 +351,7 @@ export default function GameSettings({
                                         <Folder className="w-6 h-6 text-yellow-400" />
                                         <div className="flex flex-col">
                                             <span className="font-bold">Open Prefix Folder</span>
-                                            <span className="text-xs text-zinc-400">Wine prefix location</span>
+                                            <span className="text-xs text-zinc-400">Wine/Proton prefix location</span>
                                         </div>
                                     </button>
                                 )}

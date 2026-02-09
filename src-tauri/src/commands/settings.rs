@@ -141,15 +141,9 @@ pub fn update_settings_default_mangohud_config_path(app: AppHandle, path: String
 
     if !p.exists() && p.is_file() {
         fs::create_dir_all(&p).unwrap();
-        update_settings_default_mangohud_config_location(
-            &app,
-            p.to_str().unwrap().parse().unwrap(),
-        );
+        update_settings_default_mangohud_config_location(&app, p.to_str().unwrap().parse().unwrap());
     } else {
-        update_settings_default_mangohud_config_location(
-            &app,
-            p.to_str().unwrap().parse().unwrap(),
-        );
+        update_settings_default_mangohud_config_location(&app, p.to_str().unwrap().parse().unwrap());
     }
     Some(true)
 }

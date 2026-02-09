@@ -131,7 +131,6 @@ pub fn add_installed_runner(app: AppHandle, runner_url: String, runner_version: 
                             runner_path: runner_path.to_str().unwrap().to_string(),
                     }));
                 }
-
                 // Create/update database entry (will be marked as installed by the download job on completion)
                 if ir.is_some() { update_installed_runner_is_installed_by_version(&app, runner_version.clone(), false); } else { create_installed_runner(&app, runner_version.clone(), false, runner_path.to_str().unwrap().to_string(), ).unwrap(); }
                 Some(true)

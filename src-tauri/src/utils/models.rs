@@ -1,6 +1,12 @@
 use serde::{Deserialize, Serialize};
 use sqlx::types::Json;
 
+#[derive(serde::Deserialize)]
+pub struct DialogResponse {
+    pub callback_id: String,
+    pub button_index: usize,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct XXMISettings {
     pub hunting_mode: u64,

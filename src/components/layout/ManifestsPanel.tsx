@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import SidebarIconManifest from "../sidebar/SidebarIconManifest.tsx";
 import { POPUPS } from "../popups/POPUPS.ts";
 import { isLinux } from "../../utils/imagePreloader";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 
 interface GameInfoItem {
   manifest_enabled: boolean;
@@ -33,7 +33,6 @@ interface ManifestsPanelProps {
 const ManifestsPanel: React.FC<ManifestsPanelProps> = ({
   openPopup,
   manifestsOpenVisual,
-  manifestsInitialLoading,
   gamesinfo,
   manifestsPanelRef,
   currentGame,
@@ -122,10 +121,11 @@ const ManifestsPanel: React.FC<ManifestsPanelProps> = ({
           className="relative inline-flex rounded-2xl border border-white/10 bg-black/50 shadow-2xl overflow-hidden pointer-events-auto origin-left backdrop-blur-md"
           initial="closed"
           animate={animationState}
+          // @ts-ignore
           variants={variantsContainer}
         >
           <div className="flex flex-row items-center gap-2 overflow-x-auto px-3 py-2 scrollbar-none select-none">
-            {gamesinfo.map((game, index) => {
+            {gamesinfo.map((game, _index) => {
               // Use dynamic background if available (skip on Linux), otherwise fall back to static
               // Using || handles undefined, null, and empty string cases
               let bg = (!isLinux && game.assets.game_live_background) || game.assets.game_background;
@@ -133,6 +133,7 @@ const ManifestsPanel: React.FC<ManifestsPanelProps> = ({
               return (
                 <motion.div
                   key={`${game.biz}-v${imageVersion}`}
+                  // @ts-ignore
                   variants={variantsItem}
                   layout
                 >

@@ -6,7 +6,7 @@ use crate::utils::db_manager::{
     update_settings_default_dxvk_location, update_settings_default_jadeite_location,
     update_settings_default_prefix_location, update_settings_default_runner_location,
 };
-use crate::utils::models::{GameVersion, XXMISettings};
+use crate::utils::models::{DialogResponse, GameVersion, XXMISettings};
 use crate::utils::repo_manager::get_manifest;
 use fischl::utils::get_github_release;
 use serde::{Deserialize, Serialize};
@@ -39,11 +39,7 @@ pub fn generate_cuid() -> String {
 }
 
 pub fn run_async_command<F: Future>(cmd: F) -> F::Output {
-    if tokio::runtime::Handle::try_current().is_ok() {
-        tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(cmd))
-    } else {
-        tauri::async_runtime::block_on(cmd)
-    }
+    if tokio::runtime::Handle::try_current().is_ok() { tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(cmd)) } else { tauri::async_runtime::block_on(cmd) }
 }
 
 pub fn copy_dir_all(app: &AppHandle, src: impl AsRef<Path>, dst: impl AsRef<Path>, install: String, install_name: String, install_type: String) -> io::Result<()> {
@@ -52,7 +48,6 @@ pub fn copy_dir_all(app: &AppHandle, src: impl AsRef<Path>, dst: impl AsRef<Path
     let tracker = Arc::new(AtomicU64::new(0));
     let mut files_to_remove = Vec::new();
 
-    prevent_exit(app, true);
     for entry in fs::read_dir(src.as_ref())? {
         let entry = entry?;
         let f = entry.file_name();
@@ -88,11 +83,7 @@ pub fn copy_dir_all(app: &AppHandle, src: impl AsRef<Path>, dst: impl AsRef<Path
         }
     }
     for file_path in files_to_remove {
-        if file_path.is_file() || file_path.is_symlink() {
-            if let Err(e) = fs::remove_file(file_path) { eprintln!("Failed to remove file: {}", e); }
-        } else {
-            if let Err(e) = fs::remove_dir_all(file_path) { eprintln!("Failed to remove directory: {}", e); }
-        }
+        if file_path.is_file() || file_path.is_symlink() { if let Err(e) = fs::remove_file(file_path) { eprintln!("Failed to remove file: {}", e); } } else { if let Err(e) = fs::remove_dir_all(file_path) { eprintln!("Failed to remove directory: {}", e); } }
     }
     Ok(())
 }
@@ -154,20 +145,48 @@ pub fn block_telemetry(_app: &AppHandle) {}
 pub fn register_listeners(app: &AppHandle) {
     let h1 = app.clone();
     app.listen("launcher_action_exit", move |_event| {
-        let blocks = h1.state::<Mutex<ActionBlocks>>();
-        let state = blocks.lock().unwrap();
-        if state.action_exit {
-            h1.get_window("main").unwrap().hide().unwrap();
-            h1.emit("sync_tray_toggle", "Show").unwrap();
-        } else {
-            h1.get_window("main").unwrap().hide().unwrap();
-            h1.cleanup_before_exit();
-            h1.exit(0);
-            std::process::exit(0);
-        }
+        h1.get_window("main").unwrap().hide().unwrap();
+        h1.cleanup_before_exit();
+        h1.exit(0);
+        std::process::exit(0);
     });
     let h2 = app.clone();
     app.listen("launcher_action_minimize", move |_event| { h2.get_window("main").unwrap().minimize().unwrap(); });
+
+    let h3 = app.clone();
+    app.listen_any("dialog_response", move |event| {
+        if let Ok(response) = serde_json::from_str::<DialogResponse>(event.payload()) {
+            match response.callback_id.as_str() {
+                "dialog_aarch64_kill" => {
+                    h3.cleanup_before_exit();
+                    h3.exit(0);
+                    std::process::exit(0);
+                }
+                "dialog_block_telemetry" => {
+                    if response.button_index == 0 { block_telemetry(&h3); } else { let path = h3.path().app_data_dir().unwrap().join(".telemetry_blocked"); fs::write(&path, ".").unwrap(); }
+                }
+                "dialog_no_steamrt" => {
+                    if response.button_index == 0 {
+                        let gs = get_settings(&h3).unwrap();
+                        let runnerp = Path::new(gs.default_runner_path.as_str()).to_path_buf();
+                        let steamrtpp = runnerp.join("steamrt/");
+                        let _ = empty_dir(&steamrtpp);
+                        crate::downloading::misc::download_or_update_steamrt(&h3);
+                    }
+                }
+                "dialog_steamrt_dl_fail" => {
+                    let gs = get_settings(&h3).unwrap();
+                    let runnerp = Path::new(gs.default_runner_path.as_str()).to_path_buf();
+                    let steamrtpp = runnerp.join("steamrt/");
+                    let _ = empty_dir(&steamrtpp);
+                }
+                "dialog_runner_dl_fail" => { /* Empties the directory in its handler not here */ }
+                "dialog_extra_dl_fail" => { /* Handled in respective failure blocks */}
+                "dialog_update_redownload_full" => { /* This is directly handled in the update.rs due to passing the job_id and such*/ }
+                _ => {}
+            }
+        }
+    });
 }
 
 pub fn send_notification(app: &AppHandle, body: &str, icon: Option<&str>) {
@@ -194,14 +213,7 @@ pub fn show_dialog_with_callback(app: &AppHandle, dialog_type: &str, title: &str
         payload.insert("buttons", btns_str);
     }
     if let Some(cb_id) = callback_id { payload.insert("callback_id", cb_id.to_string()); }
-    let _ = app.emit("show_dialog", payload);
-}
-
-pub fn prevent_exit(app: &AppHandle, val: bool) {
-    let blocks = app.state::<Mutex<ActionBlocks>>();
-    let mut state = blocks.lock().unwrap();
-    if val { state.prevent_exit_count = state.prevent_exit_count.saturating_add(1); } else { state.prevent_exit_count = state.prevent_exit_count.saturating_sub(1); }
-    state.action_exit = state.prevent_exit_count > 0;
+    app.emit("show_dialog", payload).unwrap();
 }
 
 #[cfg(target_os = "linux")]
@@ -244,9 +256,7 @@ pub fn runner_from_runner_version(runner_version: String) -> Option<String> {
         if runner_version.to_lowercase().contains("wine-caffe") {
             rslt = "wine_caffe.json".to_string();
         }
-        if runner_version.to_lowercase().contains("proton-ge")
-            || runner_version.to_lowercase().contains("ge-proton")
-        {
+        if runner_version.to_lowercase().contains("proton-ge") || runner_version.to_lowercase().contains("ge-proton") {
             rslt = "proton_ge.json".to_string();
         }
         if runner_version.to_lowercase().contains("proton-cachyos") {
@@ -263,6 +273,9 @@ pub fn runner_from_runner_version(runner_version: String) -> Option<String> {
         }
         if runner_version.to_lowercase().contains("proton-em") {
             rslt = "proton_em.json".to_string();
+        }
+        if runner_version.to_lowercase().contains("proton-ttl") {
+            rslt = "proton_ttl.json".to_string();
         }
         Some(rslt)
     }
@@ -347,8 +360,7 @@ pub fn setup_or_fix_default_paths(app: &AppHandle, path: PathBuf, fix_mode: bool
             let steamrtpath = wine.join("steamrt");
             if !steamrtpath.exists() { fs::create_dir_all(&steamrtpath).unwrap(); }
 
-            if !mangohudcfg.exists() { db_manager::update_settings_default_mangohud_config_location(app, mangohudcfg.to_str().unwrap().to_string());
-            } else { db_manager::update_settings_default_mangohud_config_location(app, mangohudcfg.to_str().unwrap().to_string()); }
+            if !mangohudcfg.exists() { db_manager::update_settings_default_mangohud_config_location(app, mangohudcfg.to_str().unwrap().to_string()); } else { db_manager::update_settings_default_mangohud_config_location(app, mangohudcfg.to_str().unwrap().to_string()); }
             if !jadeitepath.exists() { fs::create_dir_all(&jadeitepath).unwrap();update_settings_default_jadeite_location(app, jadeitepath.to_str().unwrap().to_string()); }
             if !comppath.exists() {
                 fs::create_dir_all(&wine).unwrap();
@@ -392,9 +404,7 @@ pub fn sync_installed_runners(app: &AppHandle) {
                             Ok(mut subdir) => {
                                 if subdir.next().is_some() {
                                     let installed_runner = get_installed_runner_info_by_version(app, dir_name.to_string());
-                                    if installed_runner.is_none() && dir_name != "steamrt" {
-                                        create_installed_runner(app, dir_name.to_string(), true, path.to_str().unwrap().parse().unwrap()).unwrap();
-                                    } else if dir_name != "steamrt" { update_installed_runner_is_installed_by_version(app, dir_name.to_string(), true); }
+                                    if installed_runner.is_none() && dir_name != "steamrt" { create_installed_runner(app, dir_name.to_string(), true, path.to_str().unwrap().parse().unwrap()).unwrap(); } else if dir_name != "steamrt" { update_installed_runner_is_installed_by_version(app, dir_name.to_string(), true); }
                                 }
                             }
                             Err(_) => {}
@@ -461,8 +471,7 @@ pub fn raise_fd_limit(new_limit: i32) {
     }
     let mut cur = rlimit { rlim_cur: 0, rlim_max: 0 };
     unsafe { getrlimit(RLIMIT_NOFILE, &mut cur); };
-    if cur.rlim_cur >= cur.rlim_max { return;
-    }
+    if cur.rlim_cur >= cur.rlim_max { return; }
     let v = if new_limit == 999999 { cur.rlim_max } else { new_limit as rlim_t };
     let mut new = rlimit { rlim_cur: v, rlim_max: cur.rlim_max };
     unsafe { setrlimit(RLIMIT_NOFILE, &mut new); };
@@ -488,6 +497,17 @@ pub fn notify_update(app: &AppHandle) {
 #[cfg(target_os = "linux")]
 pub fn is_flatpak() -> bool {
     std::env::var("FLATPAK_ID").is_ok()
+}
+
+#[cfg(target_os = "linux")]
+pub fn fix_window_decorations(app: &AppHandle) {
+    let ssd = vec!["hyprland", "i3", "sway", "bspwm", "awesome", "dwm", "xmonad", "qtile", "niri"];
+    match std::env::var("XDG_SESSION_DESKTOP") {
+        Ok(val) => {
+            if ssd.contains(&&**&val.to_ascii_lowercase()) { app.get_window("main").unwrap().set_decorations(false).unwrap(); } else { app.get_window("main").unwrap().set_decorations(true).unwrap(); }
+        },
+        Err(_e) => {},
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -796,11 +816,6 @@ pub fn get_steam_appid() -> u32 {
         if let Ok(id) = id_str.parse::<u64>() { return (id >> 32) as u32; }
     }
     0
-}
-
-pub struct ActionBlocks {
-    pub action_exit: bool,
-    pub prevent_exit_count: usize,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { X } from "lucide-react";
-import { CachedImage } from "../../common/CachedImage";
+import { CachedImage } from "../common/CachedImage.tsx";
 
 
 interface SettingsLayoutProps {

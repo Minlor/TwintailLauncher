@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Settings, Download, Wrench, Folder, Shield, Info, Monitor, Box, ArrowLeft } from "lucide-react";
+import {Settings, Download, Folder, Shield, Info, Monitor, Box, ArrowLeft, HeartIcon} from "lucide-react";
 import TTLVersion from "../common/TTLVersion";
-import { SettingsSidebar, SettingsTab } from "../settings/ui/SettingsSidebar";
-import { SettingsSection, ModernToggle, ModernInput, ModernPathInput, ModernSelect, SettingsCard } from "../settings/ui/SettingsComponents";
+import { SettingsSidebar, SettingsTab } from "../sidebar/SettingsSidebar.tsx";
+import { SettingsSection, ModernInput, ModernPathInput, ModernSelect, SettingsCard } from "../common/SettingsComponents.tsx";
 import { PAGES } from "./PAGES";
 
 interface SettingsPageProps {
@@ -71,8 +71,7 @@ export default function SettingsPage({ settings, fetchSettings, setCurrentPage }
             <div className="flex items-center gap-4 px-8 py-5 border-b border-white/5">
                 <button
                     onClick={() => setCurrentPage(PAGES.NONE)}
-                    className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 transition-all duration-200 hover:scale-105 hover:shadow-[0_0_12px_rgba(147,51,234,0.15)] active:scale-95"
-                >
+                    className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 transition-all duration-200 hover:scale-105 hover:shadow-[0_0_12px_rgba(147,51,234,0.15)] active:scale-95">
                     <ArrowLeft className="w-5 h-5 text-white/70" />
                 </button>
                 <div className="flex items-center gap-4">
@@ -110,12 +109,12 @@ export default function SettingsPage({ settings, fetchSettings, setCurrentPage }
                                 ]}
                                 onChange={(val) => updateSetting("launcher_action", val)}
                             />
-                            <ModernToggle
+                            {/*<ModernToggle
                                 label="Auto-update 3rd Party Repos"
                                 description="Automatically update third-party repositories and their manifests on startup."
                                 checked={Boolean(settings.third_party_repo_updates)}
                                 onChange={(val) => updateSetting("third_party_repo_updates", val)}
-                            />
+                            />*/}
                         </SettingsSection>
                     )}
 
@@ -129,30 +128,34 @@ export default function SettingsPage({ settings, fetchSettings, setCurrentPage }
                                 value={settings.download_speed_limit ?? 0}
                                 onChange={(e) => updateSetting("download_speed_limit", e.target.value)}
                             />
-                            <ModernPathInput
-                                label="Default Game Install Location"
-                                description="The default directory where new games will be installed."
-                                value={`${settings.default_game_path}`}
-                                onChange={(val) => updateSetting("default_game_path", val)}
-                            />
                         </SettingsSection>
                     )}
 
                     {activeTab === "files" && (
-                        <SettingsSection title="External Tools">
-                            <ModernPathInput
-                                label="XXMI Location"
-                                description="Directory for XXMI modding tool files."
-                                value={`${settings.xxmi_path}`}
-                                onChange={(val) => updateSetting("xxmi_path", val)}
-                            />
-                            <ModernPathInput
-                                label="FPS Unlocker Location"
-                                description="Directory where the FPS unlocker is stored."
-                                value={`${settings.fps_unlock_path}`}
-                                onChange={(val) => updateSetting("fps_unlock_path", val)}
-                            />
-                        </SettingsSection>
+                        <>
+                            <SettingsSection title="Games">
+                                <ModernPathInput
+                                    label="Default Game Install Location"
+                                    description="The default directory where new games will be installed."
+                                    value={`${settings.default_game_path}`}
+                                    onChange={(val) => updateSetting("default_game_path", val)}
+                                />
+                            </SettingsSection>
+                            <SettingsSection title="External Tools">
+                                <ModernPathInput
+                                    label="XXMI Location"
+                                    description="Directory for XXMI modding tool files."
+                                    value={`${settings.xxmi_path}`}
+                                    onChange={(val) => updateSetting("xxmi_path", val)}
+                                />
+                                <ModernPathInput
+                                    label="FPS Unlocker Location"
+                                    description="Directory where the FPS unlocker is stored."
+                                    value={`${settings.fps_unlock_path}`}
+                                    onChange={(val) => updateSetting("fps_unlock_path", val)}
+                                />
+                            </SettingsSection>
+                        </>
                     )}
 
                     {activeTab === "linux" && (
@@ -169,12 +172,12 @@ export default function SettingsPage({ settings, fetchSettings, setCurrentPage }
                                 value={`${settings.default_runner_path}`}
                                 onChange={(val) => updateSetting("default_runner_path", val)}
                             />
-                            <ModernPathInput
+                            {/*<ModernPathInput
                                 label="Default DXVK Location"
                                 description="Base directory for DXVK versions."
                                 value={`${settings.default_dxvk_path}`}
                                 onChange={(val) => updateSetting("default_dxvk_path", val)}
-                            />
+                            />*/}
                             <ModernPathInput
                                 label="Default Prefix Location"
                                 description="Base directory for Wine/Proton prefixes."
@@ -193,26 +196,8 @@ export default function SettingsPage({ settings, fetchSettings, setCurrentPage }
                     )}
 
                     {activeTab === "integrations" && (
-                        <SettingsSection title="Integrations & Extras">
+                        <SettingsSection title="Integrations & Tools">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <SettingsCard className="flex flex-col gap-4">
-                                    <div className="flex items-center gap-3 text-orange-400">
-                                        <Wrench className="w-6 h-6" />
-                                        <span className="font-bold text-lg">Repair Extras</span>
-                                    </div>
-                                    <p className="text-zinc-400 text-sm">
-                                        Re-download and verify extra components like modding tools and unlockers.
-                                    </p>
-                                    <button
-                                        onClick={() => {
-                                            invoke("update_extras", { showNotify: true });
-                                        }}
-                                        className="mt-auto w-full py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg font-medium transition-colors"
-                                    >
-                                        Run Repair
-                                    </button>
-                                </SettingsCard>
-
                                 {window.navigator.platform.includes("Linux") && (
                                     <SettingsCard className="flex flex-col gap-4">
                                         <div className="flex items-center gap-3 text-red-400">
@@ -222,12 +207,8 @@ export default function SettingsPage({ settings, fetchSettings, setCurrentPage }
                                         <p className="text-zinc-400 text-sm">
                                             Block telemetry domains at the system level (requires sudo).
                                         </p>
-                                        <button
-                                            onClick={() => {
-                                                invoke("block_telemetry_cmd");
-                                            }}
-                                            className="mt-auto w-full py-2 bg-red-600/80 hover:bg-red-500 text-white rounded-lg font-medium transition-colors"
-                                        >
+                                        <button onClick={() => { invoke("block_telemetry_cmd"); }}
+                                            className="mt-auto w-full py-2 bg-red-600/80 hover:bg-red-500 text-white rounded-lg font-medium transition-colors">
                                             Block Telemetry
                                         </button>
                                     </SettingsCard>
@@ -257,28 +238,21 @@ export default function SettingsPage({ settings, fetchSettings, setCurrentPage }
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-lg w-full">
-                                <button
-                                    onClick={() => invoke('open_uri', { uri: 'https://github.com/TwintailTeam/twintail' })}
-                                    className="flex items-center justify-center gap-2 p-3 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 rounded-xl transition-all group cursor-pointer"
-                                >
+                                <button onClick={() => invoke('open_uri', { uri: 'https://github.com/TwintailTeam/twintail' })} className="flex items-center justify-center gap-2 p-3 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 rounded-xl transition-all group cursor-pointer">
                                     <svg className="w-5 h-5 text-zinc-400 group-hover:text-white" viewBox="0 0 24 24" fill="currentColor">
                                         <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
                                     </svg>
                                     <span className="text-zinc-300 group-hover:text-white font-medium">GitHub Repository</span>
                                 </button>
-                                <button
-                                    onClick={() => invoke('open_uri', { uri: 'https://discord.gg/nDMJDwuj7s' })}
-                                    className="flex items-center justify-center gap-2 p-3 bg-white/5 hover:bg-[#5865F2]/20 border border-white/5 hover:border-[#5865F2]/50 rounded-xl transition-all group cursor-pointer"
-                                >
+                                <button onClick={() => invoke('open_uri', { uri: 'https://discord.gg/nDMJDwuj7s' })} className="flex items-center justify-center gap-2 p-3 bg-white/5 hover:bg-[#5865F2]/20 border border-white/5 hover:border-[#5865F2]/50 rounded-xl transition-all group cursor-pointer">
                                     <svg className="w-5 h-5 text-zinc-400 group-hover:text-[#5865F2]" viewBox="0 0 24 24" fill="currentColor">
                                         <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026 13.83 13.83 0 0 0 1.226-1.963.074.074 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.246.195.373.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.201 0 2.176 1.068 2.157 2.38 0 1.311-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.2 0 2.176 1.068 2.156 2.38 0 1.311-.956 2.38-2.156 2.38z" />
                                     </svg>
                                     <span className="text-zinc-300 group-hover:text-white font-medium">Join Discord</span>
                                 </button>
                             </div>
-
-                            <p className="mt-12 text-zinc-400 font-medium tracking-wide text-sm opacity-80">
-                                Built with love by the Twintail Team.
+                            <p className="mt-12 text-zinc-400 font-medium tracking-wide text-sm opacity-80 flex items-center justify-center">
+                                Built with <span className={`text-purple-600 font-bold ml-1 mr-1`}><HeartIcon/></span> by the TwintailTeam
                             </p>
                         </div>
                     )}

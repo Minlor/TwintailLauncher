@@ -140,30 +140,21 @@ export default class App extends React.Component<any, any> {
         const runningJobs = this.state.downloadQueueState?.running || [];
         const queuedJobs = this.state.downloadQueueState?.queued || [];
 
-        const isCurrentInstallDownloading =
-            runningJobs.some((j: any) => j.installId === this.state.currentInstall);
-        const isCurrentInstallQueued =
-            queuedJobs.some((j: any) => j.installId === this.state.currentInstall);
-
+        const isCurrentInstallDownloading = runningJobs.some((j: any) => j.installId === this.state.currentInstall);
+        const isCurrentInstallQueued = queuedJobs.some((j: any) => j.installId === this.state.currentInstall);
         const hasDownloads = runningJobs.length + queuedJobs.length > 0;
 
         // Check if runner dependencies are ready (Linux only)
         const isLinux = window.navigator.platform.includes("Linux");
         const currentInstallData = this.state.installs.find((i: any) => i.id === this.state.currentInstall);
         const currentRunnerVersion = currentInstallData?.runner_version ?? "";
-        const isRunnerInstalled = this.state.installedRunners.some(
-            (r: any) => r.version === currentRunnerVersion && r.is_installed
-        );
-        const runnerDepsNotReady = isLinux && currentInstallData && (
-            !this.state.steamrtInstalled || !isRunnerInstalled
-        );
+        const isRunnerInstalled = this.state.installedRunners.some((r: any) => r.version === currentRunnerVersion && r.is_installed);
+        const runnerDepsNotReady = isLinux && currentInstallData && (!this.state.steamrtInstalled || !isRunnerInstalled);
 
         const primaryRunningJobId = runningJobs.length > 0 ? runningJobs[0].id : undefined;
         const primaryProgress = primaryRunningJobId ? this.state.downloadProgressByJobId?.[primaryRunningJobId] : undefined;
         const downloadsPercent =
-            typeof primaryProgress?.progress === "number" && typeof primaryProgress?.total === "number" && primaryProgress.total > 0
-                ? Math.max(0, Math.min(100, toPercent(primaryProgress.progress, primaryProgress.total)))
-                : undefined;
+            typeof primaryProgress?.progress === "number" && typeof primaryProgress?.total === "number" && primaryProgress.total > 0 ? Math.max(0, Math.min(100, toPercent(primaryProgress.progress, primaryProgress.total))) : undefined;
         const buttonType = determineButtonType({
             currentInstall: this.state.currentInstall,
             installSettings: this.state.installSettings,
@@ -823,18 +814,12 @@ export default class App extends React.Component<any, any> {
                 this.setState(() => ({ installs: gi }), () => {
                     // Also preload installed-specific assets (older/different versions)
                     try {
-                        const backgrounds: string[] = (this.state.installs || [])
-                            .map((i: any) => i?.game_background)
-                            .filter((s: any) => !!s);
-                        const icons: string[] = (this.state.installs || [])
-                            .map((i: any) => i?.game_icon)
-                            .filter((s: any) => !!s);
+                        const backgrounds: string[] = (this.state.installs || []).map((i: any) => i?.game_background).filter((s: any) => !!s);
+                        const icons: string[] = (this.state.installs || []).map((i: any) => i?.game_icon).filter((s: any) => !!s);
                         const images = Array.from(new Set([...(backgrounds as string[]), ...(icons as string[])]));
                         // Only preload ones we haven't already cached
                         const notPreloaded = images.filter((u) => !this.preloadedBackgrounds.has(u));
-                        if (notPreloaded.length > 0) {
-                            preloadImages(notPreloaded, undefined, this.preloadedBackgrounds).then(() => { });
-                        }
+                        if (notPreloaded.length > 0) { preloadImages(notPreloaded, undefined, this.preloadedBackgrounds).then(() => { }); }
                     } catch (e) {
                         console.warn("Install assets preload failed:", e);
                     }
