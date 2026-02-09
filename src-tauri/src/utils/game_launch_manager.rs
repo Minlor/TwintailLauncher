@@ -28,7 +28,8 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
 
     let dirp = Path::new(install.directory.as_str());
     let dir = dirp.to_str().unwrap().to_string();
-    let prefix = Path::new(install.runner_prefix.as_str()).to_str().unwrap().to_string();
+    let prefixp = Path::new(install.runner_prefix.as_str()).to_path_buf();
+    let prefix = prefixp.to_str().unwrap().to_string();
     let runnerp = Path::new(gs.default_runner_path.as_str()).to_path_buf();
     let runner = Path::new(install.runner_path.as_str()).to_str().unwrap().to_string();
     let game = gm.paths.exe_filename.clone();
@@ -57,6 +58,15 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
         show_dialog(app, "warning", "TwintailLauncher", &format!("Launching {} without using {} could lead to various issues.\nPlease change your runner to at minimum {} and try again!", install.name, cpo.override_runner.linux.runner_version, cpo.override_runner.linux.runner_version), Some(vec!["I understand"]));
         return Ok(false);
     }
+
+    // If prefix folder somehow does not exist remake it
+    if !prefixp.exists() {
+        if let Err(e) = fs::create_dir_all(&prefixp) {
+            show_dialog(app, "warning", "TwintailLauncher", &format!("Encountered an error while trying to reinitialize your runner prefix! - {err}!", err = e.to_string()), Some(vec!["I understand"]));
+            return Ok(false);
+        };
+    }
+
     let pre_launch = install.pre_launch_command.clone();
     let wine64 = if rm.paths.wine64.is_empty() { rm.paths.wine32 } else { rm.paths.wine64 };
 
@@ -90,16 +100,15 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
                 Ok(Some(status)) => {
                     if !status.success() { send_notification(&app, "Failed to run prelaunch command! Please try again or check install settings.", None); }
                 }
-                Ok(None) => { write_log(app, Path::new(&dir).to_path_buf(), child, "pre_launch.log".parse().unwrap());
-                }
+                Ok(None) => { write_log(app, Path::new(&dir).to_path_buf(), child, "pre_launch.log".parse().unwrap()); }
                 Err(_) => { send_notification(&app, "Failed to run prelaunch command! Please try again or check the command correctness.", None); }
             },
-            Err(_) => { send_notification(&app, "Failed to run prelaunch command! Something serious is wrong.", None);
-            }
+            Err(_) => { send_notification(&app, "Failed to run prelaunch command! Something serious is wrong.", None); }
         }
     }
 
     let verb = if install.use_xxmi || install.use_fps_unlock { "run" } else { "waitforexitandrun" };
+    let drive = if cpo.proton_compat_config.contains(&"gamedrive".to_string()) { format!("s:\\{game}") } else { format!("z:\\{dir}/{game}") };
     let rslt = if install.launch_command.is_empty() {
         let mut args = String::new();
         if !install.launch_args.is_empty() {
@@ -109,7 +118,7 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
             if install.use_xxmi && gm.biz == "wuwa_global" { args += "-dx11" }
         }
         let mut command = if is_proton {
-            let steamrt_run = format!("'{steamrt}' --verb={verb} -- '{reaper}' SteamLaunch AppId={appid} -- '{runner}/{wine64}' {verb} 'z:\\{dir}/{game}' {args}");
+            let steamrt_run = format!("'{steamrt}' --verb={verb} -- '{reaper}' SteamLaunch AppId={appid} -- '{runner}/{wine64}' {verb} '{drive}' {args}");
             if install.use_gamemode { format!("gamemoderun {steamrt_run}") } else { format!("{steamrt_run}") }
         } else {
             if install.use_gamemode { format!("gamemoderun '{runner}/{wine64}' '{dir}/{game}' {args}") } else { format!("'{runner}/{wine64}' '{dir}/{game}' {args}") }
@@ -173,9 +182,7 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
                     let mut tmp = env.splitn(2, "=");
                     match (tmp.next(), tmp.next()) { (Some(k), Some(v)) if !k.is_empty() => Some(Some((k, v.replace("\"", "")))), _ => None }
                 }).collect::<Option<Vec<_>>>().and_then(|vec| Some(vec.into_iter().flatten().collect()));
-            if let Some(env_vars) = parsed {
-                for (k, v) in env_vars { cmd.env(k, v); }
-            }
+            if let Some(env_vars) = parsed { for (k, v) in env_vars { cmd.env(k, v); } }
         }
 
         // Load before we spawn the game
@@ -197,15 +204,7 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
         // We assume user knows what he/she is doing so we just execute command that is configured without any checks
         let c = install.launch_command.clone();
         let mut args = String::new();
-        let mut command = format!("{c}")
-            .replace("%reaper%", reaper.clone().as_str())
-            .replace("%steamrt_path%", steamrt_path.clone().as_str())
-            .replace("%steamrt%", steamrt.clone().as_str())
-            .replace("%prefix%", prefix.clone().as_str())
-            .replace("%runner_dir%", runner.clone().as_str())
-            .replace("%runner%", &*(runner.clone() + "/" + wine64.as_str()))
-            .replace("%install_dir%", dir.clone().as_str())
-            .replace("%game_exe%", &*(dir.clone() + "/" + exe.clone().as_str()));
+        let mut command = format!("{c}").replace("%reaper%", reaper.clone().as_str()).replace("%steamrt_path%", steamrt_path.clone().as_str()).replace("%steamrt%", steamrt.clone().as_str()).replace("%prefix%", prefix.clone().as_str()).replace("%runner_dir%", runner.clone().as_str()).replace("%runner%", &*(runner.clone() + "/" + wine64.as_str())).replace("%install_dir%", dir.clone().as_str()).replace("%game_exe%", &*(dir.clone() + "/" + exe.clone().as_str()));
 
         if !install.launch_args.is_empty() {
             args = install.clone().launch_args;
@@ -263,9 +262,7 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
                     let mut tmp = env.splitn(2, "=");
                     match (tmp.next(), tmp.next()) { (Some(k), Some(v)) if !k.is_empty() => Some(Some((k, v.replace("\"", "")))), _ => None }
                 }).collect::<Option<Vec<_>>>().and_then(|vec| Some(vec.into_iter().flatten().collect()));
-            if let Some(env_vars) = parsed {
-                for (k, v) in env_vars { cmd.env(k, v); }
-            }
+            if let Some(env_vars) = parsed { for (k, v) in env_vars { cmd.env(k, v); } }
         }
 
         // Load before we spawn the game
@@ -280,8 +277,7 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
                 Ok(None) => { write_log(app, Path::new(&dir).to_path_buf(), child, "game.log".parse().unwrap()); }
                 Err(_) => { send_notification(&app, "Failed to run launch command! Please try again or check the command correctness.", None); }
             },
-            Err(_) => { send_notification(&app, "Failed to run launch command! Something serious is wrong.", None);
-            }
+            Err(_) => { send_notification(&app, "Failed to run launch command! Something serious is wrong.", None); }
         }
         true
     };
