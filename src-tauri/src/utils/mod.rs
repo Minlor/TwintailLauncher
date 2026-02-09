@@ -501,7 +501,7 @@ pub fn is_flatpak() -> bool {
 
 #[cfg(target_os = "linux")]
 pub fn fix_window_decorations(app: &AppHandle) {
-    let ssd = vec!["hyprland", "i3", "sway", "bspwm", "awesome", "dwm", "xmonad", "qtile", "niri"];
+    let ssd = vec!["hyprland", "i3", "sway", "bspwm", "awesome", "dwm", "xmonad", "qtile", "niri", "mango", "mangowc"];
     match std::env::var("XDG_SESSION_DESKTOP") {
         Ok(val) => {
             if ssd.contains(&&**&val.to_ascii_lowercase()) { app.get_window("main").unwrap().set_decorations(false).unwrap(); } else { app.get_window("main").unwrap().set_decorations(true).unwrap(); }
