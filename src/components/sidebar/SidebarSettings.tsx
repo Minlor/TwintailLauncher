@@ -14,7 +14,7 @@ import { POPUPS } from "../popups/POPUPS.ts";
 import { PAGES } from "../pages/PAGES.ts";
 import { Settings } from "lucide-react";
 
-export default function SidebarSettings({ setOpenPopup, popup, currentPage, setCurrentPage }: { setOpenPopup: (a: POPUPS) => void, popup: POPUPS, currentPage?: PAGES, setCurrentPage?: (page: PAGES) => void }) {
+export default function SidebarSettings({ popup, currentPage, setCurrentPage }: { setOpenPopup: (a: POPUPS) => void, popup: POPUPS, currentPage?: PAGES, setCurrentPage?: (page: PAGES) => void }) {
     const [isOpen, setIsOpen] = useState(false);
 
     const arrowRef = useRef(null);
@@ -45,8 +45,6 @@ export default function SidebarSettings({ setOpenPopup, popup, currentPage, setC
                 onClick={() => {
                     if (setCurrentPage) {
                         setCurrentPage(currentPage === PAGES.SETTINGS ? PAGES.NONE : PAGES.SETTINGS);
-                    } else {
-                        setOpenPopup(popup == POPUPS.NONE ? POPUPS.SETTINGS : POPUPS.NONE);
                     }
                 }}
             >
@@ -56,7 +54,7 @@ export default function SidebarSettings({ setOpenPopup, popup, currentPage, setC
             {(isOpen && popup == POPUPS.NONE && currentPage === PAGES.NONE) && (
                 <div ref={refs.setFloating} style={floatingStyles} {...getFloatingProps()} className="bg-black/75 rounded-md p-2 min-w-max z-50">
                     <FloatingArrow ref={arrowRef} context={context} className="fill-black/75" />
-                    <span className="text-white z-50">Settings</span>
+                    <span className="text-white z-50">Launcher Settings</span>
                 </div>
             )}
         </React.Fragment>

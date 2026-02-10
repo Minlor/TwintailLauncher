@@ -136,7 +136,7 @@ export default function SettingsPage({ settings, fetchSettings, setCurrentPage }
                             <SettingsSection title="Games">
                                 <ModernPathInput
                                     label="Default Game Install Location"
-                                    description="The default directory where new games will be installed."
+                                    description="Default base directory where new games will be installed."
                                     value={`${settings.default_game_path}`}
                                     onChange={(val) => updateSetting("default_game_path", val)}
                                 />
@@ -207,8 +207,7 @@ export default function SettingsPage({ settings, fetchSettings, setCurrentPage }
                                         <p className="text-zinc-400 text-sm">
                                             Block telemetry domains at the system level (requires sudo).
                                         </p>
-                                        <button onClick={() => { invoke("block_telemetry_cmd"); }}
-                                            className="mt-auto w-full py-2 bg-red-600/80 hover:bg-red-500 text-white rounded-lg font-medium transition-colors">
+                                        <button onClick={() => { invoke("block_telemetry_cmd"); }} className="mt-auto w-full py-2 bg-red-600/80 hover:bg-red-500 text-white rounded-lg font-medium transition-colors">
                                             Block Telemetry
                                         </button>
                                     </SettingsCard>
@@ -221,22 +220,13 @@ export default function SettingsPage({ settings, fetchSettings, setCurrentPage }
                         <div className="flex flex-col items-center justify-center h-full text-center p-8 relative overflow-hidden">
                             {/* Ambient background glow */}
                             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-pink-500/10 rounded-full blur-3xl pointer-events-none" />
-
-                            <img
-                                src="/launcher-icon.png"
-                                className="w-32 h-32 mb-6 rounded-3xl animate-bounce-slow hover:scale-105 transition-transform duration-500"
-                                style={{ animationDuration: '3s' }}
-                                alt="Twintail Launcher"
-                            />
-
+                            <img src="/launcher-icon.png" className="w-32 h-32 mb-6 rounded-3xl animate-bounce-slow hover:scale-105 transition-transform duration-500" style={{ animationDuration: '3s' }} alt="Twintail Launcher"/>
                             <h1 className="text-4xl font-black bg-gradient-to-r from-white via-pink-200 to-violet-200 bg-clip-text text-transparent mb-2">
                                 Twintail Launcher
                             </h1>
-
                             <div className="mb-8">
                                 <TTLVersion />
                             </div>
-
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-lg w-full">
                                 <button onClick={() => invoke('open_uri', { uri: 'https://github.com/TwintailTeam/twintail' })} className="flex items-center justify-center gap-2 p-3 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 rounded-xl transition-all group cursor-pointer">
                                     <svg className="w-5 h-5 text-zinc-400 group-hover:text-white" viewBox="0 0 24 24" fill="currentColor">
