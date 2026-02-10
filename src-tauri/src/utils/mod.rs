@@ -167,11 +167,14 @@ pub fn register_listeners(app: &AppHandle) {
                 }
                 "dialog_no_steamrt" => {
                     if response.button_index == 0 {
-                        let gs = get_settings(&h3).unwrap();
-                        let runnerp = Path::new(gs.default_runner_path.as_str()).to_path_buf();
-                        let steamrtpp = runnerp.join("steamrt/");
-                        let _ = empty_dir(&steamrtpp);
-                        crate::downloading::misc::download_or_update_steamrt(&h3);
+                        #[cfg(target_os = "linux")]
+                        {
+                            let gs = get_settings(&h3).unwrap();
+                            let runnerp = Path::new(gs.default_runner_path.as_str()).to_path_buf();
+                            let steamrtpp = runnerp.join("steamrt/");
+                            let _ = empty_dir(&steamrtpp);
+                            crate::downloading::misc::download_or_update_steamrt(&h3);
+                        }
                     }
                 }
                 "dialog_steamrt_dl_fail" => {
