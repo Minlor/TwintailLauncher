@@ -34,7 +34,7 @@ interface DownloadsPageProps {
     speedHistory: TelemetrySample[];
     onSpeedSample: (sample: TelemetrySample) => void;
     onClearHistory: () => void;
-    downloadSpeedLimitKiB: number;
+    downloadSpeedLimitKB: number;
     imageVersion?: number; // Used to force image re-load after network recovery
 }
 
@@ -136,7 +136,7 @@ export default function DownloadsPage({
     speedHistory,
     onSpeedSample,
     onClearHistory,
-    downloadSpeedLimitKiB,
+    downloadSpeedLimitKB,
     imageVersion = 0,
 }: DownloadsPageProps) {
     // Canvas ref for graph
@@ -502,10 +502,10 @@ export default function DownloadsPage({
     const bannerImage = currentInstall?.game_background;
 
     // Speed limit display
-    const limitText = downloadSpeedLimitKiB > 0
-        ? (downloadSpeedLimitKiB >= 1024
-            ? `${(downloadSpeedLimitKiB / 1024).toFixed(1)} MiB/s`
-            : `${Math.round(downloadSpeedLimitKiB)} KiB/s`)
+    const limitText = downloadSpeedLimitKB > 0
+        ? (downloadSpeedLimitKB >= 1000
+            ? `${(downloadSpeedLimitKB / 1000).toFixed(1)} MB/s`
+            : `${Math.round(downloadSpeedLimitKB)} KB/s`)
         : '';
 
     return (

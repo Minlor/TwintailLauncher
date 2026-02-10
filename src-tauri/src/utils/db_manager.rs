@@ -275,7 +275,7 @@ pub fn update_settings_default_runner_location(app: &AppHandle, path: String) {
     });
 }
 
-pub fn update_settings_download_speed_limit(app: &AppHandle, limit_kib_per_sec: i64) {
+pub fn update_settings_download_speed_limit(app: &AppHandle, limit_kb_per_sec: i64) {
     run_async_command(async {
         let db = app
             .state::<DbInstances>()
@@ -287,7 +287,7 @@ pub fn update_settings_download_speed_limit(app: &AppHandle, limit_kib_per_sec: 
             .clone();
 
         let query = query("UPDATE settings SET 'download_speed_limit' = $1 WHERE id = 1")
-            .bind(limit_kib_per_sec);
+            .bind(limit_kb_per_sec);
         query.execute(&db).await.unwrap();
     });
 }

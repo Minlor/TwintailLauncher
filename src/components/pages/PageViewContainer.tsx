@@ -46,7 +46,7 @@ interface PageViewContainerProps {
     speedHistory: TelemetrySample[];
     onSpeedSample: (sample: TelemetrySample) => void;
     onClearHistory: () => void;
-    downloadSpeedLimitKiB: number;
+    downloadSpeedLimitKB: number;
 
     // Runners props
     runners: RunnerManifest[];
@@ -68,7 +68,7 @@ export default function PageViewContainer({
     speedHistory,
     onSpeedSample,
     onClearHistory,
-    downloadSpeedLimitKiB,
+    downloadSpeedLimitKB,
     runners,
     installedRunners,
     fetchInstalledRunners,
@@ -88,7 +88,7 @@ export default function PageViewContainer({
             }}
         >
             {/* Animated content wrapper for smooth page transitions */}
-            <div 
+            <div
                 className="absolute inset-0 transition-all duration-300 ease-out animate-slideInRight"
                 style={{
                     opacity: isOpen ? 1 : 0,
@@ -98,34 +98,34 @@ export default function PageViewContainer({
                     transitionDelay: isOpen ? '50ms' : '0ms'
                 }}
             >
-            {currentPage === PAGES.SETTINGS && (
-                <SettingsPage
-                    settings={globalSettings}
-                    fetchSettings={fetchSettings}
-                    setCurrentPage={setCurrentPage}
-                />
-            )}
-            {currentPage === PAGES.DOWNLOADS && (
-                <DownloadsPage
-                    setCurrentPage={setCurrentPage}
-                    queue={downloadQueueState}
-                    progressByJobId={downloadProgressByJobId}
-                    installs={installs}
-                    speedHistory={speedHistory}
-                    onSpeedSample={onSpeedSample}
-                    onClearHistory={onClearHistory}
-                    downloadSpeedLimitKiB={downloadSpeedLimitKiB}
-                    imageVersion={imageVersion}
-                />
-            )}
-            {currentPage === PAGES.RUNNERS && (
-                <RunnersPage
-                    setCurrentPage={setCurrentPage}
-                    runners={runners}
-                    installedRunners={installedRunners}
-                    fetchInstalledRunners={fetchInstalledRunners}
-                />
-            )}
+                {currentPage === PAGES.SETTINGS && (
+                    <SettingsPage
+                        settings={globalSettings}
+                        fetchSettings={fetchSettings}
+                        setCurrentPage={setCurrentPage}
+                    />
+                )}
+                {currentPage === PAGES.DOWNLOADS && (
+                    <DownloadsPage
+                        setCurrentPage={setCurrentPage}
+                        queue={downloadQueueState}
+                        progressByJobId={downloadProgressByJobId}
+                        installs={installs}
+                        speedHistory={speedHistory}
+                        onSpeedSample={onSpeedSample}
+                        onClearHistory={onClearHistory}
+                        downloadSpeedLimitKB={downloadSpeedLimitKB}
+                        imageVersion={imageVersion}
+                    />
+                )}
+                {currentPage === PAGES.RUNNERS && (
+                    <RunnersPage
+                        setCurrentPage={setCurrentPage}
+                        runners={runners}
+                        installedRunners={installedRunners}
+                        fetchInstalledRunners={fetchInstalledRunners}
+                    />
+                )}
             </div>
         </div>
     );

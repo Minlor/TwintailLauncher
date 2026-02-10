@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import {Settings, Download, Folder, Shield, Info, Monitor, Box, ArrowLeft, HeartIcon} from "lucide-react";
+import { Settings, Download, Folder, Shield, Info, Monitor, Box, ArrowLeft, HeartIcon } from "lucide-react";
 import TTLVersion from "../common/TTLVersion";
 import { SettingsSidebar, SettingsTab } from "../sidebar/SettingsSidebar.tsx";
 import { SettingsSection, ModernInput, ModernPathInput, ModernSelect, SettingsCard } from "../common/SettingsComponents.tsx";
@@ -121,7 +121,7 @@ export default function SettingsPage({ settings, fetchSettings, setCurrentPage }
                     {activeTab === "downloads" && (
                         <SettingsSection title="Download Manager">
                             <ModernInput
-                                label="Download Speed Limit (KiB/s)"
+                                label="Download Speed Limit (KB/s)"
                                 description="Limit the total download bandwidth. Set to 0 for unlimited."
                                 type="number"
                                 min={0}
@@ -252,7 +252,7 @@ export default function SettingsPage({ settings, fetchSettings, setCurrentPage }
                                 </button>
                             </div>
                             <p className="mt-12 text-zinc-400 font-medium tracking-wide text-sm opacity-80 flex items-center justify-center">
-                                Built with <span className={`text-purple-600 font-bold ml-1 mr-1`}><HeartIcon/></span> by the TwintailTeam
+                                Built with <span className={`text-purple-600 font-bold ml-1 mr-1`}><HeartIcon /></span> by the TwintailTeam
                             </p>
                         </div>
                     )}

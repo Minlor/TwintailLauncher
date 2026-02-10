@@ -21,8 +21,8 @@ pub async fn list_settings(app: AppHandle) -> Option<String> {
 
     if settings.is_some() {
         let s = settings.unwrap();
-        // Ensure fischl's global limiter is synced with persisted settings.
-        fischl::utils::downloader::set_global_download_speed_limit_kib(s.download_speed_limit.max(0) as u64, );
+        // Ensure fischl's global limiter is synced with persisted settings (value in KB/s).
+        fischl::utils::downloader::set_global_download_speed_limit_kb(s.download_speed_limit.max(0) as u64, );
         let stringified = serde_json::to_string(&s).unwrap();
         Some(stringified)
     } else {
@@ -34,7 +34,7 @@ pub async fn list_settings(app: AppHandle) -> Option<String> {
 pub fn update_settings_download_speed_limit_cmd(app: AppHandle, speed_limit: i64) -> Option<bool> {
     let clamped = speed_limit.max(0);
     update_settings_download_speed_limit(&app, clamped);
-    fischl::utils::downloader::set_global_download_speed_limit_kib(clamped as u64);
+    fischl::utils::downloader::set_global_download_speed_limit_kb(clamped as u64);
     Some(true)
 }
 
