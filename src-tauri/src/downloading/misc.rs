@@ -180,6 +180,7 @@ pub fn check_extras_update(app: &AppHandle) {
         let zzmi = xxmi.join("zzmi");
         let himi = xxmi.join("himi");
         let wwmi = xxmi.join("wwmi");
+        //let efmi = xxmi.join("efmi");
 
         let ver_jadeite = jadeite.join("VERSION.txt");
         let ver_fpsunlock = fpsunlock.join("VERSION.txt");
@@ -189,6 +190,7 @@ pub fn check_extras_update(app: &AppHandle) {
         let ver_zzmi = zzmi.join("VERSION.txt");
         let ver_himi = himi.join("VERSION.txt");
         let ver_wwmi = wwmi.join("VERSION.txt");
+        //let ver_efmi = efmi.join("VERSION.txt");
 
         if ver_jadeite.exists() {
             download_or_update_extra(app, jadeite, "jadeite".to_string(), "v5.0.1-hotfix".to_string(), true, None);
@@ -245,6 +247,13 @@ pub fn check_extras_update(app: &AppHandle) {
             empty_dir(&wwmi).unwrap();
             download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "wwmi".to_string(), false, None);
         }
+
+        /*if ver_efmi.exists() {
+            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "efmi".to_string(), true, None);
+        } else if efmi.exists() && fs::read_dir(&efmi).ok().and_then(|mut d| d.next()).is_some() {
+            empty_dir(&efmi).unwrap();
+            download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "efmi".to_string(), false, None);
+        }*/
     }
 }
 
@@ -291,17 +300,18 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                                         Extras::download_extra_package(package_id.clone(), package_type.clone(), needs_extract, false, needs_append, ap.as_path().to_str().unwrap().parse().unwrap(), |_current, _total| {}).await
                                     });
                                     if dl {
-                                        if package_type.as_str() == "gimi" || package_type.as_str() == "srmi" || package_type.as_str() == "zzmi" || package_type.as_str() == "himi" || package_type.as_str() == "wwmi" || package_type.as_str() == "ssmi" || package_type.as_str() == "efmi" {
-                                            for mi in ["gimi", "srmi", "zzmi", "wwmi", "himi"] {
-                                                for lib in ["d3d11.dll", "d3dcompiler_47.dll"] {
-                                                    let linkedpath = path.join(mi).join(lib);
-                                                    let _ = fs::remove_file(&linkedpath);
-                                                    if !linkedpath.exists() {
-                                                        #[cfg(target_os = "linux")]
-                                                        std::os::unix::fs::symlink(path.join(lib), linkedpath).unwrap();
-                                                        #[cfg(target_os = "windows")]
-                                                        fs::copy(path.join(lib), linkedpath).unwrap();
-                                                    }
+                                        // Create symlinks for DLL files
+                                        let mi_variants = if package_type == "xxmi" { vec!["gimi", "srmi", "zzmi", "wwmi", "himi"/*, "efmi"*/] } else if package_type.as_str() == "gimi" || package_type.as_str() == "srmi" || package_type.as_str() == "zzmi" || package_type.as_str() == "himi" || package_type.as_str() == "wwmi" || package_type.as_str() == "ssmi" || package_type.as_str() == "efmi" { vec![package_type.as_str()] } else { vec![] };
+                                        for mi in mi_variants {
+                                            for lib in ["d3d11.dll", "d3dcompiler_47.dll"] {
+                                                let linkedpath = path.join(mi).join(lib);
+                                                let _ = fs::remove_file(&linkedpath);
+                                                let source_lib = path.join(lib);
+                                                if !linkedpath.exists() && source_lib.exists() {
+                                                    #[cfg(target_os = "linux")]
+                                                    let _ = std::os::unix::fs::symlink(&source_lib, &linkedpath);
+                                                    #[cfg(target_os = "windows")]
+                                                    let _ = fs::copy(&source_lib, &linkedpath);
                                                 }
                                             }
                                         }
@@ -350,17 +360,18 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                     }).await
                 });
                 if dl {
-                    if package_type.as_str() == "gimi" || package_type.as_str() == "srmi" || package_type.as_str() == "zzmi" || package_type.as_str() == "himi" || package_type.as_str() == "wwmi" || package_type.as_str() == "ssmi" || package_type.as_str() == "efmi" {
-                        for mi in ["gimi", "srmi", "zzmi", "wwmi", "himi"] {
-                            for lib in ["d3d11.dll", "d3dcompiler_47.dll"] {
-                                let linkedpath = path.join(mi).join(lib);
-                                let _ = fs::remove_file(&linkedpath);
-                                if !linkedpath.exists() {
-                                    #[cfg(target_os = "linux")]
-                                    std::os::unix::fs::symlink(path.join(lib), linkedpath).unwrap();
-                                    #[cfg(target_os = "windows")]
-                                    fs::copy(path.join(lib), linkedpath).unwrap();
-                                }
+                    // Create symlinks for DLL files
+                    let mi_variants = if package_id == "xxmi" { vec!["gimi", "srmi", "zzmi", "wwmi", "himi"/*, "efmi"*/] } else if package_type.as_str() == "gimi" || package_type.as_str() == "srmi" || package_type.as_str() == "zzmi" || package_type.as_str() == "himi" || package_type.as_str() == "wwmi" || package_type.as_str() == "ssmi" || package_type.as_str() == "efmi" { vec![package_type.as_str()] } else { vec![] };
+                    for mi in mi_variants {
+                        for lib in ["d3d11.dll", "d3dcompiler_47.dll"] {
+                            let linkedpath = path.join(mi).join(lib);
+                            let _ = fs::remove_file(&linkedpath);
+                            let source_lib = path.join(lib);
+                            if !linkedpath.exists() && source_lib.exists() {
+                                #[cfg(target_os = "linux")]
+                                let _ = std::os::unix::fs::symlink(&source_lib, &linkedpath);
+                                #[cfg(target_os = "windows")]
+                                let _ = fs::copy(&source_lib, &linkedpath);
                             }
                         }
                     }
