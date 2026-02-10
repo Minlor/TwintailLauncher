@@ -15,7 +15,7 @@ use std::collections::HashMap;
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc};
 use std::{fs, io};
 use tauri::{AppHandle, Emitter, Listener, Manager};
 use tauri_plugin_notification::NotificationExt;
@@ -95,7 +95,7 @@ pub fn block_telemetry(app: &AppHandle) {
         send_notification(&app, r#"Telemetry block is currently impossible inside flatpak sandbox! Team is working on the workaround fix."#, None);
         return;
     }
-    let app1 = Arc::new(Mutex::new(app.clone()));
+    let app1 = Arc::new(std::sync::Mutex::new(app.clone()));
     std::thread::spawn(move || {
         let app = app1.lock().unwrap().clone();
         let manifests = get_manifests(&app);

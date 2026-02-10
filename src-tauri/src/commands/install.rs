@@ -14,7 +14,7 @@ use crate::utils::db_manager::{
 use crate::utils::game_launch_manager::launch;
 use crate::utils::repo_manager::get_manifest;
 use crate::utils::shortcuts::remove_desktop_shortcut;
-use crate::utils::{AddInstallRsp, DownloadSizesRsp, ResumeStatesRsp, apply_xxmi_tweaks, copy_dir_all, generate_cuid, get_mi_path_from_game, models::GameVersion, send_notification, show_dialog};
+use crate::utils::{AddInstallRsp, DownloadSizesRsp, ResumeStatesRsp, apply_xxmi_tweaks, copy_dir_all, generate_cuid, get_mi_path_from_game, models::GameVersion, send_notification};
 use fischl::utils::free_space::available;
 use fischl::utils::is_process_running;
 use fischl::utils::prettify_bytes;
@@ -802,7 +802,7 @@ pub fn update_install_dxvk_version(app: AppHandle, id: String, version: String) 
                             send_notification(&*archandle, format!("Download of {dxvn} complete.", dxvn = dxvkv.as_str().to_string()).as_str(), None);
                         }
                     } else {
-                        show_dialog(&*archandle, "error", "TwintailLauncher", format!("Error occurred while trying to download {dxvn} DXVK! Please retry later.", dxvn = dxvkv.as_str().to_string()).as_str(), Some(vec!["Ok"]));
+                        crate::utils::show_dialog(&*archandle, "error", "TwintailLauncher", format!("Error occurred while trying to download {dxvn} DXVK! Please retry later.", dxvn = dxvkv.as_str().to_string()).as_str(), Some(vec!["Ok"]));
                         archandle.emit("download_complete", ()).unwrap();
                         if dxpp.exists() { fs::remove_dir_all(&dxpp).unwrap(); }
                     }

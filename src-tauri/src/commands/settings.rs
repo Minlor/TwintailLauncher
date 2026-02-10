@@ -6,10 +6,10 @@ use crate::utils::db_manager::{
     update_settings_default_prefix_location, update_settings_default_runner_location,
     update_settings_default_xxmi_location, update_settings_download_speed_limit,
     update_settings_hide_manifests, update_settings_launch_action,
-    update_settings_third_party_repo_update,
+    update_settings_third_party_repo_update
 };
 use crate::utils::repo_manager::get_manifest;
-use crate::utils::{block_telemetry, get_mi_path_from_game, send_notification, };
+use crate::utils::{block_telemetry, get_mi_path_from_game, send_notification};
 use std::fs;
 use std::path::Path;
 use tauri::{AppHandle, Manager};
@@ -22,7 +22,7 @@ pub async fn list_settings(app: AppHandle) -> Option<String> {
     if settings.is_some() {
         let s = settings.unwrap();
         // Ensure fischl's global limiter is synced with persisted settings (value in KB/s).
-        fischl::utils::downloader::set_global_download_speed_limit_kb(s.download_speed_limit.max(0) as u64, );
+        fischl::utils::downloader::set_global_download_speed_limit_kb(s.download_speed_limit.max(0) as u64);
         let stringified = serde_json::to_string(&s).unwrap();
         Some(stringified)
     } else {
