@@ -100,6 +100,8 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                                     data.insert("is_latest", "1".to_string());
                                     h5_clone.emit("start_game_download", data).unwrap();
                                     update_install_after_update_by_id(&h5_clone, install_clone.id.clone(), vn_clone.clone(), ig_clone.clone(), gb_clone.clone(), vc_clone.clone());
+                                    #[cfg(target_os = "linux")]
+                                    crate::utils::shortcuts::sync_desktop_shortcut(&h5_clone, install_clone.id.clone(), vn_clone.clone());
                                 } else {
                                     // "Cancel" clicked
                                     h5_clone.emit("update_complete", ()).unwrap();
@@ -183,7 +185,9 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                         if patching_marker.exists() { fs::remove_dir_all(&patching_marker).unwrap_or_default(); }
                         h5.emit("update_complete", ()).unwrap();
                         send_notification(&h5, format!("Updating {inn} complete.", inn = install.name.clone()).as_str(), None);
-                        update_install_after_update_by_id(&h5, install.id, picked.metadata.versioned_name.clone(), picked.assets.game_icon.clone(), picked.assets.game_background.clone(), picked.metadata.version.clone());
+                        update_install_after_update_by_id(&h5, install.id.clone(), picked.metadata.versioned_name.clone(), picked.assets.game_icon.clone(), picked.assets.game_background.clone(), picked.metadata.version.clone());
+                        #[cfg(target_os = "linux")]
+                        crate::utils::shortcuts::sync_desktop_shortcut(&h5, install.id.clone(), picked.metadata.versioned_name.clone());
                     } else {
                         show_dialog(&h5, "warning", "TwintailLauncher", &format!("Unable to update {} as there is not enough free space, please make sure there is enough free space for the update!", install.name), Some(vec!["Ok"]));
                         h5.emit("update_complete", ()).unwrap();
@@ -261,9 +265,12 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                             if patching_marker.exists() { fs::remove_dir_all(&patching_marker).unwrap_or_default(); }
                             h5.emit("update_complete", ()).unwrap();
                             send_notification(&h5, format!("Updating {inn} complete.", inn = install.name).as_str(), None);
-                            update_install_after_update_by_id(&h5, install.id, picked.metadata.versioned_name.clone(), picked.assets.game_icon.clone(), picked.assets.game_background.clone(), picked.metadata.version.clone());
+                            update_install_after_update_by_id(&h5, install.id.clone(), picked.metadata.versioned_name.clone(), picked.assets.game_icon.clone(), picked.assets.game_background.clone(), picked.metadata.version.clone());
                             #[cfg(target_os = "linux")]
-                            crate::utils::apply_patch(&h5, Path::new(&install.directory.clone()).to_str().unwrap().to_string(), "aki".to_string(), "add".to_string());
+                            {
+                                crate::utils::shortcuts::sync_desktop_shortcut(&h5, install.id.clone(), picked.metadata.versioned_name.clone());
+                                crate::utils::apply_patch(&h5, Path::new(&install.directory.clone()).to_str().unwrap().to_string(), "aki".to_string(), "add".to_string());
+                            }
                         } else {
                             show_dialog(&h5, "warning", "TwintailLauncher", &format!("Error occurred while trying to update {}\nPlease try again!", install.name), Some(vec!["Ok"]));
                             h5.emit("update_complete", ()).unwrap();

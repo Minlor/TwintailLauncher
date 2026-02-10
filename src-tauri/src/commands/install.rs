@@ -1159,7 +1159,6 @@ fn enqueue_extras_download(app: &AppHandle, path: String, package_id: String, pa
 /// This is used internally when uninstalling a game to ensure no orphan downloads continue.
 pub fn cancel_download_for_install(app: &AppHandle, install_id: &str) {
     let state = app.state::<DownloadState>();
-
     // 1. Signal any running download to stop
     {
         let tokens = state.tokens.lock().unwrap();
@@ -1167,7 +1166,6 @@ pub fn cancel_download_for_install(app: &AppHandle, install_id: &str) {
             token.store(true, Ordering::Relaxed);
         }
     }
-
     // 2. Remove any queued jobs for this install
     {
         let queue_guard = state.queue.lock().unwrap();
@@ -1175,7 +1173,6 @@ pub fn cancel_download_for_install(app: &AppHandle, install_id: &str) {
             queue_handle.remove_by_install_id(install_id.to_string());
         }
     }
-
     // 3. Clean up verified files tracking
     {
         let mut verified = state.verified_files.lock().unwrap();

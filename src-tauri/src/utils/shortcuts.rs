@@ -2,6 +2,8 @@ use std::fs;
 use std::io::{Write};
 use std::path::{PathBuf};
 use steam_shortcuts_util::{parse_shortcuts, shortcuts_to_bytes, Shortcut};
+use tauri::{AppHandle, Manager};
+use crate::utils::db_manager::get_install_info_by_id;
 
 #[allow(dead_code)]
 fn check_steam_user_data_dir(steam_userdata_dir: PathBuf) -> Vec<String> {
@@ -116,6 +118,37 @@ pub fn remove_desktop_shortcut(file: PathBuf) -> bool {
     }
 }
 
+#[cfg(target_os = "linux")]
+pub fn sync_desktop_shortcut(app: &AppHandle, install_id: String, new_name: String) {
+    let install = get_install_info_by_id(app, install_id).unwrap();
+    if install.shortcut_path.is_empty() { return; }
+    let base = app.path().home_dir().unwrap().join(".local/share/applications");
+    update_desktop_shortcut(std::path::Path::new(&install.shortcut_path).to_path_buf(), new_name, base);
+}
 
-
-
+#[cfg(target_os = "linux")]
+fn update_desktop_shortcut(old_desktop_path: PathBuf, new_name: String, base_dir: PathBuf) -> bool {
+    if !old_desktop_path.exists() { return false; }
+    let content = match fs::read_to_string(&old_desktop_path) {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+    let updated_content = {
+        let lines: Vec<&str> = content.lines().collect();
+        let updated_lines: Vec<String> = lines.iter().map(|line| { if line.starts_with("Name=") { format!("Name={}", new_name) } else { line.to_string() } }).collect();
+        updated_lines.join("\n")
+    };
+    let new_desktop_path = base_dir.join(format!("{}.desktop", new_name));
+    if old_desktop_path == new_desktop_path {
+        return match fs::write(&old_desktop_path, updated_content) {
+            Ok(_) => true,
+            Err(_) => false,
+        };
+    }
+    let write_result = match fs::File::create(&new_desktop_path) {
+        Ok(mut f) => f.write_all(updated_content.as_bytes()).is_ok(),
+        Err(_) => false,
+    };
+    if !write_result { return false; }
+    fs::remove_file(&old_desktop_path).is_ok() && write_result
+}
