@@ -19,6 +19,7 @@ pub enum QueueJobKind {
     GameRepair,
     RunnerDownload,
     SteamrtDownload,
+    Steamrt4Download,
     XxmiDownload,
     ExtrasDownload,
 }

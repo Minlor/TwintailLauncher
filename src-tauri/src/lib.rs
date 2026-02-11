@@ -22,11 +22,6 @@ use crate::utils::system_tray::init_tray;
 use crate::commands::runners::{add_installed_runner, get_installed_runner_by_id, get_installed_runner_by_version, is_steamrt_installed, list_installed_runners, remove_installed_runner, update_installed_runner_install_status};
 use crate::commands::network::check_network_connectivity;
 
-#[cfg(target_os = "linux")]
-use crate::utils::{deprecate_jadeite, sync_installed_runners, is_flatpak};
-#[cfg(target_os = "linux")]
-use crate::downloading::misc::{download_or_update_steamrt};
-
 mod utils;
 mod commands;
 mod downloading;
@@ -88,7 +83,9 @@ pub fn run() {
                         #[cfg(target_os = "linux")]
                         (QueueJobKind::RunnerDownload, QueueJobPayload::Runner(p)) => downloading::misc::run_runner_download(app, p, job.id),
                         #[cfg(target_os = "linux")]
-                        (QueueJobKind::SteamrtDownload, QueueJobPayload::Steamrt(p)) => downloading::misc::run_steamrt_download(app, p, job.id),
+                        (QueueJobKind::SteamrtDownload, QueueJobPayload::Steamrt(p)) => downloading::misc::run_steamrt3_download(app, p, job.id),
+                        #[cfg(target_os = "linux")]
+                        (QueueJobKind::Steamrt4Download, QueueJobPayload::Steamrt4(p)) => downloading::misc::run_steamrt4_download(app, p, job.id),
                         (QueueJobKind::ExtrasDownload, QueueJobPayload::Extras(p)) => {
                             let path = std::path::PathBuf::from(&p.path);
                             if downloading::misc::download_or_update_extra(&app, path, p.package_id, p.package_type, p.update_mode, Some(job.id)) { QueueJobOutcome::Completed } else { QueueJobOutcome::Failed }
@@ -144,12 +141,13 @@ pub fn run() {
                     let tmphome = data_dir.join("tmp_home/");
                     if tmphome.exists() { std::fs::remove_dir_all(&tmphome).unwrap(); }
 
-                    deprecate_jadeite(handle);
-                    sync_installed_runners(handle);
-                    download_or_update_steamrt(handle);
+                    utils::deprecate_jadeite(handle);
+                    utils::sync_installed_runners(handle);
+                    downloading::misc::download_or_update_steamrt3(handle);
+                    downloading::misc::download_or_update_steamrt4(handle);
 
                     let path = data_dir.join(".telemetry_blocked");
-                    if !path.exists() && !is_flatpak() {
+                    if !path.exists() && !utils::is_flatpak() {
                         use tauri_plugin_dialog::DialogExt;
                         let h = handle.clone();
                         h.dialog().message(format!("Hey! Before you start enjoying your games on Linux we are asking you to let application block game telemetry servers to ensure game companies do not collect information about your Linux gaming journey.\nPlease press \"Block telemetry\" and be prompted with password to allow us to write to your /etc/hosts file.").as_str())

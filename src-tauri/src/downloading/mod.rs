@@ -59,6 +59,7 @@ pub enum QueueJobPayload {
     Runner(RunnerDownloadPayload),
     #[cfg(target_os = "linux")]
     Steamrt(SteamrtDownloadPayload),
+    Steamrt4(SteamrtDownloadPayload),
     XXMI(XXMIDownloadPayload),
     Extras(ExtrasDownloadPayload),
 }
@@ -72,6 +73,8 @@ impl QueueJobPayload {
             QueueJobPayload::Runner(p) => p.runner_version.clone(),
             #[cfg(target_os = "linux")]
             QueueJobPayload::Steamrt(_) => "steamrt".to_string(),
+            #[cfg(target_os = "linux")]
+            QueueJobPayload::Steamrt4(_) => "steamrt4".to_string(),
             QueueJobPayload::XXMI(_) => "xxmi".to_string(),
             QueueJobPayload::Extras(p) => p.package_type.clone(),
         }
@@ -85,6 +88,8 @@ impl QueueJobPayload {
             QueueJobPayload::Runner(p) => p.runner_version.clone(),
             #[cfg(target_os = "linux")]
             QueueJobPayload::Steamrt(_) => "SteamLinuxRuntime 3".to_string(),
+            #[cfg(target_os = "linux")]
+            QueueJobPayload::Steamrt4(_) => "SteamLinuxRuntime 4".to_string(),
             QueueJobPayload::XXMI(_) => "XXMI Modding Tool".to_string(),
             QueueJobPayload::Extras(p) => {
                 match p.package_type.as_str() {

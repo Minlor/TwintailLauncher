@@ -11,9 +11,9 @@ use tauri::{AppHandle, Error};
 #[cfg(target_os = "linux")]
 use crate::utils::repo_manager::get_compatibility;
 #[cfg(target_os = "linux")]
-use crate::utils::{get_steam_appid, is_runner_lower, is_using_overriden_runner, runner_from_runner_version, update_steam_compat_config};
+use crate::utils::{get_steam_appid, get_steam_tool_appid, is_runner_lower, is_using_overriden_runner, runner_from_runner_version, update_steam_compat_config};
 #[cfg(target_os = "linux")]
-use crate::utils::{show_dialog, show_dialog_with_callback};
+use crate::utils::{show_dialog};
 #[cfg(target_os = "linux")]
 use std::os::unix::process::CommandExt;
 #[cfg(target_os = "linux")]
@@ -31,23 +31,20 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
     let prefixp = Path::new(install.runner_prefix.as_str()).to_path_buf();
     let prefix = prefixp.to_str().unwrap().to_string();
     let runnerp = Path::new(gs.default_runner_path.as_str()).to_path_buf();
-    let runner = Path::new(install.runner_path.as_str()).to_str().unwrap().to_string();
+    let runnerpi = Path::new(install.runner_path.as_str()).to_path_buf();
+    let runner = runnerpi.to_str().unwrap().to_string();
     let game = gm.paths.exe_filename.clone();
     let exe = gm.paths.exe_filename.clone().split('/').last().unwrap().to_string();
-    let steamrtpp = runnerp.join("steamrt/");
+    let toolid = get_steam_tool_appid(runnerpi);
+    let steamrtpp = runnerp.join("steamrt/").join(toolid.clone());
     let steamrt_path = steamrtpp.to_str().unwrap().to_string();
-    let steamrtp = runnerp.join("steamrt/_v2-entry-point");
+    let steamrtp = steamrtpp.join("_v2-entry-point");
     let steamrt = steamrtp.to_str().unwrap().to_string();
     #[cfg(not(debug_assertions))]
     let reaper = if crate::utils::is_flatpak() { app.path().resource_dir()?.join("resources/reaper").to_str().unwrap().to_string().replace("/app/lib/", "/run/parent/app/lib/") } else { app.path().resource_dir()?.join("resources/reaper").to_str().unwrap().to_string().replace("/usr/lib/", "/run/host/usr/lib/") };
     #[cfg(debug_assertions)]
     let reaper = app.path().resource_dir()?.join("resources/reaper").to_str().unwrap().to_string();
     let appid = get_steam_appid();
-
-    if !steamrtp.exists() {
-        show_dialog_with_callback(app, "warning", "TwintailLauncher", "SteamLinuxRuntime is corrupted! Pressing \"Redownload\" button will redownload SteamLinuxRuntime.", Some(vec!["Redownload", "Cancel"]), Some("dialog_no_steamrt"));
-        return Ok(false);
-    }
 
     if is_runner_lower(cpo.min_runner_versions.clone(), install.clone().runner_version, ) && !cpo.min_runner_versions.is_empty() {
         show_dialog(app, "warning", "TwintailLauncher", &format!("Launching {} with {} could lead to various unexpected behaviors.\nPlease download one of the supported minimum runner versions or higher!\nSupported minimum runner version(s): {}", install.name, install.runner_version, cpo.min_runner_versions.join(", ")), Some(vec!["I understand"]));

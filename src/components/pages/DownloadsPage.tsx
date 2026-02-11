@@ -76,6 +76,7 @@ function formatKind(kind: QueueJobView['kind']): string {
         case 'game_repair': return 'Repair';
         case 'runner_download': return 'Runner';
         case 'steamrt_download': return 'SteamRT';
+        case 'steamrt4_download': return 'SteamRT';
         case 'xxmi_download': return 'XXMI';
         case 'extras_download': return 'Extra';
         default: return 'Download';

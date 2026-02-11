@@ -22,14 +22,14 @@ use std::sync::{Arc,Mutex};
 #[cfg(target_os = "linux")]
 use tauri::Manager;
 
-/// Check if SteamRT needs to be downloaded or updated, and enqueue the job
+/// Check if SteamRT3 needs to be downloaded or updated, and enqueue the job
 #[cfg(target_os = "linux")]
-pub fn download_or_update_steamrt(app: &AppHandle) {
+pub fn download_or_update_steamrt3(app: &AppHandle) {
     let gs = get_settings(app);
     if let Some(s) = gs {
         let rp = Path::new(&s.default_runner_path);
-        let steamrt = rp.join("steamrt");
-        if !steamrt.exists() { if let Err(e) = fs::create_dir_all(&steamrt) { send_notification(&app, format!("Failed to prepare SteamLinuxRuntime directory. {} - Please fix the error and restart the app!", e.to_string()).as_str(), None); return; } }
+        let steamrt = rp.join("steamrt").join("steamrt3");
+        if !steamrt.exists() { if let Err(e) = fs::create_dir_all(&steamrt) { send_notification(&app, format!("Failed to prepare SteamLinuxRuntime 3 directory. {} - Please fix the error and restart the app!", e.to_string()).as_str(), None); return; } }
         let steamrt_path = steamrt.to_str().unwrap().to_string();
 
         if fs::read_dir(&steamrt).unwrap().next().is_none() {
@@ -51,15 +51,15 @@ pub fn download_or_update_steamrt(app: &AppHandle) {
                     let state = app.state::<DownloadState>();
                     let q = state.queue.lock().unwrap().clone();
                     if let Some(queue) = q { queue.enqueue(QueueJobKind::SteamrtDownload, QueueJobPayload::Steamrt(SteamrtDownloadPayload { steamrt_path, is_update: true })); }
-                } else { println!("SteamLinuxRuntime is up to date!"); }
+                } else { println!("SteamLinuxRuntime 3 is up to date!"); }
             }
         }
     }
 }
 
-/// Run the actual SteamRT download (called by queue worker)
+/// Run the actual SteamRT3 download (called by queue worker)
 #[cfg(target_os = "linux")]
-pub fn run_steamrt_download(app: AppHandle, payload: SteamrtDownloadPayload, job_id: String) -> QueueJobOutcome {
+pub fn run_steamrt3_download(app: AppHandle, payload: SteamrtDownloadPayload, job_id: String) -> QueueJobOutcome {
     let job_id = Arc::new(job_id);
     let dlpayload: Arc<Mutex<HashMap<String, String>>> = Arc::new(Mutex::new(HashMap::new()));
     let steamrt_path = PathBuf::from(&payload.steamrt_path);
@@ -114,8 +114,106 @@ pub fn run_steamrt_download(app: AppHandle, payload: SteamrtDownloadPayload, job
         app.emit(complete_event, String::from("SteamLinuxRuntime 3")).unwrap();
         QueueJobOutcome::Completed
     } else {
-        show_dialog_with_callback(&app, "error", "TwintailLauncher", if payload.is_update { "Error occurred while trying to update SteamLinuxRuntime! Please restart the application to retry." } else { "Error occurred while trying to download SteamLinuxRuntime! Please restart the application to retry." }, Some(vec!["Ok"]), Some("dialog_steamrt_dl_fail"));
+        show_dialog_with_callback(&app, "error", "TwintailLauncher", if payload.is_update { "Error occurred while trying to update SteamLinuxRuntime 3! Please restart the application to retry." } else { "Error occurred while trying to download SteamLinuxRuntime 3! Please restart the application to retry." }, Some(vec!["Ok"]), Some("dialog_steamrt3_dl_fail"));
         app.emit(complete_event, String::from("SteamLinuxRuntime 3")).unwrap();
+        QueueJobOutcome::Failed
+    }
+}
+
+/// Check if SteamRT4 needs to be downloaded or updated, and enqueue the job
+#[cfg(target_os = "linux")]
+pub fn download_or_update_steamrt4(app: &AppHandle) {
+    let gs = get_settings(app);
+    if let Some(s) = gs {
+        let rp = Path::new(&s.default_runner_path);
+        let steamrt = rp.join("steamrt").join("steamrt4");
+        if !steamrt.exists() { if let Err(e) = fs::create_dir_all(&steamrt) { send_notification(&app, format!("Failed to prepare SteamLinuxRuntime 4 directory. {} - Please fix the error and restart the app!", e.to_string()).as_str(), None); return; } }
+        let steamrt_path = steamrt.to_str().unwrap().to_string();
+
+        if fs::read_dir(&steamrt).unwrap().next().is_none() {
+            // Fresh download - enqueue via queue system
+            let state = app.state::<DownloadState>();
+            let q = state.queue.lock().unwrap().clone();
+            if let Some(queue) = q { queue.enqueue(QueueJobKind::Steamrt4Download, QueueJobPayload::Steamrt4(SteamrtDownloadPayload { steamrt_path, is_update: false })); }
+        } else {
+            // Check for updates
+            let vp = steamrt.join("VERSIONS.txt");
+            if !vp.exists() { return; }
+            let cur_ver = crate::utils::find_steamrt_version(vp).unwrap();
+            if cur_ver.is_empty() { return; }
+            let remote_ver = check_steamrt_update("steamrt4".to_string(), "latest-public-beta".to_string());
+            if let Some(rv) = remote_ver {
+                if crate::utils::compare_steamrt_versions(&rv, &cur_ver) {
+                    empty_dir(steamrt.as_path()).unwrap();
+                    // Update - enqueue via queue system
+                    let state = app.state::<DownloadState>();
+                    let q = state.queue.lock().unwrap().clone();
+                    if let Some(queue) = q { queue.enqueue(QueueJobKind::Steamrt4Download, QueueJobPayload::Steamrt4(SteamrtDownloadPayload { steamrt_path, is_update: true })); }
+                } else { println!("SteamLinuxRuntime 4 is up to date!"); }
+            }
+        }
+    }
+}
+
+/// Run the actual SteamRT4 download (called by queue worker)
+#[cfg(target_os = "linux")]
+pub fn run_steamrt4_download(app: AppHandle, payload: SteamrtDownloadPayload, job_id: String) -> QueueJobOutcome {
+    let job_id = Arc::new(job_id);
+    let dlpayload: Arc<Mutex<HashMap<String, String>>> = Arc::new(Mutex::new(HashMap::new()));
+    let steamrt_path = PathBuf::from(&payload.steamrt_path);
+    let event_name = if payload.is_update { "update_progress" } else { "download_progress" };
+    let complete_event = if payload.is_update { "update_complete" } else { "download_complete" };
+    {
+        let mut dlp = dlpayload.lock().unwrap();
+        dlp.insert("job_id".to_string(), job_id.to_string());
+        dlp.insert("name".to_string(), String::from("SteamLinuxRuntime 4"));
+        dlp.insert("progress".to_string(), "0".to_string());
+        dlp.insert("total".to_string(), "1000".to_string());
+        dlp.insert("speed".to_string(), "0".to_string());
+        dlp.insert("disk".to_string(), "0".to_string());
+        app.emit(event_name, dlp.clone()).unwrap();
+    }
+
+    let success = run_async_command(async {
+        download_steamrt(steamrt_path.clone(), steamrt_path.clone(), "steamrt4".to_string(), "latest-public-beta".to_string(), {
+            let app = app.clone();
+            let dlpayload = dlpayload.clone();
+            let job_id = job_id.clone();
+            let event_name = event_name.to_string();
+            move |current, total, net_speed, disk_speed| {
+                let mut dlp = dlpayload.lock().unwrap();
+                dlp.insert("job_id".to_string(), job_id.to_string());
+                dlp.insert("name".to_string(), "SteamLinuxRuntime 4".to_string());
+                dlp.insert("progress".to_string(), current.to_string());
+                dlp.insert("total".to_string(), total.to_string());
+                dlp.insert("speed".to_string(), net_speed.to_string());
+                dlp.insert("disk".to_string(), disk_speed.to_string());
+                dlp.insert("phase".to_string(), "2".to_string()); // downloading phase
+                app.emit(&event_name, dlp.clone()).unwrap();
+            }
+        }, {
+                             let app = app.clone();
+                             let dlpayload = dlpayload.clone();
+                             let job_id = job_id.clone();
+                             let event_name = event_name.to_string();
+                             move |current, total| {
+                                 let mut dlp = dlpayload.lock().unwrap();
+                                 dlp.insert("job_id".to_string(), job_id.to_string());
+                                 dlp.insert("name".to_string(), "SteamLinuxRuntime 4".to_string());
+                                 dlp.insert("install_progress".to_string(), current.to_string());
+                                 dlp.insert("install_total".to_string(), total.to_string());
+                                 dlp.insert("phase".to_string(), "3".to_string()); // installing phase
+                                 app.emit(&event_name, dlp.clone()).unwrap();
+                             }
+                         }).await
+    });
+
+    if success {
+        app.emit(complete_event, String::from("SteamLinuxRuntime 4")).unwrap();
+        QueueJobOutcome::Completed
+    } else {
+        show_dialog_with_callback(&app, "error", "TwintailLauncher", if payload.is_update { "Error occurred while trying to update SteamLinuxRuntime 4! Please restart the application to retry." } else { "Error occurred while trying to download SteamLinuxRuntime 4! Please restart the application to retry." }, Some(vec!["Ok"]), Some("dialog_steamrt4_dl_fail"));
+        app.emit(complete_event, String::from("SteamLinuxRuntime 4")).unwrap();
         QueueJobOutcome::Failed
     }
 }

@@ -165,22 +165,16 @@ pub fn register_listeners(app: &AppHandle) {
                 "dialog_block_telemetry" => {
                     if response.button_index == 0 { block_telemetry(&h3); } else { let path = h3.path().app_data_dir().unwrap().join(".telemetry_blocked"); fs::write(&path, ".").unwrap(); }
                 }
-                "dialog_no_steamrt" => {
-                    if response.button_index == 0 {
-                        #[cfg(target_os = "linux")]
-                        {
-                            let gs = get_settings(&h3).unwrap();
-                            let runnerp = Path::new(gs.default_runner_path.as_str()).to_path_buf();
-                            let steamrtpp = runnerp.join("steamrt/");
-                            let _ = empty_dir(&steamrtpp);
-                            crate::downloading::misc::download_or_update_steamrt(&h3);
-                        }
-                    }
-                }
-                "dialog_steamrt_dl_fail" => {
+                "dialog_steamrt3_dl_fail" => {
                     let gs = get_settings(&h3).unwrap();
                     let runnerp = Path::new(gs.default_runner_path.as_str()).to_path_buf();
-                    let steamrtpp = runnerp.join("steamrt/");
+                    let steamrtpp = runnerp.join("steamrt/").join("steamrt3/");
+                    let _ = empty_dir(&steamrtpp);
+                }
+                "dialog_steamrt4_dl_fail" => {
+                    let gs = get_settings(&h3).unwrap();
+                    let runnerp = Path::new(gs.default_runner_path.as_str()).to_path_buf();
+                    let steamrtpp = runnerp.join("steamrt/").join("steamrt4/");
                     let _ = empty_dir(&steamrtpp);
                 }
                 "dialog_runner_dl_fail" => { /* Empties the directory in its handler not here */ }
@@ -337,7 +331,14 @@ pub fn setup_or_fix_default_paths(app: &AppHandle, path: PathBuf, fix_mode: bool
 
                 // steamrt setup
                 let steamrtpath = wine.join("steamrt");
+                let steamrt3 = steamrtpath.join("steamrt3");
+                let steamrt4 = steamrtpath.join("steamrt4");
+                // Ensure base steamrt folder exists, then create versioned subfolders
                 if !steamrtpath.exists() { fs::create_dir_all(&steamrtpath).unwrap(); }
+                if !steamrt3.exists() { fs::create_dir_all(&steamrt3).unwrap(); }
+                if !steamrt4.exists() { fs::create_dir_all(&steamrt4).unwrap(); }
+                // Clean up legacy files directly inside steamrt/
+                let _ = empty_dir(&steamrtpath);
 
                 if g.jadeite_path == "" { fs::create_dir_all(&jadeitepath).unwrap(); update_settings_default_jadeite_location(app, jadeitepath.to_str().unwrap().to_string()); }
                 if g.default_runner_path == "" { fs::create_dir_all(&wine).unwrap(); update_settings_default_runner_location(app, wine.to_str().unwrap().to_string()); }
@@ -361,7 +362,14 @@ pub fn setup_or_fix_default_paths(app: &AppHandle, path: PathBuf, fix_mode: bool
 
             // steamrt setup
             let steamrtpath = wine.join("steamrt");
+            let steamrt3 = steamrtpath.join("steamrt3");
+            let steamrt4 = steamrtpath.join("steamrt4");
+            // Ensure base steamrt folder exists, then create versioned subfolders
             if !steamrtpath.exists() { fs::create_dir_all(&steamrtpath).unwrap(); }
+            if !steamrt3.exists() { fs::create_dir_all(&steamrt3).unwrap(); }
+            if !steamrt4.exists() { fs::create_dir_all(&steamrt4).unwrap(); }
+            // Clean up legacy files directly inside steamrt/
+            let _ = empty_dir(&steamrtpath);
 
             if !mangohudcfg.exists() { db_manager::update_settings_default_mangohud_config_location(app, mangohudcfg.to_str().unwrap().to_string()); } else { db_manager::update_settings_default_mangohud_config_location(app, mangohudcfg.to_str().unwrap().to_string()); }
             if !jadeitepath.exists() { fs::create_dir_all(&jadeitepath).unwrap();update_settings_default_jadeite_location(app, jadeitepath.to_str().unwrap().to_string()); }
@@ -370,6 +378,8 @@ pub fn setup_or_fix_default_paths(app: &AppHandle, path: PathBuf, fix_mode: bool
                 fs::create_dir_all(&dxvk).unwrap();
                 fs::create_dir_all(&prefixes).unwrap();
                 fs::create_dir_all(&steamrtpath).unwrap();
+                fs::create_dir_all(&steamrt3).unwrap();
+                fs::create_dir_all(&steamrt4).unwrap();
                 update_settings_default_runner_location(app, wine.to_str().unwrap().to_string());
                 update_settings_default_dxvk_location(app, dxvk.to_str().unwrap().to_string());
                 update_settings_default_prefix_location(app, prefixes.to_str().unwrap().to_string());
@@ -692,7 +702,7 @@ pub fn find_steamrt_version(file_path: PathBuf) -> io::Result<String> {
             for line in reader.lines() {
                 let line = line?;
                 for token in line.split_whitespace() {
-                    if token.starts_with("3.") && token.matches('.').count() >= 3 && token.chars().all(|c| c.is_ascii_digit() || c == '.') { return Ok(token.to_string()); }
+                    if token.starts_with("3.") || token.starts_with("4.") && token.matches('.').count() >= 3 && token.chars().all(|c| c.is_ascii_digit() || c == '.') { return Ok(token.to_string()); }
                 }
             }
         }
@@ -764,7 +774,7 @@ pub fn is_using_overriden_runner(installed_runner: String, override_runner: Stri
 
 #[allow(dead_code)]
 pub fn empty_dir<P: AsRef<Path>>(dir: P) -> io::Result<()> {
-    const EXCEPTIONS: &[&str] = &["Mods/", "ShaderCache/", "d3dx_user.ini", "gimi/", "srmi/", "zzmi/", "himi/", "wwmi/", "ssmi/", "efmi/"];
+    const EXCEPTIONS: &[&str] = &["Mods/", "ShaderCache/", "d3dx_user.ini", "gimi/", "srmi/", "zzmi/", "himi/", "wwmi/", "ssmi/", "efmi/", "steamrt3/", "steamrt4/"];
     if dir.as_ref().exists() {
         for entry in fs::read_dir(dir.as_ref())? {
             let entry = entry?;
@@ -819,6 +829,70 @@ pub fn get_steam_appid() -> u32 {
         if let Ok(id) = id_str.parse::<u64>() { return (id >> 32) as u32; }
     }
     0
+}
+
+#[cfg(target_os = "linux")]
+#[derive(Debug, Clone, Copy)]
+pub enum SteamRTType {
+    Soldier,
+    SteamRT3,
+    SteamRT3Arm64,
+    SteamRT4,
+    SteamRT4Arm64,
+}
+
+#[cfg(target_os = "linux")]
+impl SteamRTType {
+    pub fn runtime_name(&self) -> &'static str {
+        match self {
+            SteamRTType::Soldier => "soldier",
+            SteamRTType::SteamRT3 => "steamrt3",
+            SteamRTType::SteamRT3Arm64 => "steamrt3",
+            SteamRTType::SteamRT4 => "steamrt4",
+            SteamRTType::SteamRT4Arm64 => "steamrt4",
+        }
+    }
+
+    #[allow(unused)]
+    pub fn tool_appid(&self) -> &'static str {
+        match self {
+            SteamRTType::Soldier => "1391110",
+            SteamRTType::SteamRT3 => "1628350",
+            SteamRTType::SteamRT3Arm64 => "3810310",
+            SteamRTType::SteamRT4 => "4183110",
+            SteamRTType::SteamRT4Arm64 => "4185400",
+        }
+    }
+
+    pub fn from_tool_appid(appid: &str) -> Option<Self> {
+        match appid {
+            "1391110" => Some(SteamRTType::Soldier),
+            "1628350" => Some(SteamRTType::SteamRT3),
+            "3810310" => Some(SteamRTType::SteamRT3Arm64),
+            "4183110" => Some(SteamRTType::SteamRT4),
+            "4185400" => Some(SteamRTType::SteamRT4Arm64),
+            _ => None,
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+pub fn get_steam_tool_appid(path: PathBuf) -> String {
+    let manifest_path = path.join("toolmanifest.vdf");
+    if let Ok(manifest_str) = fs::read_to_string(&manifest_path) {
+        for line in manifest_str.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("\"require_tool_appid\"") {
+                if let Some(start) = trimmed.rfind('"') {
+                    if let Some(value_start) = trimmed[..start].rfind('"') {
+                        let appid = &trimmed[value_start + 1..start];
+                        if let Some(runtime) = SteamRTType::from_tool_appid(appid) { return runtime.runtime_name().to_string(); }
+                    }
+                }
+            }
+        }
+    }
+    String::new()
 }
 
 #[derive(Serialize, Deserialize, Debug)]
