@@ -151,6 +151,26 @@ export default class App extends React.Component<any, any> {
         const isRunnerInstalled = this.state.installedRunners.some((r: any) => r.version === currentRunnerVersion && r.is_installed);
         const runnerDepsNotReady = isLinux && currentInstallData && (!this.state.steamrtInstalled || !isRunnerInstalled);
 
+        // Check if any extras/dependencies required by the current install are downloading or queued
+        const allJobs = [...runningJobs, ...queuedJobs];
+        const xxmiPackageIds = ['xxmi', 'gimi', 'srmi', 'zzmi', 'himi', 'wwmi', 'ssmi', 'efmi'];
+        const isXxmiDownloading = this.state.installSettings?.use_xxmi && allJobs.some((j: any) =>
+            j.kind === 'xxmi_download' || (j.kind === 'extras_download' && xxmiPackageIds.includes(j.installId))
+        );
+        const isJadeiteDownloading = this.state.installSettings?.use_jadeite && allJobs.some((j: any) =>
+            j.kind === 'extras_download' && j.installId === 'v5.0.1-hotfix'
+        );
+        const isFpsUnlockDownloading = this.state.installSettings?.use_fps_unlock && allJobs.some((j: any) =>
+            j.kind === 'extras_download' && j.installId === 'keqing_unlock'
+        );
+        const isSteamRTDownloading = isLinux && allJobs.some((j: any) =>
+            j.kind === 'steamrt_download' || j.kind === 'steamrt4_download'
+        );
+        const isRunnerDownloading = isLinux && currentRunnerVersion && allJobs.some((j: any) =>
+            j.kind === 'runner_download' && j.installId === currentRunnerVersion
+        );
+        const extrasDownloading = !!(isXxmiDownloading || isJadeiteDownloading || isFpsUnlockDownloading || isSteamRTDownloading || isRunnerDownloading);
+
         const primaryRunningJobId = runningJobs.length > 0 ? runningJobs[0].id : undefined;
         const primaryProgress = primaryRunningJobId ? this.state.downloadProgressByJobId?.[primaryRunningJobId] : undefined;
         const downloadsPercent =
@@ -497,7 +517,7 @@ export default class App extends React.Component<any, any> {
                         disableInstallEdit={isCurrentInstallDownloading || isCurrentInstallQueued}
                         disableResume={this.state.disableResume}
                         disableDownload={this.state.disableDownload}
-                        disableRun={isCurrentInstallDownloading || isCurrentInstallQueued || runnerDepsNotReady}
+                        disableRun={isCurrentInstallDownloading || isCurrentInstallQueued || runnerDepsNotReady || extrasDownloading}
                         disableUpdate={this.state.disableUpdate}
                         resumeStates={this.state.resumeStates}
                         globalSettings={this.state.globalSettings}
