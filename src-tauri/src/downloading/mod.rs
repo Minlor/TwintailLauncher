@@ -59,6 +59,7 @@ pub enum QueueJobPayload {
     Runner(RunnerDownloadPayload),
     #[cfg(target_os = "linux")]
     Steamrt(SteamrtDownloadPayload),
+    #[cfg(target_os = "linux")]
     Steamrt4(SteamrtDownloadPayload),
     XXMI(XXMIDownloadPayload),
     Extras(ExtrasDownloadPayload),
