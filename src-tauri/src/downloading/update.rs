@@ -11,6 +11,7 @@ use fischl::utils::free_space::available;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use std::sync::atomic::{AtomicBool,Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Listener, Manager};
 use crate::utils::models::DialogResponse;
@@ -35,6 +36,7 @@ pub fn register_update_handler(app: &AppHandle) {
 
 pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: String) -> QueueJobOutcome {
     let job_id = Arc::new(job_id);
+    let install_id = payload.install.clone();
     let install = match get_install_info_by_id(&h5, payload.install) {
         Some(v) => v,
         None => return QueueJobOutcome::Failed,
@@ -70,6 +72,13 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
 
         h5.emit("update_progress", dlp.clone()).unwrap();
         drop(dlp);
+
+        let cancel_token = Arc::new(AtomicBool::new(false));
+        {
+            let state = h5.state::<DownloadState>();
+            let mut tokens = state.tokens.lock().unwrap();
+            tokens.insert(install_id.clone(), cancel_token.clone());
+        }
 
         match picked.metadata.download_mode.as_str() {
             // Generic zipped mode, Variety per game
@@ -162,6 +171,7 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                         #[cfg(target_os = "windows")]
                         let hpatchz = h5.path().app_data_dir().unwrap().join("hpatchz.exe");
                         urls.into_iter().for_each(|e| {
+                            let cancel_token = cancel_token.clone();
                             run_async_command(async {
                                 <Game as Sophon>::patch(e.file_url.to_owned(), install.version.clone(), e.file_hash.to_owned(), install.directory.clone(), hpatchz.to_str().unwrap().to_string(), is_preload, {
                                         let dlpayload = dlpayload.clone();
@@ -177,7 +187,7 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                                             tmp.emit("update_progress", dlp.clone()).unwrap();
                                             drop(dlp);
                                         }
-                                    },
+                                    }, Some(cancel_token),
                                 ).await
                             });
                         });
@@ -238,6 +248,7 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                         let manifest = urls.get(0).unwrap();
                         let patching_marker = Path::new(&install.directory).join("patching");
                         let is_preload = patching_marker.join(".preload").exists();
+                        let cancel_token = cancel_token.clone();
                         let rslt = run_async_command(async {
                             <Game as Kuro>::patch(manifest.file_url.to_owned(), manifest.file_hash.clone(), picked.metadata.res_list_url.clone(), install.directory.clone(), is_preload, {
                                     let dlpayload = dlpayload.clone();
@@ -257,7 +268,7 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                                         tmp.emit("update_progress", dlp.clone()).unwrap();
                                         drop(dlp);
                                     }
-                                },
+                                }, Some(cancel_token),
                             ).await
                         });
                         if rslt {
@@ -283,6 +294,25 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
             }
             // Fallback mode
             _ => {}
+        }
+
+        let mut cancelled = false;
+        {
+            let state = h5.state::<DownloadState>();
+            let tokens = state.tokens.lock().unwrap();
+            if let Some(token) = tokens.get(&install_id) { if token.load(Ordering::Relaxed) { cancelled = true; } }
+        }
+        {
+            let state = h5.state::<DownloadState>();
+            let mut tokens = state.tokens.lock().unwrap();
+            tokens.remove(&install_id);
+        }
+        if cancelled {
+            let mut dlp = HashMap::new();
+            dlp.insert("job_id", job_id.to_string());
+            dlp.insert("name", install.name.clone());
+            h5.emit("update_paused", dlp).unwrap();
+            return QueueJobOutcome::Cancelled;
         }
         QueueJobOutcome::Completed
     } else {

@@ -6,6 +6,7 @@ use crate::utils::repo_manager::get_manifest;
 use crate::utils::{models::{FullGameFile, GameVersion}, run_async_command, send_notification, show_dialog};
 use fischl::download::game::{Game, Kuro, Sophon};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool,Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Listener, Manager};
 
@@ -32,6 +33,7 @@ pub fn register_repair_handler(app: &AppHandle) {
 
 pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: String) -> QueueJobOutcome {
     let job_id = Arc::new(job_id);
+    let install_id = payload.install.clone();
     let install = get_install_info_by_id(&h5, payload.install);
     if install.is_none() { eprintln!("Failed to find installation for repair!");return QueueJobOutcome::Failed; }
 
@@ -64,6 +66,13 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
     h5.emit("repair_progress", dlp.clone()).unwrap();
     drop(dlp);
 
+    let cancel_token = Arc::new(AtomicBool::new(false));
+    {
+        let state = h5.state::<DownloadState>();
+        let mut tokens = state.tokens.lock().unwrap();
+        tokens.insert(install_id.clone(), cancel_token.clone());
+    }
+
     #[cfg(target_os = "linux")]
     {
         // Set prefix in repair state by emptying the directory
@@ -83,6 +92,7 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
 
             let urls = if biz == "bh3_global" { picked.game.full.clone().iter().filter(|e| e.region_code.clone().unwrap() == region).cloned().collect::<Vec<FullGameFile>>() } else { picked.game.full.clone() };
             urls.into_iter().for_each(|e| {
+                let cancel_token = cancel_token.clone();
                 run_async_command(async {
                     <Game as Sophon>::repair_game(e.file_url.clone(), e.file_path.clone(), i.directory.clone(), false, {
                             let dlpayload = dlpayload.clone();
@@ -107,7 +117,7 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                                 tmp.emit("repair_progress", dlp.clone()).unwrap();
                                 drop(dlp);
                             }
-                        },
+                        }, Some(cancel_token),
                     ).await
                 });
             });
@@ -119,6 +129,7 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
         "DOWNLOAD_MODE_RAW" => {
             let urls = picked.game.full.iter().map(|v| v.file_url.clone()).collect::<Vec<String>>();
             let manifest = urls.get(0).unwrap();
+            let cancel_token = cancel_token.clone();
             let rslt = run_async_command(async {
                 <Game as Kuro>::repair_game(manifest.to_owned(), picked.metadata.res_list_url.clone(), i.directory.clone(), false, {
                         let dlpayload = dlpayload.clone();
@@ -138,7 +149,7 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                             tmp.emit("repair_progress", dlp.clone()).unwrap();
                             drop(dlp);
                         }
-                    },
+                    }, Some(cancel_token),
                 ).await
             });
             if rslt {
@@ -155,6 +166,25 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
         }
         // Fallback mode
         _ => {}
+    }
+
+    let mut cancelled = false;
+    {
+        let state = h5.state::<DownloadState>();
+        let tokens = state.tokens.lock().unwrap();
+        if let Some(token) = tokens.get(&install_id) { if token.load(Ordering::Relaxed) { cancelled = true; } }
+    }
+    {
+        let state = h5.state::<DownloadState>();
+        let mut tokens = state.tokens.lock().unwrap();
+        tokens.remove(&install_id);
+    }
+    if cancelled {
+        let mut dlp = HashMap::new();
+        dlp.insert("job_id", job_id.to_string());
+        dlp.insert("name", i.name.clone());
+        h5.emit("repair_paused", dlp).unwrap();
+        return QueueJobOutcome::Cancelled;
     }
     QueueJobOutcome::Completed
 }
