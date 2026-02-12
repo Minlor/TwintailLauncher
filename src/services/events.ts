@@ -19,6 +19,26 @@ function parsePhase(phaseNum: string | number | undefined): DownloadPhase | unde
   }
 }
 
+function parseOptionalInt(value: unknown): number | undefined {
+  if (value === undefined || value === null) return undefined;
+  const parsed = parseInt(String(value), 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function clampProgressValue(progress: number | undefined, total: number | undefined): number | undefined {
+  if (progress === undefined) return undefined;
+  if (total !== undefined && total > 0) {
+    return Math.max(0, Math.min(total, progress));
+  }
+  return Math.max(0, progress);
+}
+
+function parseProgressPair(progressRaw: unknown, totalRaw: unknown): { progress?: number; total?: number } {
+  const total = parseOptionalInt(totalRaw);
+  const progress = clampProgressValue(parseOptionalInt(progressRaw), total);
+  return { progress, total };
+}
+
 export function registerEvents(
   eventType: string,
   event: any,
@@ -97,18 +117,20 @@ export function registerEvents(
       // Use job_id if present, otherwise use name as fallback for misc downloads (proton, steamrt, etc.)
       const jobId = event?.payload?.job_id ?? event?.payload?.jobId ?? event?.payload?.name;
       if (!jobId) return undefined;
+      const { progress, total } = parseProgressPair(event?.payload?.progress, event?.payload?.total);
+      const { progress: installProgress, total: installTotal } = parseProgressPair(event?.payload?.install_progress, event?.payload?.install_total);
       return (prev) => {
         const next = { ...(prev?.downloadProgressByJobId || {}) };
         next[jobId] = {
           jobId,
           name: event.payload.name,
-          progress: parseInt(event.payload.progress),
-          total: parseInt(event.payload.total),
-          speed: event.payload.speed ? parseInt(event.payload.speed) : undefined,
-          disk: event.payload.disk ? parseInt(event.payload.disk) : undefined,
+          progress,
+          total,
+          speed: parseOptionalInt(event.payload.speed),
+          disk: parseOptionalInt(event.payload.disk),
           // Include install progress if present in the same event (Sophon downloads)
-          installProgress: event.payload.install_progress !== undefined ? parseInt(event.payload.install_progress) : undefined,
-          installTotal: event.payload.install_total !== undefined ? parseInt(event.payload.install_total) : undefined,
+          installProgress,
+          installTotal,
           // Phase: verifying, downloading, installing, validating, moving
           phase: parsePhase(event.payload.phase),
           eventType,
@@ -119,6 +141,7 @@ export function registerEvents(
     case 'download_installing': {
       const jobId = event?.payload?.job_id ?? event?.payload?.jobId;
       if (!jobId) return undefined;
+      const { progress: installProgress, total: installTotal } = parseProgressPair(event?.payload?.progress, event?.payload?.total);
       return (prev) => {
         const next = { ...(prev?.downloadProgressByJobId || {}) };
         const existing = next[jobId] || {};
@@ -127,8 +150,8 @@ export function registerEvents(
           jobId,
           name: event.payload.name || existing.name,
           // Keep existing download progress, add installation progress
-          installProgress: event.payload.progress !== undefined ? parseInt(event.payload.progress) : existing.installProgress,
-          installTotal: event.payload.total !== undefined ? parseInt(event.payload.total) : existing.installTotal,
+          installProgress: installProgress ?? existing.installProgress,
+          installTotal: installTotal ?? existing.installTotal,
           eventType,
         };
         return { downloadProgressByJobId: next };
@@ -145,18 +168,20 @@ export function registerEvents(
       // Use job_id if present, otherwise use name as fallback for misc updates (steamrt, etc.)
       const jobId = event?.payload?.job_id ?? event?.payload?.jobId ?? event?.payload?.name;
       if (!jobId) return undefined;
+      const { progress, total } = parseProgressPair(event?.payload?.progress, event?.payload?.total);
+      const { progress: installProgress, total: installTotal } = parseProgressPair(event?.payload?.install_progress, event?.payload?.install_total);
       return (prev) => {
         const next = { ...(prev?.downloadProgressByJobId || {}) };
         next[jobId] = {
           jobId,
           name: event.payload.name,
-          progress: parseInt(event.payload.progress),
-          total: parseInt(event.payload.total),
-          speed: event.payload.speed ? parseInt(event.payload.speed) : undefined,
-          disk: event.payload.disk ? parseInt(event.payload.disk) : undefined,
+          progress,
+          total,
+          speed: parseOptionalInt(event.payload.speed),
+          disk: parseOptionalInt(event.payload.disk),
           // Include install progress if present in the same event (Sophon downloads)
-          installProgress: event.payload.install_progress !== undefined ? parseInt(event.payload.install_progress) : undefined,
-          installTotal: event.payload.install_total !== undefined ? parseInt(event.payload.install_total) : undefined,
+          installProgress,
+          installTotal,
           // Phase: verifying, downloading, installing, validating, moving
           phase: parsePhase(event.payload.phase),
           eventType,
@@ -167,6 +192,7 @@ export function registerEvents(
     case 'update_installing': {
       const jobId = event?.payload?.job_id ?? event?.payload?.jobId;
       if (!jobId) return undefined;
+      const { progress: installProgress, total: installTotal } = parseProgressPair(event?.payload?.progress, event?.payload?.total);
       return (prev) => {
         const next = { ...(prev?.downloadProgressByJobId || {}) };
         const existing = next[jobId] || {};
@@ -175,8 +201,8 @@ export function registerEvents(
           jobId,
           name: event.payload.name || existing.name,
           // Keep existing download progress, add installation progress
-          installProgress: event.payload.progress !== undefined ? parseInt(event.payload.progress) : existing.installProgress,
-          installTotal: event.payload.total !== undefined ? parseInt(event.payload.total) : existing.installTotal,
+          installProgress: installProgress ?? existing.installProgress,
+          installTotal: installTotal ?? existing.installTotal,
           eventType,
         };
         return { downloadProgressByJobId: next };
@@ -185,18 +211,20 @@ export function registerEvents(
     case 'repair_progress': {
       const jobId = event?.payload?.job_id ?? event?.payload?.jobId;
       if (!jobId) return undefined;
+      const { progress, total } = parseProgressPair(event?.payload?.progress, event?.payload?.total);
+      const { progress: installProgress, total: installTotal } = parseProgressPair(event?.payload?.install_progress, event?.payload?.install_total);
       return (prev) => {
         const next = { ...(prev?.downloadProgressByJobId || {}) };
         next[jobId] = {
           jobId,
           name: event.payload.name,
-          progress: parseInt(event.payload.progress),
-          total: parseInt(event.payload.total),
-          speed: event.payload.speed ? parseInt(event.payload.speed) : undefined,
-          disk: event.payload.disk ? parseInt(event.payload.disk) : undefined,
+          progress,
+          total,
+          speed: parseOptionalInt(event.payload.speed),
+          disk: parseOptionalInt(event.payload.disk),
           // Include install progress if present in the same event (Sophon downloads)
-          installProgress: event.payload.install_progress !== undefined ? parseInt(event.payload.install_progress) : undefined,
-          installTotal: event.payload.install_total !== undefined ? parseInt(event.payload.install_total) : undefined,
+          installProgress,
+          installTotal,
           // Phase: verifying, downloading, installing, validating, moving
           phase: parsePhase(event.payload.phase),
           eventType,
@@ -207,6 +235,7 @@ export function registerEvents(
     case 'repair_installing': {
       const jobId = event?.payload?.job_id ?? event?.payload?.jobId;
       if (!jobId) return undefined;
+      const { progress: installProgress, total: installTotal } = parseProgressPair(event?.payload?.progress, event?.payload?.total);
       return (prev) => {
         const next = { ...(prev?.downloadProgressByJobId || {}) };
         const existing = next[jobId] || {};
@@ -215,8 +244,8 @@ export function registerEvents(
           jobId,
           name: event.payload.name || existing.name,
           // Keep existing download progress, add installation progress
-          installProgress: event.payload.progress !== undefined ? parseInt(event.payload.progress) : existing.installProgress,
-          installTotal: event.payload.total !== undefined ? parseInt(event.payload.total) : existing.installTotal,
+          installProgress: installProgress ?? existing.installProgress,
+          installTotal: installTotal ?? existing.installTotal,
           eventType,
         };
         return { downloadProgressByJobId: next };
@@ -225,18 +254,20 @@ export function registerEvents(
     case 'preload_progress': {
       const jobId = event?.payload?.job_id ?? event?.payload?.jobId;
       if (!jobId) return undefined;
+      const { progress, total } = parseProgressPair(event?.payload?.progress, event?.payload?.total);
+      const { progress: installProgress, total: installTotal } = parseProgressPair(event?.payload?.install_progress, event?.payload?.install_total);
       return (prev) => {
         const next = { ...(prev?.downloadProgressByJobId || {}) };
         next[jobId] = {
           jobId,
           name: event.payload.name,
-          progress: parseInt(event.payload.progress),
-          total: parseInt(event.payload.total),
-          speed: event.payload.speed ? parseInt(event.payload.speed) : undefined,
-          disk: event.payload.disk ? parseInt(event.payload.disk) : undefined,
+          progress,
+          total,
+          speed: parseOptionalInt(event.payload.speed),
+          disk: parseOptionalInt(event.payload.disk),
           // Include install progress if present in the same event (Sophon downloads)
-          installProgress: event.payload.install_progress !== undefined ? parseInt(event.payload.install_progress) : undefined,
-          installTotal: event.payload.install_total !== undefined ? parseInt(event.payload.install_total) : undefined,
+          installProgress,
+          installTotal,
           // Phase: verifying, downloading, installing, validating, moving
           phase: parsePhase(event.payload.phase),
           eventType,
@@ -247,15 +278,16 @@ export function registerEvents(
     case 'preload_installing': {
       const jobId = event?.payload?.job_id ?? event?.payload?.jobId;
       if (!jobId) return undefined;
+      const { progress, total } = parseProgressPair(event?.payload?.progress, event?.payload?.total);
       return (prev) => {
         const next = { ...(prev?.downloadProgressByJobId || {}) };
         next[jobId] = {
           jobId,
           name: event.payload.name,
-          progress: event.payload.progress !== undefined ? parseInt(event.payload.progress) : undefined,
-          total: event.payload.total !== undefined ? parseInt(event.payload.total) : undefined,
-          speed: event.payload.speed ? parseInt(event.payload.speed) : undefined,
-          disk: event.payload.disk ? parseInt(event.payload.disk) : undefined,
+          progress,
+          total,
+          speed: parseOptionalInt(event.payload.speed),
+          disk: parseOptionalInt(event.payload.disk),
           eventType,
         };
         return { downloadProgressByJobId: next };

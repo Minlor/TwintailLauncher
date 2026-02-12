@@ -12,10 +12,12 @@ interface IProps {
     pushInstalls: () => void,
     setCurrentInstall: (id: string) => void,
     setCurrentGame: (id: string) => void,
-    setBackground: (id: string) => void
+    setBackground: (id: string) => void,
+    setDisplayName: (name: string) => void,
+    setGameIcon: (icon: string) => void
 }
 
-export default function InstallDeleteConfirm({ setOpenPopup, install, games, installs, pushInstalls, setCurrentGame, setCurrentInstall, setBackground }: IProps) {
+export default function InstallDeleteConfirm({ setOpenPopup, install, games, installs, pushInstalls, setCurrentGame, setCurrentInstall, setBackground, setDisplayName, setGameIcon }: IProps) {
     const [isClosing, setIsClosing] = useState(false);
 
     const handleClose = () => {
@@ -62,34 +64,32 @@ export default function InstallDeleteConfirm({ setOpenPopup, install, games, ins
                     invoke("remove_install", { id: install.id, wipePrefix: wpd }).then(r => {
                         if (r) {
                             pushInstalls();
-                            // Defensive: check installs and games length before accessing
-                            if (installs.length === 1) { // after removal, will be 0
+                            // Filter out the just-deleted install to avoid selecting stale data
+                            const remaining = installs.filter((i: any) => i.id !== install.id);
+                            if (remaining.length > 0) {
+                                const next = remaining[0];
+                                const nextGame = games.find((g: any) => g.manifest_id === next.manifest_id);
+                                setCurrentInstall(next.id);
+                                setCurrentGame(nextGame ? nextGame.biz : (games.length > 0 ? games[0].biz : ""));
+                                setBackground(next.game_background);
+                                setDisplayName(next.name);
+                                setGameIcon(next.game_icon);
+                                const el = document.getElementById(next.id);
+                                if (el) el.focus();
+                            } else if (games.length > 0) {
                                 setCurrentInstall("");
-                                if (games.length > 0) {
-                                    setCurrentGame(games[0].biz);
-                                    setBackground(games[0].assets.game_background);
-                                    // @ts-ignore
-                                    const el = document.getElementById(games[0].biz);
-                                    if (el) el.focus();
-                                } else {
-                                    setCurrentGame("");
-                                    setBackground("");
-                                }
-                            } else if (installs.length > 1) {
-                                setCurrentInstall(installs[0].id);
-                                if (games.length > 0) {
-                                    setCurrentGame(games[0].biz);
-                                } else {
-                                    setCurrentGame("");
-                                }
-                                setBackground(installs[0].game_background);
-                                // @ts-ignore
-                                const el = document.getElementById(installs[0].id);
+                                setCurrentGame(games[0].biz);
+                                setBackground(games[0].assets.game_background);
+                                setDisplayName(games[0].display_name);
+                                setGameIcon(games[0].assets.game_icon);
+                                const el = document.getElementById(games[0].biz);
                                 if (el) el.focus();
                             } else {
                                 setCurrentInstall("");
                                 setCurrentGame("");
                                 setBackground("");
+                                setDisplayName("");
+                                setGameIcon("");
                             }
                         } else {
                             console.error("Uninstall error!");

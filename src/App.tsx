@@ -551,6 +551,8 @@ export default class App extends React.Component<any, any> {
                         installGameFps={this.state.installGameFps}
                         installs={this.state.installs}
                         setCurrentPage={this.setCurrentPage}
+                        setDisplayName={this.setDisplayName}
+                        setGameIcon={this.setGameIcon}
                         imageVersion={this.state.imageVersion}
                     />
                     <BackgroundControls

@@ -58,6 +58,8 @@ export type PopupOverlayProps = {
 
   // Delete confirmation
   installs: any[];
+  setDisplayName: (name: string) => void;
+  setGameIcon: (icon: string) => void;
 
   // Page navigation
   setCurrentPage: (page: PAGES) => void;
@@ -96,6 +98,8 @@ export default function PopupOverlay(props: PopupOverlayProps) {
     installGameFps,
     installs,
     setCurrentPage,
+    setDisplayName,
+    setGameIcon,
     imageVersion = 0,
   } = props;
 
@@ -190,6 +194,8 @@ export default function PopupOverlay(props: PopupOverlayProps) {
             setCurrentInstall={setCurrentInstall}
             setCurrentGame={setCurrentGame}
             setBackground={setBackground}
+            setDisplayName={setDisplayName}
+            setGameIcon={setGameIcon}
           />
         )}
         {openPopup == POPUPS.FPSUNLOCKERSETTINGS && (

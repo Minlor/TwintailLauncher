@@ -1,5 +1,12 @@
 export function toPercent(number: any, total: any): number {
-  return (parseInt(number) / parseInt(total)) * 100;
+  const current = Number(number);
+  const max = Number(total);
+  if (!Number.isFinite(current) || !Number.isFinite(max) || max <= 0) {
+    return 0;
+  }
+
+  const percent = (current / max) * 100;
+  return Math.max(0, Math.min(100, percent));
 }
 
 export function formatBytes(bytes: number): string {

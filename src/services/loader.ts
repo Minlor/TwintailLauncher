@@ -283,6 +283,8 @@ export class NetworkMonitor {
   private onRecoveryProgress: RecoveryProgressCallback;
   private onConnectivityLost?: () => void;
   private previousStatus: NetworkStatus["status"] = "online";
+  private consecutiveFailures = 0;
+  private static readonly FAILURE_THRESHOLD = 3;
   private recoveryOpts: Pick<LoaderOptions, 'fetchRepositories' | 'fetchCompatibilityVersions' | 'fetchInstalledRunners' | 'fetchSteamRTStatus' | 'getGamesInfo' | 'getInstalls' | 'preloadImages' | 'preloadedBackgrounds' | 'applyEventState'> | null = null;
 
   constructor(
@@ -334,18 +336,28 @@ export class NetworkMonitor {
   async check(): Promise<NetworkStatus> {
     const status = await checkNetworkConnectivity();
 
-    // Detect connectivity loss (was online, now offline/slow)
-    if (this.previousStatus === "online" && status.status !== "online") {
-      // Connectivity lost - notify and enter limited mode
+    if (status.status !== "online") {
+      this.consecutiveFailures++;
+    } else {
+      this.consecutiveFailures = 0;
+    }
+
+    // Only trigger connectivity loss after consecutive failures to avoid false positives
+    // during download congestion or transient network hiccups
+    if (this.previousStatus === "online" && status.status !== "online" && this.consecutiveFailures >= NetworkMonitor.FAILURE_THRESHOLD) {
       if (this.onConnectivityLost) {
         this.onConnectivityLost();
       }
       if (this.recoveryOpts) {
         this.recoveryOpts.applyEventState({ limitedMode: true, networkStatus: status.status });
       }
+      this.previousStatus = status.status;
+    } else if (status.status === "online") {
+      this.previousStatus = status.status;
     }
+    // If not yet at threshold, keep previousStatus as "online" so the transition
+    // logic can still fire once the threshold is reached
 
-    this.previousStatus = status.status;
     this.onStatusChange(status, this.isRecovering);
     return status;
   }
