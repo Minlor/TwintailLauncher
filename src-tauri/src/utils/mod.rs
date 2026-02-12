@@ -22,6 +22,14 @@ use tauri_plugin_notification::NotificationExt;
 
 #[cfg(target_os = "linux")]
 use crate::utils::repo_manager::{get_manifests};
+#[cfg(target_os = "linux")]
+use crate::DownloadState;
+#[cfg(target_os = "linux")]
+use crate::downloading::queue::QueueJobKind;
+#[cfg(target_os = "linux")]
+use crate::downloading::{QueueJobPayload, RunnerDownloadPayload};
+#[cfg(target_os = "linux")]
+use crate::utils::repo_manager::get_compatibility;
 
 pub mod args;
 pub mod db_manager;
@@ -406,7 +414,7 @@ pub fn sync_installed_runners(app: &AppHandle) {
             }
         }
 
-        for e in fs::read_dir(runners).unwrap() {
+        for e in fs::read_dir(&runners).unwrap() {
             match e {
                 Ok(d) => {
                     let path = d.path();
@@ -425,6 +433,66 @@ pub fn sync_installed_runners(app: &AppHandle) {
                     }
                 }
                 Err(_) => {}
+            }
+        }
+
+        // Auto-redownload missing runners that game installs depend on
+        let installs = get_installs(app);
+        if let Some(insts) = installs {
+            let mut queued_versions = std::collections::HashSet::new();
+            for inst in &insts {
+                let rv = &inst.runner_version;
+                if rv.is_empty() || queued_versions.contains(rv) { continue; }
+
+                // Check if this runner is already installed
+                let runner_info = get_installed_runner_info_by_version(app, rv.clone());
+                let is_installed = runner_info.as_ref().map_or(false, |r| r.is_installed);
+                if is_installed { continue; }
+
+                // Resolve the download URL from the compatibility manifest
+                let manifest_file = match runner_from_runner_version(rv.clone()) {
+                    Some(f) if !f.is_empty() => f,
+                    _ => continue,
+                };
+                let compat = match get_compatibility(app, &manifest_file) {
+                    Some(c) => c,
+                    None => continue,
+                };
+                let matched: Vec<_> = compat.versions.into_iter().filter(|v| v.version == *rv).collect();
+                let runner_ver = match matched.first() {
+                    Some(v) => v,
+                    None => continue,
+                };
+
+                // Determine the download URL based on architecture
+                let mut dl_url = runner_ver.url.clone();
+                if let Some(ref urls) = runner_ver.urls {
+                    #[cfg(target_arch = "x86_64")]
+                    { dl_url = urls.x86_64.clone(); }
+                    #[cfg(target_arch = "aarch64")]
+                    { dl_url = if urls.aarch64.is_empty() { runner_ver.url.clone() } else { urls.aarch64.clone() }; }
+                }
+
+                let runner_path = runners.join(rv);
+                if !runner_path.exists() { fs::create_dir_all(&runner_path).unwrap(); }
+
+                // Ensure the DB entry exists
+                if runner_info.is_none() {
+                    let _ = create_installed_runner(app, rv.clone(), false, runner_path.to_str().unwrap().to_string());
+                }
+
+                // Enqueue the download
+                let state = app.state::<DownloadState>();
+                let q = state.queue.lock().unwrap().clone();
+                if let Some(queue) = q {
+                    queue.enqueue(QueueJobKind::RunnerDownload, QueueJobPayload::Runner(RunnerDownloadPayload {
+                        runner_version: rv.clone(),
+                        runner_url: dl_url,
+                        runner_path: runner_path.to_str().unwrap().to_string(),
+                    }));
+                    queued_versions.insert(rv.clone());
+                    eprintln!("Auto-redownloading missing runner: {}", rv);
+                }
             }
         }
     }
