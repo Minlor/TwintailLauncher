@@ -34,7 +34,7 @@ pub fn register_repair_handler(app: &AppHandle) {
 pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: String) -> QueueJobOutcome {
     let job_id = Arc::new(job_id);
     let install_id = payload.install.clone();
-    let install = get_install_info_by_id(&h5, payload.install);
+    let install = get_install_info_by_id(&h5, payload.install.clone());
     if install.is_none() { eprintln!("Failed to find installation for repair!");return QueueJobOutcome::Failed; }
 
     let i = install.unwrap();
@@ -80,6 +80,13 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
         if prefix_path.exists() && !gm.extra.compat_overrides.install_to_prefix { empty_dir(prefix_path).unwrap(); }
     }
 
+    let verified_files = {
+        let state = h5.state::<DownloadState>();
+        let mut vf = state.verified_files.lock().unwrap();
+        vf.entry(payload.install.clone()).or_insert_with(|| Arc::new(Mutex::new(std::collections::HashSet::new()))).clone()
+    };
+
+    let mut success = false;
     match picked.metadata.download_mode.as_str() {
         // Generic zipped mode, Variety per game
         "DOWNLOAD_MODE_FILE" => {
@@ -87,43 +94,73 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
         }
         // HoYoverse sophon chunk mode
         "DOWNLOAD_MODE_CHUNK" => {
+            let install_dir = std::path::Path::new(&i.directory);
+            let repairing_marker = install_dir.join("repairing");
+            if !install_dir.exists() { std::fs::create_dir_all(install_dir).unwrap_or_default(); }
+
             let biz = if payload.biz.is_empty() { gm.biz.clone() } else { payload.biz.clone() };
             let region = if payload.region.is_empty() { i.region_code.clone() } else { payload.region.clone() };
 
             let urls = if biz == "bh3_global" { picked.game.full.clone().iter().filter(|e| e.region_code.clone().unwrap() == region).cloned().collect::<Vec<FullGameFile>>() } else { picked.game.full.clone() };
-            urls.into_iter().for_each(|e| {
+            // Pre-calculate combined totals across all manifest files
+            let combined_download_total: u64 = urls.iter().map(|e| e.compressed_size.parse::<u64>().unwrap_or(0)).sum();
+            let combined_install_total: u64 = urls.iter().map(|e| e.decompressed_size.parse::<u64>().unwrap_or(0)).sum();
+            // Track cumulative progress from completed manifests
+            let cumulative_download = Arc::new(std::sync::atomic::AtomicU64::new(0));
+            let cumulative_install = Arc::new(std::sync::atomic::AtomicU64::new(0));
+            let total_manifests = urls.len();
+            let mut ok = true;
+            for (manifest_idx, e) in urls.clone().into_iter().enumerate() {
+                let h5 = h5.clone();
                 let cancel_token = cancel_token.clone();
-                run_async_command(async {
+                let cumulative_download = cumulative_download.clone();
+                let cumulative_install = cumulative_install.clone();
+                let is_last_manifest = manifest_idx == total_manifests - 1;
+                let rslt = run_async_command(async {
                     <Game as Sophon>::repair_game(e.file_url.clone(), e.file_path.clone(), i.directory.clone(), false, {
-                            let dlpayload = dlpayload.clone();
-                            let instn = instn.clone();
-                            let tmp = tmp.clone();
-                            let job_id = job_id.clone();
-                            move |download_current, download_total, install_current, install_total, net_speed, disk_speed, phase| {
-                                let mut dlp = dlpayload.lock().unwrap();
-                                let instn = instn.clone();
-                                let tmp = tmp.clone();
-                                dlp.insert("job_id", job_id.to_string());
-                                dlp.insert("name", instn.to_string());
-                                dlp.insert("progress", download_current.to_string());
-                                dlp.insert("total", download_total.to_string());
-                                dlp.insert("speed", net_speed.to_string());
-                                dlp.insert("disk", disk_speed.to_string());
-                                // Include install progress in same event to avoid flickering
-                                dlp.insert("install_progress", install_current.to_string());
-                                dlp.insert("install_total", install_total.to_string());
-                                // Phase: 0=idle, 1=verifying, 2=downloading, 3=installing, 4=validating, 5=moving
-                                dlp.insert("phase", phase.to_string());
-                                tmp.emit("repair_progress", dlp.clone()).unwrap();
-                                drop(dlp);
-                            }
-                        }, Some(cancel_token),
-                    ).await
+                        let dlpayload = dlpayload.clone();
+                        let instn = instn.clone();
+                        let job_id = job_id.clone();
+                        let cumulative_download = cumulative_download.clone();
+                        let cumulative_install = cumulative_install.clone();
+                        move |download_current, _download_total, install_current, _install_total, net_speed, disk_speed, phase| {
+                            let mut dlp = dlpayload.lock().unwrap();
+                            let instn = instn.to_string();
+                            // Add cumulative progress from previous manifests to current progress
+                            let total_download_progress = cumulative_download.load(Ordering::SeqCst) + download_current;
+                            let total_install_progress = cumulative_install.load(Ordering::SeqCst) + install_current;
+                            dlp.insert("job_id", job_id.to_string());
+                            dlp.insert("name", instn.clone());
+                            dlp.insert("progress", total_download_progress.to_string());
+                            dlp.insert("total", combined_download_total.to_string());
+                            dlp.insert("speed", net_speed.to_string());
+                            dlp.insert("disk", disk_speed.to_string());
+                            // Include install progress in same event to avoid flickering
+                            dlp.insert("install_progress", total_install_progress.to_string());
+                            dlp.insert("install_total", combined_install_total.to_string());
+                            // Phase: 0=idle, 1=verifying, 2=downloading, 3=installing, 4=validating, 5=moving
+                            // Override phase 5 (moving) to phase 2 (downloading) if not on last manifest
+                            let effective_phase = if phase == 5 && !is_last_manifest { 2 } else { phase };
+                            dlp.insert("phase", effective_phase.to_string());
+                            h5.emit("repair_progress", dlp.clone()).unwrap();
+                            drop(dlp);
+                        }
+                    }, Some(cancel_token), Some(verified_files.clone())).await
                 });
-            });
-            // We finished the loop emit complete
-            h5.emit("repair_complete", ()).unwrap();
-            send_notification(&h5, format!("Repair of {inn} complete.", inn = i.name).as_str(), None);
+                if !rslt { ok = false;break; }
+                // After manifest completes, add its size to cumulative progress
+                cumulative_download.fetch_add(e.compressed_size.parse::<u64>().unwrap_or(0), Ordering::SeqCst);
+                cumulative_install.fetch_add(e.decompressed_size.parse::<u64>().unwrap_or(0), Ordering::SeqCst);
+            }
+            if ok {
+                if repairing_marker.exists() { std::fs::remove_dir(&repairing_marker).unwrap_or_default(); }
+                h5.emit("repair_complete", ()).unwrap();
+                success = true;
+            } else {
+                show_dialog(&h5, "warning", "TwintailLauncher", &format!("Error occurred while trying to repair {}\nPlease try again!", i.name), Some(vec!["Ok"]));
+                h5.emit("repair_complete", ()).unwrap();
+                success = false;
+            }
         }
         // KuroGame only
         "DOWNLOAD_MODE_RAW" => {
@@ -164,7 +201,6 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                 h5.emit("repair_complete", ()).unwrap();
             }
         }
-        // Fallback mode
         _ => {}
     }
 
@@ -174,11 +210,13 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
         let tokens = state.tokens.lock().unwrap();
         if let Some(token) = tokens.get(&install_id) { if token.load(Ordering::Relaxed) { cancelled = true; } }
     }
+
     {
         let state = h5.state::<DownloadState>();
         let mut tokens = state.tokens.lock().unwrap();
         tokens.remove(&install_id);
     }
+
     if cancelled {
         let mut dlp = HashMap::new();
         dlp.insert("job_id", job_id.to_string());
@@ -186,5 +224,5 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
         h5.emit("repair_paused", dlp).unwrap();
         return QueueJobOutcome::Cancelled;
     }
-    QueueJobOutcome::Completed
+    if success { QueueJobOutcome::Completed } else { QueueJobOutcome::Failed }
 }
