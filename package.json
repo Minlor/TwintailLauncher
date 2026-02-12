@@ -13,20 +13,20 @@
         "build:native": "tauri build"
     },
     "dependencies": {
-        "@floating-ui/react": "^0.27.16",
+        "@floating-ui/react": "^0.27.17",
         "@tauri-apps/api": "^2.10.1",
         "@tauri-apps/plugin-dialog": "^2.6.0",
-        "framer-motion": "^12.31.0",
+        "framer-motion": "^12.34.0",
         "lucide-react": "^0.487.0",
         "react": "^18.3.1",
         "react-dom": "^18.3.1"
     },
     "devDependencies": {
-        "@tauri-apps/cli": "^2.9.6",
-        "@types/react": "^18.3.27",
+        "@tauri-apps/cli": "^2.10.0",
+        "@types/react": "^18.3.28",
         "@types/react-dom": "^18.3.7",
         "@vitejs/plugin-react": "^4.7.0",
-        "autoprefixer": "^10.4.23",
+        "autoprefixer": "^10.4.24",
         "postcss": "^8.5.6",
         "tailwind-scrollbar": "^3.1.0",
         "tailwindcss": "^3.4.19",
