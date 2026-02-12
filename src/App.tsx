@@ -17,7 +17,7 @@ import PopupOverlay from "./components/layout/PopupOverlay";
 import PageViewContainer from "./components/pages/PageViewContainer";
 import GameInfoOverlay from "./components/layout/GameInfoOverlay";
 import { startInitialLoad, NetworkMonitor, type RecoveryProgress, type NetworkStatus } from "./services/loader";
-import { showDialogAsync } from "./context/DialogContext";
+import { showDialogAsync, closeCurrentDialog } from "./context/DialogContext";
 import SidebarRunners from "./components/sidebar/SidebarRunners.tsx";
 import SidebarDownloads from "./components/sidebar/SidebarDownloads";
 import { toPercent } from "./utils/progress";
@@ -618,6 +618,8 @@ export default class App extends React.Component<any, any> {
             (status: NetworkStatus, isRecovering: boolean) => {
                 // Only update state if we're in limited mode and status changes
                 if (this.state.limitedMode && status.status === "online" && !isRecovering) {
+                    // Auto-close the "Connection Lost" dialog if it's still open
+                    closeCurrentDialog();
                     // Auto-trigger recovery when connectivity is restored
                     this.networkMonitor?.triggerRecovery();
                 }

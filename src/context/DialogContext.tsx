@@ -29,8 +29,9 @@ interface DialogContextType {
 
 const DialogContext = createContext<DialogContextType | undefined>(undefined);
 
-// Global reference for showing dialogs from outside React components
+// Global reference for showing/closing dialogs from outside React components
 let globalShowDialog: ((options: DialogOptions) => void) | null = null;
+let globalCloseDialog: ((buttonIndex?: number) => void) | null = null;
 
 /**
  * Check if the dialog provider is ready
@@ -71,6 +72,13 @@ export async function showDialogAsync(options: Omit<DialogOptions, 'onClose'>): 
     });
 }
 
+/**
+ * Programmatically close the currently open dialog from outside React components.
+ */
+export function closeCurrentDialog(buttonIndex: number = 0) {
+    if (globalCloseDialog) globalCloseDialog(buttonIndex);
+}
+
 export function DialogProvider({ children }: { children: React.ReactNode }) {
     const [dialog, setDialog] = useState<DialogState | null>(null);
 
@@ -91,14 +99,6 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
         });
     }, []);
 
-    // Set global reference for use outside React components
-    useEffect(() => {
-        globalShowDialog = showDialog;
-        return () => {
-            globalShowDialog = null;
-        };
-    }, [showDialog]);
-
     const closeDialog = useCallback((buttonIndex: number = 0) => {
         setDialog((prev) => {
             if (prev?.onClose) {
@@ -107,6 +107,16 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
             return null;
         });
     }, []);
+
+    // Set global reference for use outside React components
+    useEffect(() => {
+        globalShowDialog = showDialog;
+        globalCloseDialog = closeDialog;
+        return () => {
+            globalShowDialog = null;
+            globalCloseDialog = null;
+        };
+    }, [showDialog, closeDialog]);
 
     return (
         <DialogContext.Provider value={{ dialog, showDialog, closeDialog }}>
