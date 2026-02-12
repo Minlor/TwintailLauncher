@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+// @ts-ignore
 import { execSync } from "child_process";
 
 // @ts-expect-error process is a Node.js global
