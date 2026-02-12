@@ -1,10 +1,10 @@
-import { useState } from "react";
+import {useEffect, useState} from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Settings, Download, Folder, Shield, Info, Monitor, Box, ArrowLeft, HeartIcon } from "lucide-react";
-import TTLVersion from "../common/TTLVersion";
 import { SettingsSidebar, SettingsTab } from "../sidebar/SettingsSidebar.tsx";
 import { SettingsSection, ModernInput, ModernPathInput, ModernSelect, SettingsCard } from "../common/SettingsComponents.tsx";
 import { PAGES } from "./PAGES";
+import {getVersion} from "@tauri-apps/api/app";
 
 interface SettingsPageProps {
     settings: any;
@@ -61,6 +61,12 @@ export default function SettingsPage({ settings, fetchSettings, setCurrentPage }
         setAnimClass(direction);
         setActiveTab(newTabId);
     };
+
+    const [version, setVersion] = useState('');
+    const branch = import.meta.env.MODE || "unknown";
+    useEffect(() => {
+        getVersion().then(setVersion);
+    }, []);
 
     return (
         <div
@@ -224,8 +230,11 @@ export default function SettingsPage({ settings, fetchSettings, setCurrentPage }
                             <h1 className="text-4xl font-black bg-gradient-to-r from-white via-pink-200 to-violet-200 bg-clip-text text-transparent mb-2">
                                 Twintail Launcher
                             </h1>
+                            {/*Version display from TTLVersion component*/}
                             <div className="mb-8">
-                                <TTLVersion />
+                                <span className="text-zinc-300">
+                                    Version: <span className={"text-purple-400 font-bold"}>{version}</span> | Branch: <span className={"text-orange-400 font-bold"}>{branch}</span> | Commit: <span className={"text-cyan-400 font-bold"}>{__COMMIT_HASH__}</span>
+                                 </span>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-lg w-full">
                                 <button onClick={() => invoke('open_uri', { uri: 'https://github.com/TwintailTeam/twintail' })} className="flex items-center justify-center gap-2 p-3 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 rounded-xl transition-all group cursor-pointer">

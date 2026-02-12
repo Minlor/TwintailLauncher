@@ -136,7 +136,7 @@ export default function GameSettings({
                             <div className="grid grid-cols-1 gap-4 mt-4">
                                 <ModernToggle
                                     label="Skip Version Checks"
-                                    description="Don't check for game updates on launch."
+                                    description="Don't check for game updates."
                                     checked={installSettings.ignore_updates}
                                     onChange={(val) => handleUpdate("skip_version_updates", val)}
                                 />

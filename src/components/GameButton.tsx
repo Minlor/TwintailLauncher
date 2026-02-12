@@ -50,6 +50,20 @@ export default function GameButton({ currentInstall, globalSettings, buttonType,
             clearTimeout(timeoutRef.current);
             timeoutRef.current = null;
         }
+
+        // Immediately check if the game is already running for this install.
+        // If it is, mark running and start polling to track when it stops.
+        (async () => {
+            try {
+                const isRunning = await invoke<boolean | null>("check_game_running", { id: currentInstall });
+                if (isRunning === true) {
+                    wasRunningRef.current = true;
+                    setGameStatus("running");
+                    // start polling to detect when the game exits
+                    startGameStatusPolling();
+                }
+            } catch (e) {}
+        })();
     }, [currentInstall]);
 
     const stopPolling = () => {

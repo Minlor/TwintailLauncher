@@ -1,15 +1,22 @@
-import { Check, ChevronDown, DownloadCloudIcon, Folder, HardDrive, HardDriveDownloadIcon, X } from "lucide-react";
+import {
+    Check,
+    ChevronDown,
+    DownloadCloudIcon,
+    Folder,
+    Gamepad2Icon,
+    HardDrive,
+    HardDriveDownloadIcon, Monitor, Terminal,
+    X
+} from "lucide-react";
 import { POPUPS } from "./POPUPS.ts";
 import { PAGES } from "../pages/PAGES.ts";
-import FolderInput from "../common/FolderInput.tsx";
-import CheckBox from "../common/CheckBox.tsx";
-import SelectMenu from "../common/SelectMenu.tsx";
 import { CachedImage } from "../common/CachedImage";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { useState, useEffect, useRef } from "react";
 import { formatBytes } from "../../utils/progress";
 import { open } from "@tauri-apps/plugin-dialog";
+import {ModernPathInput, ModernSelect, ModernToggle} from "../common/SettingsComponents.tsx";
 
 interface IProps {
     disk: any;
@@ -68,6 +75,12 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
 
     // Controlled State for Install Path
     const [installPath, setInstallPath] = useState(`${settings.default_game_path}/${biz}`);
+    // Controlled State for Proton Prefix Path
+    const [runnerPrefixPath, setRunnerPrefixPath] = useState(`${settings.default_runner_prefix_path}/${biz}`);
+    // Controlled State for skip version updates
+    const [skipVersionUpdates, setSkipVersionUpdates] = useState(false);
+    // Controlled State for disable hash validation
+    const [disableHashValidation, setDisableHashValidation] = useState(false);
 
     // Update path effect to fetch sizes
     useEffect(() => {
@@ -85,7 +98,6 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
     const hasEnoughSpace = skipGameDownload || (freeSpace > requiredSpace);
     const usagePercent = freeSpace > 0 ? Math.min(100, (requiredSpace / freeSpace) * 100) : 0;
 
-
     // Update button state when skipGameDownload changes
     useEffect(() => {
         const btn = document.getElementById("game_dl_btn");
@@ -102,9 +114,6 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
         }
     }, [skipGameDownload, hasEnoughSpace]);
 
-
-
-
     const handleBrowse = async () => {
         const selected = await open({
             directory: true,
@@ -119,22 +128,11 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
     const handleInstall = () => {
         setIsClosing(true);
         setTimeout(() => {
-            // @ts-ignore
-            let hash_skip = document.getElementById("skip_hash_validation")?.checked;
-            // @ts-ignore
-            let skip_version = document.getElementById("skip_version_updates")?.checked;
-
             let install_path = installPath;
             let gvv = selectedGameVersion;
             let vpp = selectedAudioLang;
             let rvv = selectedRunnerVersion || "none";
             let dvv = selectedDxvkVersion || "none";
-            let rp = document.getElementById("install_prefix_path");
-            let rpp = "none";
-            if (rp !== null) {
-                // @ts-ignore
-                rpp = rp.value;
-            }
             let skipdl = skipGameDownload;
             invoke("add_install", {
                 manifestId: biz,
@@ -148,8 +146,8 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
                 dxvkVersion: dvv,
                 gameIcon: icon,
                 gameBackground: popupBanner,
-                ignoreUpdates: skip_version,
-                skipHashCheck: hash_skip,
+                ignoreUpdates: skipVersionUpdates,
+                skipHashCheck: disableHashValidation,
                 useJadeite: false,
                 useXxmi: false,
                 useFpsUnlock: false,
@@ -157,7 +155,7 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
                 preLaunchCommand: "",
                 launchCommand: "",
                 fpsValue: "60",
-                runnerPrefix: rpp,
+                runnerPrefix: runnerPrefixPath,
                 launchArgs: "",
                 skipGameDl: skipdl,
                 regionCode: selectedRegionCode
@@ -185,7 +183,6 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
 
     return (
         <div className={`relative w-[95vw] max-w-4xl h-auto max-h-[90vh] flex flex-col overflow-hidden rounded-2xl shadow-2xl border border-white/10 bg-[#0c0c0c] group/download ${isClosing ? 'animate-zoom-out' : 'animate-zoom-in'}`} style={{ willChange: 'transform, opacity', backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' as any, transform: 'translateZ(0)' }}>
-
             {/* Hero Header */}
             <div className="relative h-48 w-full flex-shrink-0">
                 {popupBanner && (
@@ -197,10 +194,7 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
                 )}
 
                 <div className="absolute top-4 right-4 z-20">
-                    <button
-                        onClick={() => { setIsClosing(true); setTimeout(() => setOpenPopup(POPUPS.NONE), 200); }}
-                        className="p-2 rounded-full bg-black/60 hover:bg-white/10 border border-white/5 transition-all duration-200 hover:scale-105 opacity-0 group-hover/download:opacity-100"
-                    >
+                    <button onClick={() => { setIsClosing(true); setTimeout(() => setOpenPopup(POPUPS.NONE), 200); }} className="p-2 rounded-full bg-black/60 hover:bg-white/10 border border-white/5 transition-all duration-200 hover:scale-105 opacity-0 group-hover/download:opacity-100">
                         <X className="w-6 h-6 text-white/70 group-hover:text-white" />
                     </button>
                 </div>
@@ -215,24 +209,17 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
                         <h1 className="text-4xl font-bold text-white tracking-tight drop-shadow-md">{skipGameDownload ? "Add Installation" : "Install Game"}</h1>
                         <div className="flex items-center gap-3 mt-1 relative">
                             <span className="text-white/80 font-medium text-lg">{displayName}</span>
-
                             {/* Version Pill */}
                             <div className="relative" ref={dropdownRef}>
-                                <button
-                                    onClick={() => setIsVersionOpen(!isVersionOpen)}
-                                    className="flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 hover:border-purple-500/50 transition-all cursor-pointer group"
-                                >
+                                <button onClick={() => setIsVersionOpen(!isVersionOpen)} className="flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 hover:border-purple-500/50 transition-all cursor-pointer group">
                                     <span className="text-purple-300 font-bold text-sm">{selectedGameVersion}</span>
                                     <ChevronDown size={14} className={`text-purple-400 transition-transform duration-200 ${isVersionOpen ? 'rotate-180' : ''}`} />
                                 </button>
-
                                 {/* Dropdown */}
                                 {isVersionOpen && (
                                     <div className="absolute top-full left-0 mt-2 w-48 max-h-60 overflow-y-auto bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl z-50 py-1 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/20 hover:scrollbar-thumb-white/30">
                                         {versions.map((v) => (
-                                            <button
-                                                key={v.value}
-                                                onClick={() => {
+                                            <button key={v.value} onClick={() => {
                                                     setSelectedGameVersion(v.value);
                                                     setIsVersionOpen(false);
                                                     // Update local popup banner (don't change main app background)
@@ -240,9 +227,7 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
                                                     if (newBackground) {
                                                         setPopupBanner(newBackground);
                                                     }
-                                                }}
-                                                className="w-full px-4 py-2 text-left hover:bg-white/10 flex items-center justify-between group"
-                                            >
+                                                }} className="w-full px-4 py-2 text-left hover:bg-white/10 flex items-center justify-between group">
                                                 <span className={`text-sm ${selectedGameVersion === v.value ? 'text-white font-bold' : 'text-zinc-400 group-hover:text-white'}`}>
                                                     {v.name}
                                                 </span>
@@ -259,7 +244,6 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
 
             {/* Content Body */}
             <div className="flex-1 overflow-y-auto overflow-x-hidden p-8 space-y-8 bg-[#0c0c0c]/80 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/20 hover:scrollbar-thumb-white/30">
-
                 {/* Location Section - Custom Card Design */}
                 <div className="space-y-4">
                     <h3 className="text-white/90 font-semibold text-lg flex items-center gap-2">
@@ -277,14 +261,10 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
                                     {installPath}
                                 </div>
                             </div>
-                            <button
-                                onClick={handleBrowse}
-                                className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white border border-white/5 hover:border-white/20 transition-all text-sm font-medium"
-                            >
+                            <button onClick={handleBrowse} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white border border-white/5 hover:border-white/20 transition-all text-sm font-medium">
                                 Change
                             </button>
                         </div>
-
                         {/* Disk Space Visual - Integrated */}
                         {!skipGameDownload && (
                             <div className="bg-black/20 px-4 py-3 border-t border-white/5">
@@ -299,10 +279,7 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
                                     </div>
                                 </div>
                                 <div className="w-full bg-zinc-800/50 rounded-full h-1.5 overflow-hidden">
-                                    <div
-                                        className={`h-full rounded-full transition-all duration-500 ${hasEnoughSpace ? 'bg-gradient-to-r from-purple-500 to-blue-500' : 'bg-red-500'}`}
-                                        style={{ width: `${Math.min(100, Math.max(2, usagePercent))}%` }}
-                                    />
+                                    <div className={`h-full rounded-full transition-all duration-500 ${hasEnoughSpace ? 'bg-gradient-to-r from-purple-500 to-blue-500' : 'bg-red-500'}`} style={{ width: `${Math.min(100, Math.max(2, usagePercent))}%` }}/>
                                 </div>
                                 {!hasEnoughSpace && (
                                     <p className="text-red-400 text-xs mt-2 font-medium flex items-center gap-1">
@@ -313,78 +290,70 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
                         )}
                     </div>
                 </div>
-
-                {/* Settings Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Version Selector removed from here, moved to header */}
-
-                    {biz === "bh3_global" && (
-                        <div className="space-y-2">
-                            <label className="text-white/70 text-sm font-medium ml-1">Region</label>
-                            <SelectMenu
-                                id={"game_region_code"}
-                                name=""
-                                multiple={false}
-                                options={[{ name: "Europe & America", value: "glb_official" }, { name: "Japan", value: "jp_official" }, { name: "Korea", value: "kr_official" }, { name: "SEA", value: "overseas_official" }, { name: "Traditional Chinese", value: "asia_official" }]}
-                                selected={selectedRegionCode}
-                                helpText={"Region you want downloaded."}
-                                setOpenPopup={setOpenPopup}
-                                onSelect={setSelectedRegionCode}
-                            />
-                        </div>
-                    )}
-                </div>
-
+                {biz === "bh3_global" && (
+                    <div className="space-y-4">
+                        <h3 className="text-white/90 font-semibold text-lg flex items-center gap-2">
+                            <Gamepad2Icon className="text-emerald-400" size={20} /> Game specific
+                        </h3>
+                        <ModernSelect
+                            label="Region"
+                            description="Game region you want downloaded."
+                            value={selectedRegionCode || ""}
+                            options={[{ name: "Europe & America", value: "glb_official" }, { name: "Japan", value: "jp_official" }, { name: "Korea", value: "kr_official" }, { name: "SEA", value: "overseas_official" }, { name: "Traditional Chinese", value: "asia_official" }]}
+                            onChange={(val) => setSelectedRegionCode(val)}
+                        />
+                    </div>
+                )}
                 {window.navigator.platform.includes("Linux") && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-white/5">
-                        <div className="space-y-2">
-                            <label className="text-white/70 text-sm font-medium ml-1">Runner</label>
-                            <SelectMenu
-                                id={"runner_version"}
-                                name=""
-                                multiple={false}
+                    <div className="space-y-4">
+                        <h3 className="text-white/90 font-semibold text-lg flex items-center gap-2">
+                            <Monitor className="text-orange-400" size={20} /> Linux options
+                        </h3>
+                        <div className="flex flex-col gap-2">
+                            <ModernSelect
+                                label="Runner Version"
+                                description="Select the Wine/Proton version to download with the game."
+                                value={selectedRunnerVersion || ""}
                                 options={runnerVersions}
-                                selected={selectedRunnerVersion}
-                                helpText={"Wine/Proton version."}
-                                setOpenPopup={setOpenPopup}
-                                onSelect={setSelectedRunnerVersion}
+                                onChange={(val) => setSelectedRunnerVersion(val)}
                             />
-                            <button
-                                onClick={() => {
-                                    setOpenPopup(POPUPS.NONE);
-                                    setCurrentPage(PAGES.RUNNERS);
-                                }}
-                                className="text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors text-left px-1 underline-offset-2 hover:underline"
-                            >
+                            <button onClick={() => {
+                                setOpenPopup(POPUPS.NONE);
+                                setCurrentPage(PAGES.RUNNERS);
+                            }} className="text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors text-left px-1 underline-offset-2 hover:underline">
                                 → Manage Runners
                             </button>
                         </div>
-                        <div className="space-y-2 md:col-span-2">
-                            <label className="text-white/70 text-sm font-medium ml-1">Prefix Path</label>
-                            <div className="bg-white/5 rounded-xl p-1 border border-white/5">
-                                <FolderInput name="" clearable={true} value={`${settings.default_runner_prefix_path}/${biz}`} folder={true} id={"install_prefix_path"} helpText={"Location where to store Wine/Proton prefix."} />
-                            </div>
-                        </div>
+                        <ModernPathInput
+                            label="Prefix Path"
+                            description="Path to the Wine/Proton prefix."
+                            value={runnerPrefixPath || ""}
+                            onChange={(val) => setRunnerPrefixPath(val)}
+                        />
                     </div>
                 )}
-
-                {/* Advanced Options */}
-                <div className="pt-4 border-t border-white/5">
-                    <p className="text-white/40 text-xs font-bold uppercase tracking-wider mb-3">Advanced Options</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <CheckBox enabled={false} name={"Skip version update check"} id={"skip_version_updates"} helpText={"Skip checking for game updates."} />
-                        <CheckBox enabled={false} name={"Skip hash validation"} id={"skip_hash_validation"} helpText={"Skip validating files during game repair process."} />
-                    </div>
+                <div className="space-y-4">
+                    <h3 className="text-white/90 font-semibold text-lg flex items-center gap-2">
+                        <Terminal className="text-blue-400" size={20} /> Advanced options
+                    </h3>
+                    <ModernToggle
+                        label="Skip Version Checks"
+                        description="Don't check for game updates."
+                        checked={skipVersionUpdates || false}
+                        onChange={(val) => setSkipVersionUpdates(val)}
+                    />
+                    <ModernToggle
+                        label="Skip Hash Validation"
+                        description="Skip file verification during repairs (faster but less safe)."
+                        checked={disableHashValidation || false}
+                        onChange={(val) => setDisableHashValidation(val)}
+                    />
                 </div>
-
             </div>
 
             {/* Footer Actions */}
             <div className="p-6 bg-[#0c0c0c]/90 border-t border-white/5 flex flex-col-reverse sm:flex-row justify-end gap-3 z-20">
-                <button
-                    onClick={() => { setIsClosing(true); setTimeout(() => setOpenPopup(POPUPS.NONE), 200); }}
-                    className="px-6 py-3 rounded-xl text-white/50 hover:text-white hover:bg-white/5 transition-all font-medium text-sm"
-                >
+                <button onClick={() => { setIsClosing(true); setTimeout(() => setOpenPopup(POPUPS.NONE), 200); }} className="px-6 py-3 rounded-xl text-white/50 hover:text-white hover:bg-white/5 transition-all font-medium text-sm">
                     Cancel
                 </button>
                 <button

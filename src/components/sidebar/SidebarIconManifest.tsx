@@ -31,6 +31,7 @@ type SidebarIconProps = {
     variant?: "default" | "floating",
 }
 
+// @ts-ignore
 export default function SidebarIconManifest({ icon, name, id, setGameIcon, setCurrentGame, setCurrentInstall, setOpenPopup, popup, setDisplayName, setBackground, background, enabled, sizeClass = "w-12", variant = "default", currentGame }: SidebarIconProps) {
     const [isOpen, setIsOpen] = useState(false);
 

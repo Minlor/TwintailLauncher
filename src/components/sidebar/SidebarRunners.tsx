@@ -56,7 +56,7 @@ export default function SidebarRunners({setOpenPopup, popup, currentPage, setCur
             {(isOpen && popup == POPUPS.NONE && currentPage === PAGES.NONE) && (
                 <div ref={refs.setFloating} style={floatingStyles} {...getFloatingProps()} className="bg-black/75 rounded-md p-2 min-w-max z-50">
                     <FloatingArrow ref={arrowRef} context={context} className="fill-black/75" />
-                    <span className="text-white z-50">Runner management</span>
+                    <span className="text-white z-50">Runners</span>
                 </div>
             )}
         </React.Fragment>
