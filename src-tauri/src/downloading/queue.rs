@@ -7,6 +7,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
 use crate::downloading::QueueJobPayload;
+use crate::utils::db_manager::get_install_info_by_id;
 
 static JOB_COUNTER: AtomicU64 = AtomicU64::new(1);
 
@@ -310,9 +311,8 @@ pub fn start_download_queue_worker(app: AppHandle, initial_max_concurrent: usize
             match rx.recv_timeout(Duration::from_millis(200)) {
                 Ok(cmd) => match cmd {
                     QueueCommand::Enqueue(job) => {
-                        let name = job.payload.get_name();
                         let install_id = job.payload.get_id();
-                        // UI-visible name will be improved by the job runner via progress events.
+                        let name = if let QueueJobPayload::Game(ref p) = job.payload { get_install_info_by_id(&app, p.install.clone()).map(|i| i.name).unwrap_or_else(|| job.payload.get_name()) } else { job.payload.get_name() };
                         queued_views.push_back(QueueJobView {
                             id: job.id.clone(),
                             kind: job.kind,
