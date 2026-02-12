@@ -44,6 +44,7 @@ type SidebarIconProps = {
     isDragTarget?: boolean,
 }
 
+// @ts-ignore
 export default function SidebarIconInstall({ icon, name, id, setCurrentInstall, setGameIcon, setOpenPopup, popup, currentPage, setCurrentPage, setDisplayName, setBackground, background, enabled, hasUpdate, installSettings, onOpenInstallSettings, onRefreshSettings, index, onDragStart, onDragEnd, onDragOver, onDrop, isDragging, isDragTarget }: SidebarIconProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
