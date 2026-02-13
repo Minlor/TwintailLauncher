@@ -88,23 +88,18 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
 
     let mut success = false;
     match picked.metadata.download_mode.as_str() {
-        // Generic zipped mode, Variety per game
         "DOWNLOAD_MODE_FILE" => {
             h5.emit("repair_complete", ()).unwrap();
         }
-        // HoYoverse sophon chunk mode
         "DOWNLOAD_MODE_CHUNK" => {
             let install_dir = std::path::Path::new(&i.directory);
             let repairing_marker = install_dir.join("repairing");
             if !install_dir.exists() { std::fs::create_dir_all(install_dir).unwrap_or_default(); }
 
-            let biz = if payload.biz.is_empty() { gm.biz.clone() } else { payload.biz.clone() };
-            let region = if payload.region.is_empty() { i.region_code.clone() } else { payload.region.clone() };
-
-            let urls = if biz == "bh3_global" { picked.game.full.clone().iter().filter(|e| e.region_code.clone().unwrap() == region).cloned().collect::<Vec<FullGameFile>>() } else { picked.game.full.clone() };
+            let urls = if gm.biz == "bh3_global" { picked.game.full.clone().iter().filter(|e| e.region_code.clone().unwrap() == i.region_code.clone()).cloned().collect::<Vec<FullGameFile>>() } else { picked.game.full.clone() };
             // Pre-calculate combined totals across all manifest files
-            let combined_download_total: u64 = urls.iter().map(|e| e.compressed_size.parse::<u64>().unwrap_or(0)).sum();
-            let combined_install_total: u64 = urls.iter().map(|e| e.decompressed_size.parse::<u64>().unwrap_or(0)).sum();
+            let combined_download_total: u64 = if gm.biz == "bh3_global" { urls.iter().filter(|e| e.region_code.clone().unwrap() == i.region_code.clone()).map(|e| e.compressed_size.parse::<u64>().unwrap_or(0)).sum() } else { urls.iter().map(|e| e.compressed_size.parse::<u64>().unwrap_or(0)).sum() };
+            let combined_install_total: u64 = if gm.biz == "bh3_global" { urls.iter().filter(|e| e.region_code.clone().unwrap() == i.region_code.clone()).map(|e| e.decompressed_size.parse::<u64>().unwrap_or(0)).sum() } else { urls.iter().map(|e| e.decompressed_size.parse::<u64>().unwrap_or(0)).sum() };
             // Track cumulative progress from completed manifests
             let cumulative_download = Arc::new(std::sync::atomic::AtomicU64::new(0));
             let cumulative_install = Arc::new(std::sync::atomic::AtomicU64::new(0));
@@ -162,7 +157,6 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                 success = false;
             }
         }
-        // KuroGame only
         "DOWNLOAD_MODE_RAW" => {
             let urls = picked.game.full.iter().map(|v| v.file_url.clone()).collect::<Vec<String>>();
             let manifest = urls.get(0).unwrap();

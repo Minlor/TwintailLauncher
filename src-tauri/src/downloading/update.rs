@@ -81,84 +81,46 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
         }
 
         match picked.metadata.download_mode.as_str() {
-            // Generic zipped mode, Variety per game
             "DOWNLOAD_MODE_FILE" => {
                 let urls = picked.game.diff.iter().filter(|e| e.original_version.as_str() == install.version.clone().as_str()).collect::<Vec<&DiffGameFile>>();
                 if urls.is_empty() {
-                    let install_clone = install.clone();
                     let h5_clone = h5.clone();
-                    let gbiz_clone = gbiz.clone();
                     let payload_lang = payload.lang.clone();
-                    let vn_clone = vn.clone();
-                    let ig_clone = ig.clone();
-                    let gb_clone = gb.clone();
-                    let vc_clone = vc.clone();
 
-                    h5.listen("dialog_response", move |event| {
-                        if let Ok(response) = serde_json::from_str::<DialogResponse>(event.payload()) {
-                            if response.callback_id == "dialog_update_redownload_full" {
-                                if response.button_index == 0 {
-                                    // "Redownload" clicked
-                                    let ip = Path::new(&install_clone.directory);
-                                    empty_dir(&ip).unwrap_or_default();
-                                    let mut data = HashMap::new();
-                                    data.insert("install", install_clone.id.clone());
-                                    data.insert("biz", gbiz_clone.clone());
-                                    data.insert("lang", payload_lang.clone());
-                                    data.insert("region", install_clone.region_code.clone());
-                                    data.insert("is_latest", "1".to_string());
-                                    h5_clone.emit("start_game_download", data).unwrap();
-                                    update_install_after_update_by_id(&h5_clone, install_clone.id.clone(), vn_clone.clone(), ig_clone.clone(), gb_clone.clone(), vc_clone.clone());
-                                    #[cfg(target_os = "linux")]
-                                    crate::utils::shortcuts::sync_desktop_shortcut(&h5_clone, install_clone.id.clone(), vn_clone.clone());
-                                } else {
-                                    // "Cancel" clicked
-                                    h5_clone.emit("update_complete", ()).unwrap();
-                                }
-                            }
-                        }
-                    });
-                    show_dialog_with_callback(&h5, "info", "TwintailLauncher", &format!("Could not find update for {}!\nRedownload latest full game version by pressing \"Redownload\" button.", install.name), Some(vec!["Redownload", "Cancel"]), Some("dialog_update_redownload_full"));
+                    empty_dir(&install.directory).unwrap_or_default();
+                    let mut data = HashMap::new();
+                    data.insert("install", install.id.clone());
+                    data.insert("biz", gbiz.clone());
+                    data.insert("lang", payload_lang.clone());
+                    data.insert("region", install.region_code.clone());
+                    data.insert("is_latest", "1".to_string());
+                    h5_clone.emit("start_game_download", data).unwrap();
+                    update_install_after_update_by_id(&h5_clone, install.id.clone(), vn.clone(), ig.clone(), gb.clone(), vc.clone());
+                    h5.emit("update_complete", ()).unwrap();
+                    #[cfg(target_os = "linux")]
+                    crate::utils::shortcuts::sync_desktop_shortcut(&h5, install.id.clone(), picked.metadata.versioned_name.clone());
                 } else {
                     h5.emit("update_complete", ()).unwrap();
                 }
             }
-            // HoYoverse sophon chunk mode
             "DOWNLOAD_MODE_CHUNK" => {
                 let urls = picked.game.diff.iter().filter(|e| e.original_version.as_str() == install.version.clone().as_str()).collect::<Vec<&DiffGameFile>>();
                 if urls.is_empty() {
-                    let install_clone = install.clone();
                     let h5_clone = h5.clone();
-                    let gbiz_clone = gbiz.clone();
                     let payload_lang = payload.lang.clone();
-                    let vn_clone = vn.clone();
-                    let ig_clone = ig.clone();
-                    let gb_clone = gb.clone();
-                    let vc_clone = vc.clone();
 
-                    h5.listen("dialog_response", move |event| {
-                        if let Ok(response) = serde_json::from_str::<DialogResponse>(event.payload()) {
-                            if response.callback_id == "dialog_update_redownload_full" {
-                                if response.button_index == 0 {
-                                    // "Redownload" clicked
-                                    let ip = Path::new(&install_clone.directory);
-                                    empty_dir(&ip).unwrap_or_default();
-                                    let mut data = HashMap::new();
-                                    data.insert("install", install_clone.id.clone());
-                                    data.insert("biz", gbiz_clone.clone());
-                                    data.insert("lang", payload_lang.clone());
-                                    data.insert("region", install_clone.region_code.clone());
-                                    data.insert("is_latest", "1".to_string());
-                                    h5_clone.emit("start_game_download", data).unwrap();
-                                    update_install_after_update_by_id(&h5_clone, install_clone.id.clone(), vn_clone.clone(), ig_clone.clone(), gb_clone.clone(), vc_clone.clone());
-                                } else {
-                                    // "Cancel" clicked
-                                    h5_clone.emit("update_complete", ()).unwrap();
-                                }
-                            }
-                        }
-                    });
-                    show_dialog_with_callback(&h5, "info", "TwintailLauncher", &format!("Could not find update for {}!\nRedownload latest full game version by pressing \"Redownload\" button.", install.name), Some(vec!["Redownload", "Cancel"]), Some("dialog_update_redownload_full"));
+                    empty_dir(&install.directory).unwrap_or_default();
+                    let mut data = HashMap::new();
+                    data.insert("install", install.id.clone());
+                    data.insert("biz", gbiz.clone());
+                    data.insert("lang", payload_lang.clone());
+                    data.insert("region", install.region_code.clone());
+                    data.insert("is_latest", "1".to_string());
+                    h5_clone.emit("start_game_download", data).unwrap();
+                    update_install_after_update_by_id(&h5_clone, install.id.clone(), vn.clone(), ig.clone(), gb.clone(), vc.clone());
+                    h5.emit("update_complete", ()).unwrap();
+                    #[cfg(target_os = "linux")]
+                    crate::utils::shortcuts::sync_desktop_shortcut(&h5, install.id.clone(), picked.metadata.versioned_name.clone());
                 } else {
                     let total_size: u64 = urls.clone().into_iter().map(|e| e.decompressed_size.parse::<u64>().unwrap()).sum();
                     let available = available(install.directory.clone());
@@ -204,7 +166,6 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                     }
                 }
             }
-            // KuroGame only
             "DOWNLOAD_MODE_RAW" => {
                 let urls = picked.game.diff.iter().filter(|e| e.original_version.as_str() == install.version.clone().as_str()).collect::<Vec<&DiffGameFile>>();
                 if urls.is_empty() {
@@ -292,7 +253,6 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                     }
                 }
             }
-            // Fallback mode
             _ => {}
         }
 

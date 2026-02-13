@@ -68,11 +68,9 @@ pub fn run_game_preload(h5: AppHandle, payload: DownloadGamePayload, job_id: Str
             }
 
             match pmd.download_mode.as_str() {
-                // Generic zipped mode, Variety per game
                 "DOWNLOAD_MODE_FILE" => {
                     h5.emit("preload_complete", ()).unwrap();
                 }
-                // HoYoverse sophon chunk mode
                 "DOWNLOAD_MODE_CHUNK" => {
                     let pg = picked.game.unwrap();
                     let urls = pg.diff.iter().filter(|e| e.original_version.as_str() == install.version.clone().as_str()).collect::<Vec<&DiffGameFile>>();
@@ -123,7 +121,6 @@ pub fn run_game_preload(h5: AppHandle, payload: DownloadGamePayload, job_id: Str
                         }
                     }
                 }
-                // KuroGame only
                 "DOWNLOAD_MODE_RAW" => {
                     let pg = picked.game.unwrap();
                     let urls = pg.diff.iter().filter(|e| e.original_version.as_str() == install.version.clone().as_str()).collect::<Vec<&DiffGameFile>>();
@@ -178,7 +175,6 @@ pub fn run_game_preload(h5: AppHandle, payload: DownloadGamePayload, job_id: Str
                         }
                     }
                 }
-                // Fallback mode
                 _ => {}
             }
         }

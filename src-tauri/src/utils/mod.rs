@@ -187,7 +187,6 @@ pub fn register_listeners(app: &AppHandle) {
                 }
                 "dialog_runner_dl_fail" => { /* Empties the directory in its handler not here */ }
                 "dialog_extra_dl_fail" => { /* Handled in respective failure blocks */}
-                "dialog_update_redownload_full" => { /* This is directly handled in the update.rs due to passing the job_id and such*/ }
                 _ => {}
             }
         }
