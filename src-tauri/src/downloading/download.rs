@@ -3,7 +3,7 @@ use crate::downloading::queue::{QueueJobKind, QueueJobOutcome};
 use crate::downloading::{DownloadGamePayload, QueueJobPayload};
 use crate::utils::db_manager::{get_install_info_by_id, get_manifest_info_by_id};
 use crate::utils::repo_manager::get_manifest;
-use crate::utils::{models::{FullGameFile, GameVersion}, run_async_command, send_notification, show_dialog};
+use crate::utils::{models::{FullGameFile, GameVersion}, run_async_command, show_dialog};
 use fischl::download::game::{Game, Kuro, Sophon, Zipped};
 use fischl::utils::{assemble_multipart_archive, extract_archive_with_progress};
 use std::collections::HashMap;
@@ -50,7 +50,6 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
         };
 
         let instn = if payload.is_latest.is_some() { Arc::new(picked.metadata.versioned_name.clone()) } else { Arc::new(install.name.clone()) };
-        let inna = instn.clone();
         let dlpayload = Arc::new(Mutex::new(HashMap::new()));
 
         let mut dlp = dlpayload.lock().unwrap();
@@ -138,7 +137,6 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
                             if ext {
                                 if downloading_marker.exists() { std::fs::remove_dir(&downloading_marker).unwrap_or_default(); }
                                 h4.emit("download_complete", ()).unwrap();
-                                send_notification(&h4, format!("Download of {inn} complete.", inn = inna.to_string()).as_str(), None);
                                 success = true;
                             }
                         }
@@ -162,7 +160,6 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
                         if ext {
                             if downloading_marker.exists() { std::fs::remove_dir(&downloading_marker).unwrap_or_default(); }
                             h4.emit("download_complete", ()).unwrap();
-                            send_notification(&h4, format!("Download of {inn} complete.", inn = inna.to_string()).as_str(), None);
                             success = true;
                         }
                     }
@@ -235,7 +232,6 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
                 if ok {
                     if downloading_marker.exists() { std::fs::remove_dir(&downloading_marker).unwrap_or_default(); }
                     h4.emit("download_complete", ()).unwrap();
-                    send_notification(&h4, format!("Download of {inn} complete.", inn = inna.to_string()).as_str(), None);
                     success = true;
                 } else {
                     show_dialog(&h4, "warning", "TwintailLauncher", &format!("Error occurred while trying to download {}\nPlease try again!", install.name), Some(vec!["Ok"]));
@@ -278,7 +274,6 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
                 if rslt {
                     if downloading_marker.exists() { std::fs::remove_dir(&downloading_marker).unwrap_or_default(); }
                     h4.emit("download_complete", ()).unwrap();
-                    send_notification(&h4, format!("Download of {inn} complete.", inn = inna.to_string()).as_str(), None);
                     success = true;
                     #[cfg(target_os = "linux")]
                     crate::utils::apply_patch(&h4, Path::new(&install.directory.clone()).to_str().unwrap().to_string(), "aki".to_string(), "add".to_string());
