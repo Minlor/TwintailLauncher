@@ -93,7 +93,6 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
         }
         "DOWNLOAD_MODE_CHUNK" => {
             let install_dir = std::path::Path::new(&i.directory);
-            let repairing_marker = install_dir.join("repairing");
             if !install_dir.exists() { std::fs::create_dir_all(install_dir).unwrap_or_default(); }
 
             let urls = if gm.biz == "bh3_global" { picked.game.full.clone().iter().filter(|e| e.region_code.clone().unwrap() == i.region_code.clone()).cloned().collect::<Vec<FullGameFile>>() } else { picked.game.full.clone() };
@@ -112,7 +111,7 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                 let cumulative_install = cumulative_install.clone();
                 let is_last_manifest = manifest_idx == total_manifests - 1;
                 let rslt = run_async_command(async {
-                    <Game as Sophon>::repair_game(e.file_url.clone(), e.file_path.clone(), i.directory.clone(), false, {
+                    <Game as Sophon>::repair_game(e.file_url.clone(), e.file_path.clone(), i.directory.clone(), i.skip_hash_check.clone(), {
                         let dlpayload = dlpayload.clone();
                         let instn = instn.clone();
                         let job_id = job_id.clone();
@@ -148,7 +147,6 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                 cumulative_install.fetch_add(e.decompressed_size.parse::<u64>().unwrap_or(0), Ordering::SeqCst);
             }
             if ok {
-                if repairing_marker.exists() { std::fs::remove_dir(&repairing_marker).unwrap_or_default(); }
                 h5.emit("repair_complete", ()).unwrap();
                 success = true;
             } else {
@@ -159,14 +157,13 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
         }
         "DOWNLOAD_MODE_RAW" => {
             let install_dir = std::path::Path::new(&i.directory);
-            let repairing_marker = install_dir.join("repairing");
             if !install_dir.exists() { std::fs::create_dir_all(install_dir).unwrap_or_default(); }
 
             let urls = picked.game.full.iter().map(|v| v.file_url.clone()).collect::<Vec<String>>();
             let manifest = urls.get(0).unwrap();
             let cancel_token = cancel_token.clone();
             let rslt = run_async_command(async {
-                <Game as Kuro>::repair_game(manifest.to_owned(), picked.metadata.res_list_url.clone(), i.directory.clone(), false, {
+                <Game as Kuro>::repair_game(manifest.to_owned(), picked.metadata.res_list_url.clone(), i.directory.clone(), i.skip_hash_check.clone(), {
                         let dlpayload = dlpayload.clone();
                         let job_id = job_id.clone();
                         move |download_current, download_total, install_current, install_total, net_speed, disk_speed, phase| {
@@ -184,11 +181,9 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                             tmp.emit("repair_progress", dlp.clone()).unwrap();
                             drop(dlp);
                         }
-                    }, Some(cancel_token),
-                ).await
+                    }, Some(cancel_token), Some(verified_files.clone())).await
             });
             if rslt {
-                if repairing_marker.exists() { std::fs::remove_dir(&repairing_marker).unwrap_or_default(); }
                 h5.emit("repair_complete", ()).unwrap();
                 success = true;
                 #[cfg(target_os = "linux")]
@@ -222,5 +217,10 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
         h5.emit("repair_paused", dlp).unwrap();
         return QueueJobOutcome::Cancelled;
     }
-    if success { QueueJobOutcome::Completed } else { QueueJobOutcome::Failed }
+    if success {
+        { verified_files.lock().unwrap().clear(); }
+        QueueJobOutcome::Completed
+    } else {
+        { verified_files.lock().unwrap().clear(); }
+        QueueJobOutcome::Failed }
 }

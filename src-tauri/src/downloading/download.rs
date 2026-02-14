@@ -78,7 +78,6 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
         match picked.metadata.download_mode.as_str() {
             "DOWNLOAD_MODE_FILE" => {
                 let install_dir = Path::new(&install.directory);
-                let downloading_marker = install_dir.join("downloading");
                 if !install_dir.exists() { std::fs::create_dir_all(install_dir).unwrap_or_default(); }
 
                 let urls = picked.game.full.iter().map(|v| v.file_url.clone()).collect::<Vec<String>>();
@@ -134,7 +133,6 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
                                     }
                                 });
                             if ext {
-                                if downloading_marker.exists() { std::fs::remove_dir(&downloading_marker).unwrap_or_default(); }
                                 h4.emit("download_complete", ()).unwrap();
                                 success = true;
                             }
@@ -157,7 +155,6 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
                                 }
                             });
                         if ext {
-                            if downloading_marker.exists() { std::fs::remove_dir(&downloading_marker).unwrap_or_default(); }
                             h4.emit("download_complete", ()).unwrap();
                             success = true;
                         }
@@ -170,7 +167,6 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
             }
             "DOWNLOAD_MODE_CHUNK" => {
                 let install_dir = Path::new(&install.directory);
-                let downloading_marker = install_dir.join("downloading");
                 if !install_dir.exists() { std::fs::create_dir_all(install_dir).unwrap_or_default(); }
 
                 let urls = if gm.biz == "bh3_global" { picked.game.full.clone().iter().filter(|e| e.region_code.clone().unwrap() == install.region_code.clone()).cloned().collect::<Vec<FullGameFile>>() } else { picked.game.full.clone() };
@@ -225,7 +221,6 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
                     cumulative_install.fetch_add(e.decompressed_size.parse::<u64>().unwrap_or(0), Ordering::SeqCst);
                 }
                 if ok {
-                    if downloading_marker.exists() { std::fs::remove_dir(&downloading_marker).unwrap_or_default(); }
                     h4.emit("download_complete", ()).unwrap();
                     success = true;
                 } else {
@@ -236,7 +231,6 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
             }
             "DOWNLOAD_MODE_RAW" => {
                 let install_dir = Path::new(&install.directory);
-                let downloading_marker = install_dir.join("downloading");
                 if !install_dir.exists() { std::fs::create_dir_all(install_dir).unwrap_or_default(); }
 
                 let urls = picked.game.full.iter().map(|v| v.file_url.clone()).collect::<Vec<String>>();
@@ -266,7 +260,6 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
                         }, Some(cancel_token), Some(verified_files.clone())).await
                 });
                 if rslt {
-                    if downloading_marker.exists() { std::fs::remove_dir(&downloading_marker).unwrap_or_default(); }
                     h4.emit("download_complete", ()).unwrap();
                     success = true;
                     #[cfg(target_os = "linux")]
@@ -299,7 +292,13 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
             h4.emit("download_paused", dlp).unwrap();
             return QueueJobOutcome::Cancelled;
         }
-        if success { QueueJobOutcome::Completed } else { QueueJobOutcome::Failed }
+        if success {
+            { verified_files.lock().unwrap().clear(); }
+            QueueJobOutcome::Completed
+        } else {
+            { verified_files.lock().unwrap().clear(); }
+            QueueJobOutcome::Failed
+        }
     } else {
         eprintln!("Failed to download game!");
         QueueJobOutcome::Failed
