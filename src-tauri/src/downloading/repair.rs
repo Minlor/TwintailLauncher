@@ -3,7 +3,7 @@ use crate::downloading::queue::{QueueJobKind, QueueJobOutcome};
 use crate::downloading::{DownloadGamePayload, QueueJobPayload};
 use crate::utils::db_manager::{get_install_info_by_id, get_manifest_info_by_id};
 use crate::utils::repo_manager::get_manifest;
-use crate::utils::{models::{FullGameFile, GameVersion}, run_async_command, send_notification, show_dialog};
+use crate::utils::{models::{FullGameFile, GameVersion}, run_async_command, show_dialog};
 use fischl::download::game::{Game, Kuro, Sophon};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool,Ordering};
@@ -158,6 +158,10 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
             }
         }
         "DOWNLOAD_MODE_RAW" => {
+            let install_dir = std::path::Path::new(&i.directory);
+            let repairing_marker = install_dir.join("repairing");
+            if !install_dir.exists() { std::fs::create_dir_all(install_dir).unwrap_or_default(); }
+
             let urls = picked.game.full.iter().map(|v| v.file_url.clone()).collect::<Vec<String>>();
             let manifest = urls.get(0).unwrap();
             let cancel_token = cancel_token.clone();
@@ -184,15 +188,15 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                 ).await
             });
             if rslt {
+                if repairing_marker.exists() { std::fs::remove_dir(&repairing_marker).unwrap_or_default(); }
                 h5.emit("repair_complete", ()).unwrap();
-                send_notification(&h5, format!("Repair of {inn} complete.", inn = i.name).as_str(), None);
+                success = true;
                 #[cfg(target_os = "linux")]
                 crate::utils::apply_patch(&h5, std::path::Path::new(&i.directory.clone()).to_str().unwrap().to_string(), "aki".to_string(), "add".to_string());
             } else {
                 show_dialog(&h5, "warning", "TwintailLauncher", &format!("Error occurred while trying to repair {}\nPlease try again!", i.name), Some(vec!["Ok"]));
-                let dir = std::path::Path::new(&i.directory).join("repairing");
-                if dir.exists() { std::fs::remove_dir_all(dir).unwrap_or_default(); }
                 h5.emit("repair_complete", ()).unwrap();
+                success = false;
             }
         }
         _ => {}
