@@ -16,6 +16,7 @@ import ActionBar from "./components/layout/ActionBar";
 import PopupOverlay from "./components/layout/PopupOverlay";
 import PageViewContainer from "./components/pages/PageViewContainer";
 import GameInfoOverlay from "./components/layout/GameInfoOverlay";
+import PlayStatsOverlay from "./components/layout/PlayStatsOverlay";
 import { startInitialLoad, NetworkMonitor, type RecoveryProgress, type NetworkStatus } from "./services/loader";
 import { showDialogAsync, closeCurrentDialog } from "./context/DialogContext";
 import SidebarRunners from "./components/sidebar/SidebarRunners.tsx";
@@ -508,6 +509,11 @@ export default class App extends React.Component<any, any> {
                         })()}
                         isVisible={(this.state.currentInstall !== "" || this.state.currentGame !== "") && this.state.openPopup === POPUPS.NONE && this.state.currentPage === PAGES.NONE}
                         imageVersion={this.state.imageVersion}
+                    />
+                    <PlayStatsOverlay
+                        lastPlayedTime={this.state.installSettings?.last_played_time}
+                        totalPlaytime={this.state.installSettings?.total_playtime}
+                        isVisible={this.state.currentInstall !== "" && this.state.openPopup === POPUPS.NONE && this.state.currentPage === PAGES.NONE}
                     />
 
                     <ActionBar
