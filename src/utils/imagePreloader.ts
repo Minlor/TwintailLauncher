@@ -82,13 +82,16 @@ export function getPreloadedImage(url: string): HTMLImageElement | HTMLVideoElem
  */
 export function cacheImage(url: string, element: HTMLImageElement | HTMLVideoElement, failed: boolean = false): void {
   if (!url) return;
-  loadedUrls.add(url);
-  imageElementCache.set(url, element);
   pendingPreloads.delete(url);
+
   if (failed) {
+    loadedUrls.delete(url);
     failedUrls.add(url);
+    imageElementCache.delete(url);
   } else {
+    loadedUrls.add(url);
     failedUrls.delete(url);
+    imageElementCache.set(url, element);
   }
 }
 
@@ -110,7 +113,7 @@ export function isVideoUrl(url: string): boolean {
  */
 export function preloadImage(src: string): Promise<void> {
   // Already loaded - resolve immediately
-  if (loadedUrls.has(src)) {
+  if (loadedUrls.has(src) && !failedUrls.has(src)) {
     return Promise.resolve();
   }
 
@@ -143,10 +146,10 @@ export function preloadImage(src: string): Promise<void> {
       video.onloadeddata = handleReady;
 
       video.onerror = () => {
-        // Mark as loaded but track as failed for potential retry
-        loadedUrls.add(src);
+        // Mark as failed so future requests can retry
+        loadedUrls.delete(src);
         failedUrls.add(src);
-        imageElementCache.set(src, video);
+        imageElementCache.delete(src);
         pendingPreloads.delete(src);
         resolve();
       };
@@ -164,17 +167,28 @@ export function preloadImage(src: string): Promise<void> {
       img.loading = "eager";
 
       img.onload = () => {
-        loadedUrls.add(src);
-        imageElementCache.set(src, img);
-        pendingPreloads.delete(src);
-        resolve();
+        const completeLoad = () => {
+          loadedUrls.add(src);
+          failedUrls.delete(src);
+          imageElementCache.set(src, img);
+          pendingPreloads.delete(src);
+          resolve();
+        };
+
+        if (typeof img.decode === "function") {
+          img.decode().catch(() => {
+            // Keep successful onload even if decode rejects.
+          }).finally(completeLoad);
+        } else {
+          completeLoad();
+        }
       };
 
       img.onerror = () => {
-        // Mark as loaded but track as failed for potential retry
-        loadedUrls.add(src);
+        // Mark as failed so future requests can retry
+        loadedUrls.delete(src);
         failedUrls.add(src);
-        imageElementCache.set(src, img);
+        imageElementCache.delete(src);
         pendingPreloads.delete(src);
         resolve();
       };

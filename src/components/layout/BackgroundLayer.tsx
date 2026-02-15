@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useRef} from "react";
-import {getPreloadedImage, isImagePreloaded, isLinux, isVideoUrl, preloadImage} from "../../utils/imagePreloader";
+import {getPreloadedImage, isImageFailed, isImagePreloaded, isLinux, isVideoUrl, preloadImage} from "../../utils/imagePreloader";
 
 interface BackgroundLayerProps {
   currentSrc: string;
@@ -50,7 +50,7 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
 
   // Create and configure video element from preloaded or new
   const createVideoElement = useCallback((src: string, className: string, onLoad?: () => void): HTMLVideoElement => {
-    const preloaded = getPreloadedImage(src);
+    const preloaded = isImageFailed(src) ? undefined : getPreloadedImage(src);
     let video: HTMLVideoElement;
 
     if (preloaded && preloaded instanceof HTMLVideoElement) {
@@ -83,7 +83,7 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
 
   // Create and configure image element from preloaded or new
   const createImageElement = useCallback((src: string, className: string, onLoad?: () => void): HTMLImageElement => {
-    const preloaded = getPreloadedImage(src);
+    const preloaded = isImageFailed(src) ? undefined : getPreloadedImage(src);
     let img: HTMLImageElement;
 
     if (preloaded && preloaded instanceof HTMLImageElement) {
@@ -286,7 +286,13 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
           element.onload = revealImage;
           // Fallback timeout
           setTimeout(() => {
-            if (element.style.opacity === "0" && currentElementRef.current === element) {
+            const imageElement = element as HTMLImageElement;
+            if (
+              imageElement.style.opacity === "0" &&
+              currentElementRef.current === imageElement &&
+              imageElement.complete &&
+              imageElement.naturalHeight !== 0
+            ) {
               revealImage();
             }
           }, 500);
@@ -318,7 +324,7 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
     const baseClass = `w-full h-screen object-cover object-center absolute inset-0 transition-none animate-bg-fade-out ${(popupOpen || pageOpen) ? "scale-[1.03]" : ""}`;
 
     if (isVideo(previousSrc)) {
-      const preloaded = getPreloadedImage(previousSrc);
+      const preloaded = isImageFailed(previousSrc) ? undefined : getPreloadedImage(previousSrc);
       let video: HTMLVideoElement;
 
       if (preloaded && preloaded instanceof HTMLVideoElement) {
@@ -337,7 +343,7 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
 
       container.appendChild(video);
     } else {
-      const preloaded = getPreloadedImage(previousSrc);
+      const preloaded = isImageFailed(previousSrc) ? undefined : getPreloadedImage(previousSrc);
       let img: HTMLImageElement;
 
       if (preloaded && preloaded instanceof HTMLImageElement) {
