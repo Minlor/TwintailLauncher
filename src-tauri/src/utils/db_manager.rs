@@ -138,6 +138,7 @@ pub async fn init_db(app: &AppHandle) {
             sql: r#"ALTER TABLE install ADD COLUMN xxmi_config TEXT DEFAULT '{"hunting_mode":0,"require_admin":true,"dll_init_delay":500,"close_delay":20,"show_warnings":0,"dump_shaders":false}' NOT NULL;"#,
             kind: MigrationKind::Up,
         },
+        // === 2.0.0 migrations start ===
         Migration {
             version: 20,
             description: "alter_settings_table_download_speed_limit",
@@ -156,6 +157,19 @@ pub async fn init_db(app: &AppHandle) {
             sql: r#"ALTER TABLE install ADD COLUMN sort_order INTEGER DEFAULT 0 NOT NULL;"#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 23,
+            description: "alter_install_table_last_time_played",
+            sql: r#"ALTER TABLE install ADD COLUMN last_played_time TEXT DEFAULT '0' NOT NULL;"#,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 24,
+            description: "alter_install_table_total_playtime",
+            sql: r#"ALTER TABLE install ADD COLUMN total_playtime INTEGER DEFAULT 0 NOT NULL;"#,
+            kind: MigrationKind::Up,
+        },
+        // === 2.0.0 migrations end ===
     ];
 
     let mut migrations = add_migrations("db", migrationsl);
@@ -841,6 +855,8 @@ pub fn get_install_info_by_id(app: &AppHandle, id: String) -> Option<LauncherIns
             xxmi_config: rslt.get(0).unwrap().get("xxmi_config"),
             preferred_background: rslt.get(0).unwrap().get("preferred_background"),
             sort_order: rslt.get(0).unwrap().get("sort_order"),
+            last_played_time: rslt.get(0).unwrap().get("last_played_time"),
+            total_playtime: rslt.get(0).unwrap().get("total_playtime"),
         };
 
         Some(rsltt)
@@ -905,6 +921,8 @@ pub fn get_installs_by_manifest_id(
                 xxmi_config: r.get("xxmi_config"),
                 preferred_background: r.get("preferred_background"),
                 sort_order: r.get("sort_order"),
+                last_played_time: r.get("last_played_time"),
+                total_playtime: r.get("total_playtime"),
             })
         }
 
@@ -967,6 +985,8 @@ pub fn get_installs(app: &AppHandle) -> Option<Vec<LauncherInstall>> {
                 xxmi_config: r.get("xxmi_config"),
                 preferred_background: r.get("preferred_background"),
                 sort_order: r.get("sort_order"),
+                last_played_time: r.get("last_played_time"),
+                total_playtime: r.get("total_playtime"),
             })
         }
 
@@ -1456,6 +1476,22 @@ pub fn update_install_xxmi_config_by_id(
         let query = query("UPDATE install SET 'xxmi_config' = $1 WHERE id = $2")
             .bind(xxmi_config)
             .bind(id);
+        query.execute(&db).await.unwrap();
+    });
+}
+
+pub fn update_install_last_played_by_id(app: &AppHandle, id: String, last_played_time: String) {
+    run_async_command(async {
+        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let query = query("UPDATE install SET 'last_played_time' = $1 WHERE id = $2").bind(last_played_time).bind(id);
+        query.execute(&db).await.unwrap();
+    });
+}
+
+pub fn update_install_total_playtime_by_id(app: &AppHandle, id: String, total_playtime: String) {
+    run_async_command(async {
+        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+        let query = query("UPDATE install SET 'total_playtime' = $1 WHERE id = $2").bind(total_playtime).bind(id);
         query.execute(&db).await.unwrap();
     });
 }

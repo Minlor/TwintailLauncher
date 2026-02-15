@@ -7,13 +7,11 @@ use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Error};
+use crate::utils::db_manager::{update_install_last_played_by_id, update_install_total_playtime_by_id};
+use fischl::utils::is_process_running;
 
 #[cfg(target_os = "linux")]
-use crate::utils::repo_manager::get_compatibility;
-#[cfg(target_os = "linux")]
-use crate::utils::{get_steam_appid, get_steam_tool_appid, is_runner_lower, is_using_overriden_runner, runner_from_runner_version, update_steam_compat_config};
-#[cfg(target_os = "linux")]
-use crate::utils::{show_dialog};
+use crate::utils::{show_dialog, get_steam_appid, get_steam_tool_appid, is_runner_lower, is_using_overriden_runner, runner_from_runner_version, update_steam_compat_config, repo_manager::get_compatibility};
 #[cfg(target_os = "linux")]
 use std::os::unix::process::CommandExt;
 #[cfg(target_os = "linux")]
@@ -191,7 +189,12 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
                 Ok(Some(status)) => {
                     if !status.success() { send_notification(&app, "Failed to run launch command! Please try again or check install settings.", None); }
                 }
-                Ok(None) => { write_log(app, Path::new(&dir).to_path_buf(), child, "game.log".parse().unwrap()); }
+                Ok(None) => {
+                    let time = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs().to_string();
+                    update_install_last_played_by_id(app, install.id.clone(), time);
+                    start_playtime_tracker(app, install.clone(), exe.clone());
+                    write_log(app, Path::new(&dir).to_path_buf(), child, "game.log".parse().unwrap());
+                }
                 Err(_) => { send_notification(&app, "Failed to run launch command! Please try again or check the command correctness.", None); }
             },
             Err(_) => { send_notification(&app, "Failed to run launch command! Something serious is wrong.", None); }
@@ -271,7 +274,12 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
                 Ok(Some(status)) => {
                     if !status.success() { send_notification(&app, "Failed to run launch command! Please try again or check install settings.", None); }
                 }
-                Ok(None) => { write_log(app, Path::new(&dir).to_path_buf(), child, "game.log".parse().unwrap()); }
+                Ok(None) => {
+                    let time = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs().to_string();
+                    update_install_last_played_by_id(app, install.id.clone(), time);
+                    start_playtime_tracker(app, install.clone(), exe.clone());
+                    write_log(app, Path::new(&dir).to_path_buf(), child, "game.log".parse().unwrap());
+                }
                 Err(_) => { send_notification(&app, "Failed to run launch command! Please try again or check the command correctness.", None); }
             },
             Err(_) => { send_notification(&app, "Failed to run launch command! Something serious is wrong.", None); }
@@ -478,7 +486,12 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
                 Ok(Some(status)) => {
                     if !status.success() { send_notification(&app, "Failed to run launch command! Please try again or check install settings.", None); }
                 }
-                Ok(None) => { write_log(app, Path::new(&dir).to_path_buf(), child, "game.log".parse().unwrap()); }
+                Ok(None) => {
+                    let time = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs().to_string();
+                    update_install_last_played_by_id(app, install.id.clone(), time);
+                    start_playtime_tracker(app, install.clone(), exe.clone());
+                    write_log(app, Path::new(&dir).to_path_buf(), child, "game.log".parse().unwrap());
+                }
                 Err(_) => { send_notification(&app, "Failed to run launch command! Please try again or check the command correctness.", None); }
             },
             Err(_) => { send_notification(&app, "Failed to run launch command! Something serious is wrong.", None); }
@@ -520,7 +533,12 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
                 Ok(Some(status)) => {
                     if !status.success() { send_notification(&app, "Failed to run launch command! Please try again or check install settings.", None); }
                 }
-                Ok(None) => { write_log(app, Path::new(&dir).to_path_buf(), child, "game.log".parse().unwrap()); }
+                Ok(None) => {
+                    let time = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs().to_string();
+                    update_install_last_played_by_id(app, install.id.clone(), time);
+                    start_playtime_tracker(app, install.clone(), exe.clone());
+                    write_log(app, Path::new(&dir).to_path_buf(), child, "game.log".parse().unwrap());
+                }
                 Err(_) => { send_notification(&app, "Failed to run launch command! Please try again or check the command correctness.", None); }
             },
             Err(_) => { send_notification(&app, "Failed to run launch command! Something serious is wrong.", None); }
@@ -608,6 +626,34 @@ fn load_fps_unlock(app: &AppHandle, install: LauncherInstall, biz: String, game_
             write_log(app, Path::new(&fpsunlock_path).to_path_buf(), process, "fps_unlocker.log".parse().unwrap());
         }
     }
+}
+
+fn start_playtime_tracker(app: &AppHandle, install: LauncherInstall, exe_name: String) {
+    let app = app.clone();
+    let install_id = install.id.clone();
+    let base_playtime = install.total_playtime as u64;
+    std::thread::spawn(move || {
+        let poll_interval = std::time::Duration::from_secs(10);
+        let db_write_interval = 180u64;
+        let mut last_db_write_elapsed: u64 = 0;
+        std::thread::sleep(std::time::Duration::from_secs(5));
+        if !is_process_running(&exe_name) { return; }
+        let started = std::time::Instant::now();
+        loop {
+            std::thread::sleep(poll_interval);
+            let elapsed = started.elapsed().as_secs();
+            if !is_process_running(&exe_name) {
+                let new_total = base_playtime + elapsed;
+                update_install_total_playtime_by_id(&app, install_id.clone(), new_total.to_string());
+                return;
+            }
+            if elapsed - last_db_write_elapsed >= db_write_interval {
+                let new_total = base_playtime + elapsed;
+                update_install_total_playtime_by_id(&app, install_id.clone(), new_total.to_string());
+                last_db_write_elapsed = elapsed;
+            }
+        }
+    });
 }
 
 fn write_log(app: &AppHandle, log_dir: PathBuf, child: Child, file: String) {

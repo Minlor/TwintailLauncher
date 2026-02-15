@@ -92,6 +92,8 @@ pub struct LauncherInstall {
     pub xxmi_config: Json<XXMISettings>,
     pub preferred_background: Option<String>,
     pub sort_order: i32,
+    pub last_played_time: String,
+    pub total_playtime: i64
 }
 
 #[derive(Serialize, Deserialize, Debug)]
