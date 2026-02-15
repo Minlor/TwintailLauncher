@@ -522,6 +522,7 @@ export default class App extends React.Component<any, any> {
                         resumeStates={this.state.resumeStates}
                         globalSettings={this.state.globalSettings}
                         installSettings={this.state.installSettings}
+                        gameManifest={this.state.gameManifest}
                         buttonType={buttonType}
                         refreshDownloadButtonInfo={this.refreshDownloadButtonInfo}
                         isVisible={this.state.openPopup === POPUPS.NONE && this.state.currentPage === PAGES.NONE}
@@ -1009,8 +1010,6 @@ export default class App extends React.Component<any, any> {
             }
         );
     }
-
-
 
     setOpenPopup(state: POPUPS) { this.setState({ openPopup: state }); }
     setCurrentGame(game: string) { this.setState({ currentGame: game }); }

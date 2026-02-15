@@ -1390,7 +1390,7 @@ checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
 [[package]]
 name = "fischl"
 version = "0.1.0"
-source = "git+https://github.com/Minlor/fischl-rs.git?branch=master#64e80b09a4231877e28d7339395ebad7fa2ec577"
+source = "git+https://github.com/Minlor/fischl-rs.git?branch=master#0d05d36d5ff1f8331f3a42d8fbcf4b86ee66d57e"
 dependencies = [
  "chksum-md5",
  "crossbeam-deque",
@@ -8368,9 +8368,9 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "7.4.0"
+version = "8.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc12baa6db2b15a140161ce53d72209dacea594230798c24774139b54ecaa980"
+checksum = "79b32dd4ad3aca14ae109f8cce0495ac1c57f6f4f00ad459a40e582f89440d97"
 dependencies = [
  "crc32fast",
  "flate2",

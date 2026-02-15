@@ -17,6 +17,7 @@ export type ActionBarProps = {
   globalSettings: any;
   buttonType: any;
   installSettings: any;
+  gameManifest: any;
   refreshDownloadButtonInfo: (existingInstall?: boolean) => void | Promise<void>;
   onOpenInstallSettings: () => Promise<void> | void;
   isVisible?: boolean;
@@ -37,6 +38,7 @@ export default function ActionBar(props: ActionBarProps) {
     globalSettings,
     buttonType,
     installSettings,
+    gameManifest,
     refreshDownloadButtonInfo,
     onOpenInstallSettings,
     isVisible = true,
@@ -47,11 +49,8 @@ export default function ActionBar(props: ActionBarProps) {
   if (!isVisible) return null;
 
   return (
-    <div
-      className="flex flex-row absolute bottom-8 right-16 gap-4 animate-slideUp"
-      style={{ animationDelay: "200ms" }}
-    >
-      {currentInstall !== "" && preloadAvailable ? (
+    <div className="flex flex-row absolute bottom-8 right-16 gap-4 animate-slideUp" style={{ animationDelay: "200ms" }}>
+      {currentInstall !== "" && preloadAvailable && installSettings.version == gameManifest.latest_version ? (
         <button
           className={`p-2.5 rounded-full border border-white/20 shadow-lg disabled:cursor-not-allowed disabled:brightness-75 disabled:saturate-100 transition-colors focus:outline-none
             ${buttonType === "pause"
@@ -71,15 +70,11 @@ export default function ActionBar(props: ActionBarProps) {
               lang: "",
               region: ""
             }).then(() => { });
-          }}
-        >
+          }}>
           <TooltipIcon
             side={"top"}
             text={"Predownload update"}
-            icon={
-              <CircleFadingArrowUp className="w-8 h-8 text-white/90" />
-            }
-          />
+            icon={<CircleFadingArrowUp className="w-8 h-8 text-white/90" />}/>
         </button>
       ) : null}
       {currentInstall !== "" ? (
