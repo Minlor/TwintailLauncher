@@ -3,7 +3,7 @@ use crate::downloading::{DownloadGamePayload, QueueJobPayload};
 use crate::downloading::queue::{QueueJobKind, QueueJobOutcome};
 use crate::utils::db_manager::{get_install_info_by_id, get_manifest_info_by_id};
 use crate::utils::repo_manager::get_manifest;
-use crate::utils::{models::DiffGameFile, run_async_command, send_notification, show_dialog};
+use crate::utils::{models::DiffGameFile, run_async_command, show_dialog};
 use fischl::download::game::{Game, Kuro, Sophon};
 use fischl::utils::free_space::available;
 use std::collections::HashMap;
@@ -114,7 +114,6 @@ pub fn run_game_preload(h5: AppHandle, payload: DownloadGamePayload, job_id: Str
                                 });
                             });
                             h5.emit("preload_complete", ()).unwrap();
-                            send_notification(&h5, format!("Predownload for {inn} complete.", inn = instn).as_str(), None);
                         } else {
                             show_dialog(&h5,"warning", "TwintailLauncher", format!("Unable to predownload update for {inn} as there is not enough free space, please make sure there is enough free space for predownload!", inn = install.name).as_str(), Some(vec!["Ok"]));
                             h5.emit("preload_complete", ()).unwrap();
@@ -162,7 +161,6 @@ pub fn run_game_preload(h5: AppHandle, payload: DownloadGamePayload, job_id: Str
                             });
                             if rslt {
                                 h5.emit("preload_complete", ()).unwrap();
-                                send_notification(&h5, format!("Predownload for {inn} complete.", inn = instn).as_str(), None);
                             } else {
                                 show_dialog(&h5,"warning", "TwintailLauncher", format!("Error occurred while trying to predownload {inn}\nPlease try again!", inn = install.name).as_str(), Some(vec!["Ok"]));
                                 let dir = std::path::Path::new(&install.directory).join("patching");

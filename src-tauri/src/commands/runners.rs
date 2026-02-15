@@ -3,7 +3,7 @@ use crate::utils::db_manager::{
     get_installs, get_settings, update_install_runner_location_by_id,
     update_install_runner_version_by_id, update_installed_runner_is_installed_by_version,
 };
-use crate::utils::send_notification;
+use crate::utils::{show_dialog};
 use std::fs;
 use std::path::Path;
 use tauri::AppHandle;
@@ -112,6 +112,16 @@ pub fn add_installed_runner(app: AppHandle, runner_url: String, runner_version: 
 
             // Empty folder download
             if fs::read_dir(runner_path.as_path()).unwrap().next().is_none() {
+                // Check if this runner version is already queued/downloading
+                let state = app.state::<DownloadState>();
+                let q = state.queue.lock().unwrap().clone();
+                if let Some(ref queue) = q {
+                    if queue.has_job_for_id(runner_version.clone()) {
+                        show_dialog(&app, "warning", "TwintailLauncher", format!("Runner {} is already queued for download!", runner_version.as_str()).as_str(), None);
+                        return Some(false);
+                    }
+                }
+
                 // Determine the download URL based on architecture
                 let mut dl_url = runnerp.url.clone();
                 if let Some(urls) = runnerp.urls {
@@ -122,8 +132,6 @@ pub fn add_installed_runner(app: AppHandle, runner_url: String, runner_version: 
                 }
 
                 // Enqueue the download job
-                let state = app.state::<DownloadState>();
-                let q = state.queue.lock().unwrap().clone();
                 if let Some(queue) = q {
                     queue.enqueue(QueueJobKind::RunnerDownload, QueueJobPayload::Runner(RunnerDownloadPayload {
                             runner_version: runner_version.clone(),
@@ -135,7 +143,7 @@ pub fn add_installed_runner(app: AppHandle, runner_url: String, runner_version: 
                 if ir.is_some() { update_installed_runner_is_installed_by_version(&app, runner_version.clone(), false); } else { create_installed_runner(&app, runner_version.clone(), false, runner_path.to_str().unwrap().to_string(), ).unwrap(); }
                 Some(true)
             } else {
-                send_notification(&app, format!("Runner {runn} already installed!", runn = runner_version.clone().as_str().to_string()).as_str(), None);
+                show_dialog(&app, "info", "TwintailLauncher", format!("Runner {runn} already installed!", runn = runner_version.clone().as_str().to_string()).as_str(), None);
                 Some(false)
             }
         }
@@ -158,7 +166,7 @@ pub fn remove_installed_runner(app: AppHandle, runner_version: String) -> Option
         if fs::read_dir(runner_path.as_path()).unwrap().next().is_some() {
             fs::remove_dir_all(runner_path.as_path()).unwrap();
             update_installed_runner_is_installed_by_version(&app, runner_version.clone(), false);
-            send_notification(&app, format!("Successfully removed {runn} runner.", runn = runner_version.as_str().to_string()).as_str(), None);
+            show_dialog(&app, "info", "TwintailLauncher", format!("Successfully removed {runn} runner.", runn = runner_version.as_str().to_string()).as_str(), None);
 
             // Set installations using the removed runner to first available one as fallback
             let installs = get_installs(&app);
@@ -179,7 +187,7 @@ pub fn remove_installed_runner(app: AppHandle, runner_version: String) -> Option
             }
             Some(true)
         } else {
-            send_notification(&app, format!("Runner {runn} is not installed!", runn = runner_version.as_str().to_string()).as_str(), None);
+            show_dialog(&app, "info", "TwintailLauncher", format!("Runner {runn} is not installed!", runn = runner_version.as_str().to_string()).as_str(), None);
             Some(false)
         }
     }

@@ -171,6 +171,13 @@ impl DownloadQueueHandle {
         let _ = self.tx.send(QueueCommand::IsAutoPaused(tx));
         rx.recv().unwrap_or(false)
     }
+
+    /// Check if a job with the given install_id is already queued, running, or paused
+    pub fn has_job_for_id(&self, install_id: String) -> bool {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let _ = self.tx.send(QueueCommand::HasJobForId(install_id, tx));
+        rx.recv().unwrap_or(false)
+    }
 }
 
 #[allow(unused)]
@@ -191,6 +198,7 @@ pub enum QueueCommand {
     AutoPause,
     AutoResume(mpsc::Sender<bool>),
     IsAutoPaused(mpsc::Sender<bool>),
+    HasJobForId(String, mpsc::Sender<bool>),
     Shutdown,
 }
 
@@ -511,6 +519,10 @@ pub fn start_download_queue_worker(app: AppHandle, initial_max_concurrent: usize
                     }
                     QueueCommand::IsAutoPaused(reply) => {
                         let _ = reply.send(auto_paused);
+                    }
+                    QueueCommand::HasJobForId(install_id, reply) => {
+                        let found = queued_views.iter().any(|v| v.install_id == install_id) || active.values().any(|v| v.install_id == install_id) || paused_jobs.contains_key(&install_id);
+                        let _ = reply.send(found);
                     }
                     QueueCommand::Shutdown => break,
                 },

@@ -20,6 +20,7 @@ pub fn register_repair_handler(app: &AppHandle) {
         let state = a.state::<DownloadState>();
         let q = state.queue.lock().unwrap().clone();
         if let Some(queue) = q {
+            if queue.has_job_for_id(payload.install.clone()) { show_dialog(&a, "warning", "TwintailLauncher", "This game is already queued for repair!", None); return; }
             queue.enqueue(QueueJobKind::GameRepair, QueueJobPayload::Game(payload));
         } else {
             let h5 = a.clone();

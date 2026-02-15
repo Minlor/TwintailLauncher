@@ -9,7 +9,7 @@ use crate::utils::db_manager::{
     update_settings_third_party_repo_update
 };
 use crate::utils::repo_manager::get_manifest;
-use crate::utils::{block_telemetry, get_mi_path_from_game, send_notification};
+use crate::utils::{block_telemetry, get_mi_path_from_game, show_dialog};
 use std::fs;
 use std::path::Path;
 use tauri::{AppHandle, Manager};
@@ -169,7 +169,7 @@ pub fn block_telemetry_cmd(app: AppHandle) -> Option<bool> {
         Some(true)
     } else {
         block_telemetry(&app);
-        send_notification(&app, "Updated and fixed telemetry server block.", None);
+        show_dialog(&app, "info", "TwintailLauncher", "Updated and fixed telemetry server block.", None);
         None
     }
 }
@@ -190,9 +190,9 @@ pub fn open_folder(app: AppHandle, manifest_id: String, install_id: String, runn
                 if fp.exists() {
                     match app.opener().reveal_item_in_dir(fp.as_path()) {
                         Ok(_) => {}
-                        Err(_e) => { send_notification(&app, "Directory opening failed, try again later!", None); }
+                        Err(_e) => { show_dialog(&app, "error", "TwintailLauncher", "Directory opening failed, try again later!", None); }
                     }
-                } else { send_notification(&app, "XXMI is not downloaded or folder structure is corrupt! Can not open the folder.", None); };
+                } else { show_dialog(&app, "error", "TwintailLauncher", "XXMI is not downloaded or folder structure is corrupt! Can not open the folder.", None); };
             }
         }
         "install" => {
@@ -205,9 +205,9 @@ pub fn open_folder(app: AppHandle, manifest_id: String, install_id: String, runn
                 if fp.exists() {
                     match app.opener().reveal_item_in_dir(fp.as_path()) {
                         Ok(_) => {}
-                        Err(_e) => { send_notification(&app, "Directory opening failed, try again later!", None); }
+                        Err(_e) => { show_dialog(&app, "error", "TwintailLauncher", "Directory opening failed, try again later!", None); }
                     }
-                } else { send_notification(&app, "Can not open game directory, Please try again later!", None); };
+                } else { show_dialog(&app,"error", "TwintailLauncher", "Can not open game directory, Please try again later!", None); };
             }
         }
         "runner" => {
@@ -218,9 +218,9 @@ pub fn open_folder(app: AppHandle, manifest_id: String, install_id: String, runn
                 if fp.exists() {
                     match app.opener().reveal_item_in_dir(fp.as_path()) {
                         Ok(_) => {}
-                        Err(_e) => { send_notification(&app, "Directory opening failed, try again later!", None); }
+                        Err(_e) => { show_dialog(&app, "error", "TwintailLauncher", "Directory opening failed, try again later!", None); }
                     }
-                } else { send_notification(&app, "Can not open runner directory, Is runner downloaded properly?", None); };
+                } else { show_dialog(&app, "error", "TwintailLauncher", "Can not open runner directory, Is runner downloaded properly?", None); };
             }
         }
         "runner_global" => {
@@ -231,9 +231,9 @@ pub fn open_folder(app: AppHandle, manifest_id: String, install_id: String, runn
                 if fp.exists() {
                     match app.opener().reveal_item_in_dir(fp.as_path()) {
                         Ok(_) => {}
-                        Err(_e) => { send_notification(&app, "Directory opening failed, try again later!", None); }
+                        Err(_e) => { show_dialog(&app, "error", "TwintailLauncher", "Directory opening failed, try again later!", None); }
                     }
-                } else { send_notification(&app, "Can not open runner directory, Is runner downloaded properly?", None); }
+                } else { show_dialog(&app, "error", "TwintailLauncher", "Can not open runner directory, Is runner downloaded properly?", None); }
             }
         }
         "runner_prefix" => {
@@ -244,9 +244,9 @@ pub fn open_folder(app: AppHandle, manifest_id: String, install_id: String, runn
                 if fp.exists() {
                     match app.opener().reveal_item_in_dir(fp.as_path()) {
                         Ok(_) => {}
-                        Err(_e) => { send_notification(&app, "Directory opening failed, try again later!", None); }
+                        Err(_e) => { show_dialog(&app, "error", "TwintailLauncher", "Directory opening failed, try again later!", None); }
                     }
-                } else { send_notification(&app, "Can not open runner prefix directory, Is runner prefix initialized?", None); };
+                } else { show_dialog(&app, "error", "TwintailLauncher", "Can not open runner prefix directory, Is runner prefix initialized?", None); };
             }
         }
         _ => {}
@@ -257,6 +257,6 @@ pub fn open_folder(app: AppHandle, manifest_id: String, install_id: String, runn
 pub fn open_uri(app: AppHandle, uri: String) {
     match app.opener().open_url(uri, None::<&str>) {
         Ok(_) => {}
-        Err(_e) => { send_notification(&app, "Opening URL in browser failed!", None); }
+        Err(_e) => {}
     }
 }

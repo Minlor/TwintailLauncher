@@ -18,18 +18,13 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc};
 use std::{fs, io};
 use tauri::{AppHandle, Emitter, Listener, Manager};
-use tauri_plugin_notification::NotificationExt;
 
 #[cfg(target_os = "linux")]
-use crate::utils::repo_manager::{get_manifests};
+use crate::utils::repo_manager::{get_manifests, get_compatibility};
 #[cfg(target_os = "linux")]
 use crate::DownloadState;
 #[cfg(target_os = "linux")]
-use crate::downloading::queue::QueueJobKind;
-#[cfg(target_os = "linux")]
-use crate::downloading::{QueueJobPayload, RunnerDownloadPayload};
-#[cfg(target_os = "linux")]
-use crate::utils::repo_manager::get_compatibility;
+use crate::downloading::{QueueJobPayload, RunnerDownloadPayload, queue::QueueJobKind};
 
 pub mod args;
 pub mod db_manager;
@@ -98,11 +93,6 @@ pub fn copy_dir_all(app: &AppHandle, src: impl AsRef<Path>, dst: impl AsRef<Path
 
 #[cfg(target_os = "linux")]
 pub fn block_telemetry(app: &AppHandle) {
-    // For the time being just return if we are flatpak build will be fixed soon
-    if is_flatpak() {
-        send_notification(&app, r#"Telemetry block is currently impossible inside flatpak sandbox! Team is working on the workaround fix."#, None);
-        return;
-    }
     let app1 = Arc::new(std::sync::Mutex::new(app.clone()));
     std::thread::spawn(move || {
         let app = app1.lock().unwrap().clone();
@@ -131,18 +121,18 @@ pub fn block_telemetry(app: &AppHandle) {
         match output.and_then(|child| child.wait_with_output()) {
             Ok(output) => {
                 if !output.status.success() {
-                    send_notification(&app, r#"Failed to block telemetry servers, Please press "Block telemetry" in launcher settings!"#, None);
+                    show_dialog(&app, "error", "TwintailLauncher", r#"Failed to block telemetry servers, Please press "Block telemetry" in launcher settings!"#, None);
                 } else {
                     let path = app.path().app_data_dir().unwrap().join(".telemetry_blocked");
                     if !path.exists() {
-                        send_notification(&app, "Successfully blocked telemetry servers.", None);
+                        show_dialog(&app, "info", "TwintailLauncher", "Successfully blocked telemetry servers.", None);
                         fs::write(&path, ".").unwrap();
                     } else {
-                        send_notification(&app, "Telemetry servers already blocked.", None);
+                        show_dialog(&app, "info", "TwintailLauncher", "Telemetry servers already blocked.", None);
                     }
                 }
             }
-            Err(_err) => { send_notification(&app, r#"Failed to block telemetry servers, something seriously failed or we are running under flatpak!"#, None); }
+            Err(_err) => { show_dialog(&app, "error", "TwintailLauncher", r#"Failed to block telemetry servers, something seriously failed or we are running under flatpak!"#, None); }
         }
     });
 }
@@ -191,16 +181,6 @@ pub fn register_listeners(app: &AppHandle) {
             }
         }
     });
-}
-
-pub fn send_notification(app: &AppHandle, body: &str, icon: Option<&str>) {
-    if body.is_empty() { return; }
-    if icon.is_some() {
-        let i = icon.unwrap();
-        app.notification().builder().icon(i).title("TwintailLauncher").body(body).show().unwrap();
-    } else {
-        app.notification().builder().title("TwintailLauncher").body(body).show().unwrap();
-    }
 }
 
 pub fn show_dialog(app: &AppHandle, dialog_type: &str, title: &str, message: &str, buttons: Option<Vec<&str>>) {
@@ -530,6 +510,7 @@ pub fn deprecate_jadeite(app: &AppHandle) {
                 // Shit validation but will work
                 if lm.display_name.to_ascii_lowercase().contains("wuthering") { update_install_use_jadeite_by_id(&app, ci.id.clone(), false); }
                 if lm.display_name.to_ascii_lowercase().contains("starrail") { update_install_use_jadeite_by_id(&app, ci.id.clone(), false); }
+                if lm.display_name.to_ascii_lowercase().contains("honkaiimpact") { update_install_use_jadeite_by_id(&app, ci.id.clone(), false); }
             }
         }
     }

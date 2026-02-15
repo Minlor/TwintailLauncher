@@ -1,5 +1,5 @@
 use crate::utils::models::{GameManifest, GlobalSettings, LauncherInstall};
-use crate::utils::{apply_xxmi_tweaks, edit_wuwa_configs_xxmi, get_mi_path_from_game, send_notification};
+use crate::utils::{apply_xxmi_tweaks, edit_wuwa_configs_xxmi, get_mi_path_from_game, show_dialog};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -11,7 +11,7 @@ use crate::utils::db_manager::{update_install_last_played_by_id, update_install_
 use fischl::utils::is_process_running;
 
 #[cfg(target_os = "linux")]
-use crate::utils::{show_dialog, get_steam_appid, get_steam_tool_appid, is_runner_lower, is_using_overriden_runner, runner_from_runner_version, update_steam_compat_config, repo_manager::get_compatibility};
+use crate::utils::{get_steam_appid, get_steam_tool_appid, is_runner_lower, is_using_overriden_runner, runner_from_runner_version, update_steam_compat_config, repo_manager::get_compatibility};
 #[cfg(target_os = "linux")]
 use std::os::unix::process::CommandExt;
 #[cfg(target_os = "linux")]
@@ -93,12 +93,12 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
         match cmd.spawn() {
             Ok(mut child) => match child.try_wait() {
                 Ok(Some(status)) => {
-                    if !status.success() { send_notification(&app, "Failed to run prelaunch command! Please try again or check install settings.", None); }
+                    if !status.success() { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute prelaunch command! Please try again or check install settings.", None); }
                 }
                 Ok(None) => { write_log(app, Path::new(&dir).to_path_buf(), child, "pre_launch.log".parse().unwrap()); }
-                Err(_) => { send_notification(&app, "Failed to run prelaunch command! Please try again or check the command correctness.", None); }
+                Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute prelaunch command! Please try again or check the command correctness.", None); }
             },
-            Err(_) => { send_notification(&app, "Failed to run prelaunch command! Something serious is wrong.", None); }
+            Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute prelaunch command! Something serious is wrong.", None); }
         }
     }
 
@@ -187,7 +187,7 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
         match cmd.spawn() {
             Ok(mut child) => match child.try_wait() {
                 Ok(Some(status)) => {
-                    if !status.success() { send_notification(&app, "Failed to run launch command! Please try again or check install settings.", None); }
+                    if !status.success() { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute launch command! Please try again or check install settings.", None); }
                 }
                 Ok(None) => {
                     let time = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs().to_string();
@@ -195,9 +195,9 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
                     start_playtime_tracker(app, install.clone(), exe.clone());
                     write_log(app, Path::new(&dir).to_path_buf(), child, "game.log".parse().unwrap());
                 }
-                Err(_) => { send_notification(&app, "Failed to run launch command! Please try again or check the command correctness.", None); }
+                Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute launch command! Please try again or check the command correctness.", None); }
             },
-            Err(_) => { send_notification(&app, "Failed to run launch command! Something serious is wrong.", None); }
+            Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute launch command! Something serious is wrong.", None); }
         }
         true
     } else {
@@ -272,7 +272,7 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
         match cmd.spawn() {
             Ok(mut child) => match child.try_wait() {
                 Ok(Some(status)) => {
-                    if !status.success() { send_notification(&app, "Failed to run launch command! Please try again or check install settings.", None); }
+                    if !status.success() { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute launch command! Please try again or check install settings.", None); }
                 }
                 Ok(None) => {
                     let time = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs().to_string();
@@ -280,9 +280,9 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
                     start_playtime_tracker(app, install.clone(), exe.clone());
                     write_log(app, Path::new(&dir).to_path_buf(), child, "game.log".parse().unwrap());
                 }
-                Err(_) => { send_notification(&app, "Failed to run launch command! Please try again or check the command correctness.", None); }
+                Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute launch command! Please try again or check the command correctness.", None); }
             },
-            Err(_) => { send_notification(&app, "Failed to run launch command! Something serious is wrong.", None); }
+            Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute launch command! Something serious is wrong.", None); }
         }
         true
     };
@@ -338,12 +338,12 @@ fn load_xxmi(app: &AppHandle, install: LauncherInstall, prefix: String, xxmi_pat
             match cmd.spawn() {
                 Ok(mut child) => match child.try_wait() {
                     Ok(Some(status)) => {
-                        if !status.success() { send_notification(&app, "Failed to run XXMI! Please try again and make sure \"Inject XXMI\" is enabled!", None); }
+                        if !status.success() { show_dialog(&app, "error", "TwintailLauncher", "Failed to run XXMI! Please try again and make sure \"Inject XXMI\" is enabled!", None); }
                     }
                     Ok(None) => { write_log(&app, Path::new(&xxmi_path).to_path_buf(), child, "xxmi.log".parse().unwrap()); }
-                    Err(_) => { send_notification(&app, "Failed to run XXMI! Please try again later!", None); }
+                    Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to run XXMI! Please try again later!", None); }
                 },
-                Err(_) => { send_notification(&app, "Failed to run XXMI! Something serious is wrong.", None); }
+                Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to run XXMI! Something serious is wrong.", None); }
             }
         });
     }
@@ -393,12 +393,12 @@ fn load_fps_unlock(app: &AppHandle, install: LauncherInstall, biz: String, prefi
             match cmd.spawn() {
                 Ok(mut child) => match child.try_wait() {
                     Ok(Some(status)) => {
-                        if !status.success() { send_notification(&app, "Failed to run FPS Unlocker! Please try again and make sure FPS Unlocker is enabled!", None); }
+                        if !status.success() { show_dialog(&app, "error", "TwintailLauncher", "Failed to run FPS Unlocker! Please try again and make sure FPS Unlocker is enabled!", None); }
                     }
                     Ok(None) => { write_log(&app, Path::new(&fpsunlock_path).to_path_buf(), child, "fps_unlocker.log".parse().unwrap()); }
-                    Err(_) => { send_notification(&app, "Failed to run FPS Unlocker! Please try again later!", None); }
+                    Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to run FPS Unlocker! Please try again later!", None); }
                 },
-                Err(_) => { send_notification(&app, "Failed to run FPS Unlocker! Something serious is wrong.", None); }
+                Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to run FPS Unlocker! Something serious is wrong.", None); }
             }
         });
     }
@@ -426,12 +426,12 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
         match cmd.spawn() {
             Ok(mut child) => match child.try_wait() {
                 Ok(Some(status)) => {
-                    if !status.success() { send_notification(&app, "Failed to run prelaunch command! Please try again or check install settings.", None); }
+                    if !status.success() { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute prelaunch command! Please try again or check install settings.", None); }
                 }
                 Ok(None) => { write_log(app, Path::new(&dir).to_path_buf(), child, "pre_launch.log".parse().unwrap()); }
-                Err(_) => { send_notification(&app, "Failed to run prelaunch command! Please try again or check the command correctness.", None); }
+                Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute prelaunch command! Please try again or check the command correctness.", None); }
             },
-            Err(_) => { send_notification(&app, "Failed to run prelaunch command! Something serious is wrong.", None); }
+            Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute prelaunch command! Something serious is wrong.", None); }
         }
     }
 
@@ -484,7 +484,7 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
         match cmd.spawn() {
             Ok(mut child) => match child.try_wait() {
                 Ok(Some(status)) => {
-                    if !status.success() { send_notification(&app, "Failed to run launch command! Please try again or check install settings.", None); }
+                    if !status.success() { show_dialog(&app, "error", "TwintailLauncher", "Failed to run launch command! Please try again or check install settings.", None); }
                 }
                 Ok(None) => {
                     let time = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs().to_string();
@@ -492,9 +492,9 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
                     start_playtime_tracker(app, install.clone(), exe.clone());
                     write_log(app, Path::new(&dir).to_path_buf(), child, "game.log".parse().unwrap());
                 }
-                Err(_) => { send_notification(&app, "Failed to run launch command! Please try again or check the command correctness.", None); }
+                Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to run launch command! Please try again or check the command correctness.", None); }
             },
-            Err(_) => { send_notification(&app, "Failed to run launch command! Something serious is wrong.", None); }
+            Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute launch command! Something serious is wrong.", None); }
         }
         true
     } else {
@@ -531,7 +531,7 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
         match cmd.spawn() {
             Ok(mut child) => match child.try_wait() {
                 Ok(Some(status)) => {
-                    if !status.success() { send_notification(&app, "Failed to run launch command! Please try again or check install settings.", None); }
+                    if !status.success() { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute launch command! Please try again or check install settings.", None); }
                 }
                 Ok(None) => {
                     let time = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs().to_string();
@@ -539,9 +539,9 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
                     start_playtime_tracker(app, install.clone(), exe.clone());
                     write_log(app, Path::new(&dir).to_path_buf(), child, "game.log".parse().unwrap());
                 }
-                Err(_) => { send_notification(&app, "Failed to run launch command! Please try again or check the command correctness.", None); }
+                Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute launch command! Please try again or check the command correctness.", None); }
             },
-            Err(_) => { send_notification(&app, "Failed to run launch command! Something serious is wrong.", None); }
+            Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute launch command! Something serious is wrong.", None); }
         }
         true
     };
@@ -721,7 +721,7 @@ fn write_log(app: &AppHandle, log_dir: PathBuf, child: Child, file: String) {
 
         if !status.success() || !stderr_output.trim().is_empty() {
             let message = if !stderr_output.trim().is_empty() { format!("Failed to run command: {}", stderr_output.trim()) } else { "Failed to run command! Please try again or check logs available in game directory or respective tool's directory.".to_string() };
-            send_notification(&ac, &message, None);
+            show_dialog(&ac, "error", "TwintailLauncher", &message, None);
         }
 
         if let Ok(mut file) = game_output.lock() { file.flush().unwrap(); }

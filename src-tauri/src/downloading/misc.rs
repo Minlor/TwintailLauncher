@@ -14,9 +14,9 @@ use crate::downloading::{QueueJobPayload,RunnerDownloadPayload,SteamrtDownloadPa
 #[cfg(target_os = "linux")]
 use crate::utils::db_manager::update_installed_runner_is_installed_by_version;
 #[cfg(target_os = "linux")]
-use crate::utils::send_notification;
+use crate::utils::show_dialog;
 #[cfg(target_os = "linux")]
-use fischl::compat::{Compat,check_steamrt_update,download_steamrt};
+use fischl::compat::{download_runner, check_steamrt_update, download_steamrt};
 #[cfg(target_os = "linux")]
 use std::sync::{Arc,Mutex};
 #[cfg(target_os = "linux")]
@@ -29,7 +29,7 @@ pub fn download_or_update_steamrt3(app: &AppHandle) {
     if let Some(s) = gs {
         let rp = Path::new(&s.default_runner_path);
         let steamrt = rp.join("steamrt").join("steamrt3");
-        if !steamrt.exists() { if let Err(e) = fs::create_dir_all(&steamrt) { send_notification(&app, format!("Failed to prepare SteamLinuxRuntime 3 directory. {} - Please fix the error and restart the app!", e.to_string()).as_str(), None); return; } }
+        if !steamrt.exists() { if let Err(e) = fs::create_dir_all(&steamrt) { show_dialog(&app, "error", "TwintailLauncher", format!("Failed to prepare SteamLinuxRuntime 3 directory. {} - Please fix the error and restart the app!", e.to_string()).as_str(), None); return; } }
         let steamrt_path = steamrt.to_str().unwrap().to_string();
 
         if fs::read_dir(&steamrt).unwrap().next().is_none() {
@@ -127,7 +127,7 @@ pub fn download_or_update_steamrt4(app: &AppHandle) {
     if let Some(s) = gs {
         let rp = Path::new(&s.default_runner_path);
         let steamrt = rp.join("steamrt").join("steamrt4");
-        if !steamrt.exists() { if let Err(e) = fs::create_dir_all(&steamrt) { send_notification(&app, format!("Failed to prepare SteamLinuxRuntime 4 directory. {} - Please fix the error and restart the app!", e.to_string()).as_str(), None); return; } }
+        if !steamrt.exists() { if let Err(e) = fs::create_dir_all(&steamrt) { show_dialog(&app, "error", "TwintailLauncher", format!("Failed to prepare SteamLinuxRuntime 4 directory. {} - Please fix the error and restart the app!", e.to_string()).as_str(), None); return; } }
         let steamrt_path = steamrt.to_str().unwrap().to_string();
 
         if fs::read_dir(&steamrt).unwrap().next().is_none() {
@@ -236,7 +236,7 @@ pub fn run_runner_download(app: AppHandle, payload: RunnerDownloadPayload, job_i
     }
 
     let success = run_async_command(async {
-        Compat::download_runner(payload.runner_url.clone(), payload.runner_path.clone(), true, {
+        download_runner(payload.runner_url.clone(), payload.runner_path.clone(), true, {
             let app = app.clone();
             let dlpayload = dlpayload.clone();
             let job_id = job_id.clone();

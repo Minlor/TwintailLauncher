@@ -7,11 +7,9 @@ use linked_hash_map::LinkedHashMap;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 use crate::utils::db_manager::{create_manifest, create_repository, delete_manifest_by_id, get_manifest_info_by_filename, get_repository_info_by_github_id};
-use crate::utils::{generate_cuid, send_notification, models::{RepositoryManifest, RunnerManifest, GameManifest}};
+use crate::utils::{generate_cuid, models::{RepositoryManifest, RunnerManifest, GameManifest}, show_dialog};
 use crate::utils::git_helpers::{do_fetch, do_merge};
 
-#[cfg(target_os = "linux")]
-use fischl::compat::Compat;
 #[cfg(target_os = "linux")]
 use crate::utils::{run_async_command, runner_from_runner_version};
 #[cfg(target_os = "linux")]
@@ -58,7 +56,7 @@ pub fn setup_official_repository(app: &AppHandle, path: &PathBuf) {
         let r = update_repositories(&repo_path);
         match r {
             Ok(_) => {}
-            Err(e) => { send_notification(app, format!("Failed to fetch update(s) for game manifest repository! {}", e.to_string()).as_str(), None); }
+            Err(e) => { show_dialog(app, "warning", "TwintailLauncher", format!("Failed to fetch update(s) for game manifest repository! {}", e.to_string()).as_str(), None); }
         }
     }
 }
@@ -104,7 +102,7 @@ pub fn clone_new_repository(app: &AppHandle, path: &PathBuf, url: String) -> Res
         let r = update_repositories(&repo_path);
         match r {
             Ok(_) => {}
-            Err(e) => { send_notification(app, format!("Failed to fetch update(s) for one or multiple 3rd party repositories! {}", e.to_string()).as_str(), None); }
+            Err(e) => { show_dialog(app, "warning", "TwintailLauncher", format!("Failed to fetch update(s) for one or multiple 3rd party repositories! {}", e.to_string()).as_str(), None); }
         }
         Ok(false)
     }
@@ -172,7 +170,7 @@ pub fn setup_compatibility_repository(app: &AppHandle, path: &PathBuf) {
         let r = update_repositories(&repo_path);
         match r {
             Ok(_) => {}
-            Err(e) => { send_notification(app, format!("Failed to fetch update(s) for compatibility repository! {}", e.to_string()).as_str(), None); }
+            Err(e) => { show_dialog(app, "warning", "TwintailLauncher", format!("Failed to fetch update(s) for compatibility repository! {}", e.to_string()).as_str(), None); }
         }
     }
 }
@@ -266,9 +264,9 @@ pub fn load_manifests(app: &AppHandle) {
                                                                         if installedr.is_none() { create_installed_runner(&app, first.version.clone(), true, np.clone()).unwrap(); } else { update_installed_runner_is_installed_by_version(&app, first.version.clone(), true); }
                                                                         if !pp.exists() {
                                                                             fs::create_dir_all(&pp).unwrap();
-                                                                            run_async_command(async { Compat::download_runner(first.url.clone(), pp.to_str().unwrap().to_string(),true, move |_current, _total, _net, _disk| {}).await });
+                                                                            run_async_command(async { fischl::compat::download_runner(first.url.clone(), pp.to_str().unwrap().to_string(),true, move |_current, _total, _net, _disk| {}).await });
                                                                         } else {
-                                                                            run_async_command(async { Compat::download_runner(first.url.clone(), pp.to_str().unwrap().to_string(),true, move |_current, _total, _net, _disk| {}).await });
+                                                                            run_async_command(async { fischl::compat::download_runner(first.url.clone(), pp.to_str().unwrap().to_string(),true, move |_current, _total, _net, _disk| {}).await });
                                                                         }
                                                                         update_install_runner_location_by_id(&app, i.id.clone(), np.clone());
                                                                         update_install_runner_version_by_id(&app, i.id, first.version.clone());

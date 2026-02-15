@@ -19,6 +19,7 @@ pub fn register_download_handler(app: &AppHandle) {
         let state = a.state::<DownloadState>();
         let q = state.queue.lock().unwrap().clone();
         if let Some(queue) = q {
+            if queue.has_job_for_id(payload.install.clone()) { show_dialog(&a, "warning", "TwintailLauncher", "This game is already queued for download!", None); return; }
             queue.enqueue(QueueJobKind::GameDownload, QueueJobPayload::Game(payload));
         } else {
             let h4 = a.clone();

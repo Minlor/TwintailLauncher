@@ -45,7 +45,6 @@ pub fn run() {
                 .manage(ManifestLoaders {game: ManifestLoader::default(), runner: utils::repo_manager::RunnerLoader::default()})
                 .manage(DownloadState { tokens: Mutex::new(HashMap::new()), queue: Mutex::new(None), verified_files: Mutex::new(HashMap::new()) })
                 .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| { let _ = app.get_window("main").expect("no main window").show(); let _ = app.get_window("main").expect("no main window").set_focus(); }))
-                .plugin(tauri_plugin_notification::init())
                 .plugin(tauri_plugin_dialog::init())
                 .plugin(tauri_plugin_opener::init())
         }
@@ -55,7 +54,6 @@ pub fn run() {
                 .manage(DownloadState { tokens: Mutex::new(HashMap::new()), queue: Mutex::new(None), verified_files: Mutex::new(HashMap::new()) })
                 .manage(ManifestLoaders {game: ManifestLoader::default()})
                 .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| { let _ = app.get_window("main").expect("no main window").show(); let _ = app.get_window("main").expect("no main window").set_focus(); }))
-                .plugin(tauri_plugin_notification::init())
                 .plugin(tauri_plugin_dialog::init())
                 .plugin(tauri_plugin_opener::init())
         }
