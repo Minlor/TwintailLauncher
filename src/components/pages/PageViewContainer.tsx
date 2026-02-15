@@ -2,6 +2,7 @@ import { PAGES } from "./PAGES";
 import SettingsPage from "./SettingsPage";
 import DownloadsPage from "./DownloadsPage";
 import RunnersPage from "./RunnersPage";
+import { useEffect } from "react";
 import type { DownloadJobProgress, DownloadQueueStatePayload } from "../../types/downloadQueue";
 
 interface TelemetrySample {
@@ -75,6 +76,21 @@ export default function PageViewContainer({
     imageVersion = 0,
 }: PageViewContainerProps) {
     const isOpen = currentPage !== PAGES.NONE;
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== "Escape" || event.repeat) return;
+            setCurrentPage(PAGES.NONE);
+        };
+
+        document.addEventListener("keydown", onKeyDown);
+        return () => {
+            document.removeEventListener("keydown", onKeyDown);
+        };
+    }, [isOpen, setCurrentPage]);
+
     return (
         <div
             className={`absolute inset-0 left-16 z-30 flex flex-col overflow-hidden border-l border-white/10 ${isOpen ? '' : 'pointer-events-none'}`}
