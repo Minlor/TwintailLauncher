@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type CSSProperties } from "react";
 import { formatBytes, toPercent } from "../../utils/progress";
 import type { DownloadJobProgress, DownloadQueueStatePayload, QueueJobView } from "../../types/downloadQueue";
 import {
@@ -61,6 +61,10 @@ export default function DownloadsQueue(props: DownloadsQueueProps) {
   // Current job from queue or first misc download
   const currentJob = running[0] ?? miscDownloads[0];
   const currentProgress = currentJob ? progressByJobId[currentJob.id] : null;
+  const strongTextStyle: CSSProperties = {
+    textShadow: "0 1px 2px rgba(0,0,0,0.95), 0 0 10px rgba(0,0,0,0.75)",
+    WebkitTextStroke: "0.3px rgba(0,0,0,0.7)",
+  };
 
   return (
     <div
@@ -81,7 +85,7 @@ export default function DownloadsQueue(props: DownloadsQueueProps) {
           className="flex items-center justify-between px-4 h-14 cursor-pointer group"
           onClick={() => setIsExpanded(!isExpanded)}
         >
-          <div className="flex items-center gap-3 overflow-hidden">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             {/* Pulsing Indicator */}
             <div className={`
               w-8 h-8 rounded-full flex items-center justify-center transition-colors
@@ -92,18 +96,22 @@ export default function DownloadsQueue(props: DownloadsQueueProps) {
 
             {/* Status Text */}
             <div className="flex flex-col flex-1 min-w-0">
-              <span className="text-sm font-bold text-white truncate">
+              <span
+                className="block text-sm font-bold text-white whitespace-nowrap overflow-x-auto overflow-y-hidden custom-scrollbar"
+                style={{ ...strongTextStyle, textOverflow: "clip" }}
+                title={currentJob ? (currentProgress?.name ?? currentJob.name) : `${activeCount} Downloads`}
+              >
                 {currentJob ? (currentProgress?.name ?? currentJob.name) : `${activeCount} Downloads`}
               </span>
               <div className="flex items-center gap-2 text-xs text-white/50">
                 {currentJob && currentProgress ? (
                   <>
-                    <span className="text-purple-300">{formatBytes(currentProgress.speed ?? 0)}/s</span>
+                    <span className="text-purple-300" style={strongTextStyle}>{formatBytes(currentProgress.speed ?? 0)}/s</span>
                     <span>•</span>
-                    <span>{toPercent(currentProgress.progress ?? 0, currentProgress.total ?? 1).toFixed(0)}%</span>
+                    <span style={strongTextStyle}>{toPercent(currentProgress.progress ?? 0, currentProgress.total ?? 1).toFixed(0)}%</span>
                   </>
                 ) : (
-                  <span>{activeCount} items in queue</span>
+                  <span style={strongTextStyle}>{activeCount} items in queue</span>
                 )}
               </div>
             </div>
@@ -146,22 +154,22 @@ export default function DownloadsQueue(props: DownloadsQueueProps) {
                 <div key={job.id} className="p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors group/item">
                   <div className="flex justify-between items-start mb-2">
                     <div className="min-w-0 pr-4">
-                      <h4 className="text-sm font-bold text-white truncate">{name}</h4>
+                      <h4 className="text-sm font-bold text-white break-all leading-snug" style={strongTextStyle}>{name}</h4>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className={`text-[10px] items-center px-1.5 py-0.5 rounded font-bold uppercase tracking-wide
-                           ${job.status === 'running' ? 'bg-purple-500/20 text-purple-300' : 'bg-white/10 text-white/50'}
-                        `}>
+                        <span className={`text-[10px] items-center px-1.5 py-0.5 rounded font-bold uppercase tracking-wide backdrop-blur-sm
+                           ${job.status === 'running' ? 'bg-purple-500/40 text-purple-100 border border-purple-300/70' : 'bg-black/30 text-white/90 border border-white/40'}
+                        `} style={strongTextStyle}>
                           {formatStatus(job.status)}
                         </span>
                         {isActive && p?.speed ? (
-                          <span className="text-xs text-white/40 flex items-center gap-1">
+                          <span className="text-xs text-white/60 flex items-center gap-1" style={strongTextStyle}>
                             <Activity size={10} /> {formatBytes(p.speed)}/s
                           </span>
                         ) : null}
                       </div>
                     </div>
                     {isActive && (
-                      <span className="text-xs font-bold text-white">{percent.toFixed(1)}%</span>
+                      <span className="text-xs font-bold text-white" style={strongTextStyle}>{percent.toFixed(1)}%</span>
                     )}
                   </div>
 
@@ -178,11 +186,11 @@ export default function DownloadsQueue(props: DownloadsQueueProps) {
                   </div>
 
                   <div className="flex justify-between mt-1.5 text-[10px] text-white/30">
-                    <span>{formatBytes(progressVal)} / {formatBytes(totalVal)}</span>
+                    <span style={strongTextStyle}>{formatBytes(progressVal)} / {formatBytes(totalVal)}</span>
                     {isActive && p?.disk ? (
-                      <span className="flex items-center gap-1"><HardDrive size={10} /> {formatBytes(p.disk)}/s</span>
+                      <span className="flex items-center gap-1" style={strongTextStyle}><HardDrive size={10} /> {formatBytes(p.disk)}/s</span>
                     ) : (
-                      <span>Queue #{index + 1}</span>
+                      <span style={strongTextStyle}>Queue #{index + 1}</span>
                     )}
                   </div>
                 </div>

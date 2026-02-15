@@ -538,7 +538,7 @@ export default function DownloadsPage({
                                 <div className="border-b border-white/5 pb-1.5 mb-1.5">
                                     <div className="flex items-center gap-1.5 text-orange-400 font-medium">
                                         <DownloadCloud className="w-3 h-3" />
-                                        <span className="truncate">{currentJob?.name ?? 'Download'}</span>
+                                        <span className="break-all">{currentJob?.name ?? 'Download'}</span>
                                     </div>
                                 </div>
                                 <div className="flex items-center justify-between">
@@ -614,10 +614,24 @@ export default function DownloadsPage({
 
                                     {/* Title overlay */}
                                     <div className="absolute left-6 top-6 z-10 text-left pointer-events-none">
-                                        <h3 className="text-2xl font-semibold text-white mb-1 truncate max-w-xs">
+                                        <h3
+                                            className="text-2xl font-semibold text-white mb-1 break-words max-w-sm"
+                                            style={{
+                                                textShadow: "0 2px 3px rgba(0,0,0,0.95), 0 0 12px rgba(0,0,0,0.75)",
+                                                WebkitTextStroke: "0.35px rgba(0,0,0,0.8)"
+                                            }}
+                                        >
                                             {currentProgress?.name ?? currentJob.name}
                                         </h3>
-                                        <p className="text-sm text-gray-300">{formatKind(currentJob.kind)}</p>
+                                        <p
+                                            className="text-sm text-gray-200"
+                                            style={{
+                                                textShadow: "0 1px 2px rgba(0,0,0,0.95), 0 0 8px rgba(0,0,0,0.7)",
+                                                WebkitTextStroke: "0.25px rgba(0,0,0,0.8)"
+                                            }}
+                                        >
+                                            {formatKind(currentJob.kind)}
+                                        </p>
                                     </div>
                                 </div>
 
@@ -857,7 +871,7 @@ export default function DownloadsPage({
 
                                             {/* Info */}
                                             <div className="flex-1 min-w-0">
-                                                <h4 className="text-sm font-medium text-white truncate" title={name}>
+                                                <h4 className="text-sm font-medium text-white break-all" title={name}>
                                                     {name}
                                                 </h4>
                                                 <p className="text-xs text-gray-400 mt-0.5">{formatKind(job.kind)} • {formatStatus(job.status, false)}</p>
@@ -941,7 +955,7 @@ export default function DownloadsPage({
                                             </div>
                                             {/* Info */}
                                             <div className="flex-1 min-w-0">
-                                                <h4 className="text-sm font-medium text-white truncate" title={job.name}>
+                                                <h4 className="text-sm font-medium text-white break-all" title={job.name}>
                                                     {job.name}
                                                 </h4>
                                                 <p className="text-xs text-gray-400 mt-0.5">{formatKind(job.kind)}</p>
