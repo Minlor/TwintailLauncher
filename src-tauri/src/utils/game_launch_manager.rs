@@ -1,5 +1,5 @@
 use crate::utils::models::{GameManifest, GlobalSettings, LauncherInstall};
-use crate::utils::{apply_xxmi_tweaks, edit_wuwa_configs_xxmi, get_mi_path_from_game, show_dialog};
+use crate::utils::{apply_xxmi_tweaks,edit_wuwa_configs_xxmi,get_mi_path_from_game,prevent_system_idle,show_dialog};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -641,6 +641,8 @@ fn start_playtime_tracker(app: &AppHandle, install: LauncherInstall, gm: GameMan
         if !is_process_running(&exe_name) { return; }
         let mut rpc_client = None;
         if install.show_discord_rpc { rpc_client = discord_rpc::init(&app, install.clone(), gm.clone()); }
+        let mut keepawake = None;
+        if install.disable_system_idle { keepawake = prevent_system_idle(true); }
         let started = std::time::Instant::now();
         loop {
             std::thread::sleep(poll_interval);
@@ -650,7 +652,8 @@ fn start_playtime_tracker(app: &AppHandle, install: LauncherInstall, gm: GameMan
                 let new_total = base_playtime + elapsed;
                 update_install_total_playtime_by_id(&app, install_id.clone(), new_total.to_string());
                 if !running {
-                   if install.show_discord_rpc { if let Some(ref mut client) = rpc_client { discord_rpc::terminate(client); } }
+                    if install.show_discord_rpc { if let Some(ref mut client) = rpc_client { discord_rpc::terminate(client); } }
+                    if install.disable_system_idle { drop(keepawake); }
                     return;
                 }
                 last_db_write_elapsed = elapsed;

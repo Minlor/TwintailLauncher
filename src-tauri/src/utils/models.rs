@@ -94,7 +94,8 @@ pub struct LauncherInstall {
     pub sort_order: i32,
     pub last_played_time: String,
     pub total_playtime: i64,
-    pub show_discord_rpc: bool
+    pub show_discord_rpc: bool,
+    pub disable_system_idle: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -556,6 +556,10 @@ pub fn notify_update(app: &AppHandle) {
     }
 }
 
+pub fn prevent_system_idle(is_idle: bool) -> Option<keepawake::KeepAwake> {
+    keepawake::Builder::default().display(false).sleep(false).idle(is_idle).reason("TwintailLauncher requested action").app_name("TwintailLauncher").app_reverse_domain("app.twintaillauncher.ttl").create().ok()
+}
+
 #[cfg(target_os = "linux")]
 pub fn is_flatpak() -> bool {
     std::env::var("FLATPAK_ID").is_ok()

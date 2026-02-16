@@ -1,4 +1,4 @@
-use crate::utils::db_manager::{create_installation, delete_installation_by_id, get_install_info_by_id, get_installs, get_installs_by_manifest_id, get_manifest_info_by_filename, get_manifest_info_by_id, get_settings, update_install_env_vars_by_id, update_install_fps_value_by_id, update_install_game_location_by_id, update_install_ignore_updates_by_id, update_install_launch_args_by_id, update_install_launch_cmd_by_id, update_install_mangohud_config_location_by_id, update_install_pre_launch_cmd_by_id, update_install_preferred_background_by_id, update_install_prefix_location_by_id, update_install_shortcut_location_by_id, update_install_show_drpc_by_id, update_install_skip_hash_check_by_id, update_install_use_fps_unlock_by_id, update_install_use_gamemode_by_id, update_install_use_jadeite_by_id, update_install_use_mangohud_by_id, update_install_use_xxmi_by_id, update_install_xxmi_config_by_id, update_installs_order};
+use crate::utils::db_manager::{create_installation, delete_installation_by_id, get_install_info_by_id, get_installs, get_installs_by_manifest_id, get_manifest_info_by_filename, get_manifest_info_by_id, get_settings, update_install_disable_system_idle_by_id, update_install_env_vars_by_id, update_install_fps_value_by_id, update_install_game_location_by_id, update_install_ignore_updates_by_id, update_install_launch_args_by_id, update_install_launch_cmd_by_id, update_install_mangohud_config_location_by_id, update_install_pre_launch_cmd_by_id, update_install_preferred_background_by_id, update_install_prefix_location_by_id, update_install_shortcut_location_by_id, update_install_show_drpc_by_id, update_install_skip_hash_check_by_id, update_install_use_fps_unlock_by_id, update_install_use_gamemode_by_id, update_install_use_jadeite_by_id, update_install_use_mangohud_by_id, update_install_use_xxmi_by_id, update_install_xxmi_config_by_id, update_installs_order};
 use crate::utils::game_launch_manager::launch;
 use crate::utils::repo_manager::get_manifest;
 use crate::utils::shortcuts::remove_desktop_shortcut;
@@ -563,6 +563,19 @@ pub fn update_install_show_drpc(app: AppHandle, id: String, enabled: bool) -> Op
 }
 
 #[tauri::command]
+pub fn update_install_disable_system_idle(app: AppHandle, id: String, enabled: bool) -> Option<bool> {
+    let manifest = get_install_info_by_id(&app, id);
+
+    if manifest.is_some() {
+        let m = manifest.unwrap();
+        update_install_disable_system_idle_by_id(&app, m.id, enabled);
+        Some(true)
+    } else {
+        None
+    }
+}
+
+#[tauri::command]
 pub fn update_install_env_vars(app: AppHandle, id: String, env_vars: String) -> Option<bool> {
     let install = get_install_info_by_id(&app, id);
 
@@ -744,9 +757,9 @@ pub fn update_install_dxvk_version(app: AppHandle, id: String, version: String) 
         if fs::read_dir(pn.as_str()).unwrap().next().is_none() {
             std::thread::spawn(move || {
                 let rm = get_compatibility(archandle.as_ref(), &runner_from_runner_version(runv.as_str().to_string()).unwrap()).unwrap();
-                let dm = get_compatibility(archandle.as_ref(), &runner_from_runner_version(dxvkv.as_str().to_string()).unwrap()).unwrap();
-                let dv = dm.versions.into_iter().filter(|v| v.version.as_str() == dxvkv.as_str()).collect::<Vec<_>>();
-                let dxp = dv.get(0).unwrap().to_owned();
+                //let dm = get_compatibility(archandle.as_ref(), &runner_from_runner_version(dxvkv.as_str().to_string()).unwrap()).unwrap();
+                //let dv = dm.versions.into_iter().filter(|v| v.version.as_str() == dxvkv.as_str()).collect::<Vec<_>>();
+                //let dxp = dv.get(0).unwrap().to_owned();
                 let dxpp = Path::new(dxpp.as_str()).to_path_buf();
                 //let rp = Path::new(runp.as_str()).to_path_buf();
 
@@ -759,19 +772,19 @@ pub fn update_install_dxvk_version(app: AppHandle, id: String, version: String) 
                     dlpayload.insert("total", "1000".to_string());
                     archandle.emit("download_progress", dlpayload.clone()).unwrap();
 
-                    let mut dl_url = dxp.url.clone(); // Always x86_64
+                    /*let mut dl_url = dxp.url.clone(); // Always x86_64
                     if let Some(urls) = dxp.urls {
                         #[cfg(target_arch = "x86_64")]
                         { dl_url = urls.x86_64; }
                         #[cfg(target_arch = "aarch64")]
                         { dl_url = if urls.aarch64.is_empty() { dxp.url.clone() } else { urls.aarch64 }; }
-                    }
+                    }*/
 
                     let r0 = run_async_command(async { true });
                     if r0 {
                         archandle.emit("download_complete", ()).unwrap();
                     } else {
-                        crate::utils::show_dialog(&*archandle, "error", "TwintailLauncher", format!("Error occurred while trying to download {dxvn} DXVK! Please retry later.", dxvn = dxvkv.as_str().to_string()).as_str(), Some(vec!["Ok"]));
+                        show_dialog(&*archandle, "error", "TwintailLauncher", format!("Error occurred while trying to download {dxvn} DXVK! Please retry later.", dxvn = dxvkv.as_str().to_string()).as_str(), Some(vec!["Ok"]));
                         archandle.emit("download_complete", ()).unwrap();
                         if dxpp.exists() { fs::remove_dir_all(&dxpp).unwrap(); }
                     }
