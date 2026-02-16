@@ -185,6 +185,12 @@ export default function GameSettings({
                     {activeTab === "launch" && (
                         <SettingsSection title="Launch Configuration">
                             <div className="flex flex-col gap-4">
+                                <ModernToggle
+                                    label="Prevent idle"
+                                    description="Prevents system from going to idle/screenlock state while playing the game."
+                                    checked={installSettings.disable_system_idle}
+                                    onChange={(val) => handleUpdate("disable_system_idle", val)}
+                                />
                                 <ModernInput
                                     label="Launch Arguments"
                                     description="Additional arguments passed to the game executable."

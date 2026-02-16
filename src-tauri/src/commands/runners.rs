@@ -166,7 +166,6 @@ pub fn remove_installed_runner(app: AppHandle, runner_version: String) -> Option
         if fs::read_dir(runner_path.as_path()).unwrap().next().is_some() {
             fs::remove_dir_all(runner_path.as_path()).unwrap();
             update_installed_runner_is_installed_by_version(&app, runner_version.clone(), false);
-            show_dialog(&app, "info", "TwintailLauncher", format!("Successfully removed {runn} runner.", runn = runner_version.as_str().to_string()).as_str(), None);
 
             // Set installations using the removed runner to first available one as fallback
             let installs = get_installs(&app);
