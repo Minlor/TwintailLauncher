@@ -51,6 +51,10 @@ export default function GameButton({ currentInstall, globalSettings, buttonType,
             timeoutRef.current = null;
         }
 
+        if (!currentInstall) {
+            return;
+        }
+
         // Immediately check if the game is already running for this install.
         // If it is, mark running and start polling to track when it stops.
         (async () => {

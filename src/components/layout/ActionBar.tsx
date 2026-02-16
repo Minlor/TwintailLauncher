@@ -44,12 +44,12 @@ export default function ActionBar(props: ActionBarProps) {
     isVisible = true,
     isPausing = false,
   } = props;
-
-  // Return null when not visible to trigger re-mount animation when becoming visible again
-  if (!isVisible) return null;
-
   return (
-    <div className="flex flex-row absolute bottom-8 right-16 gap-4 animate-slideUp" style={{ animationDelay: "200ms" }}>
+    <div
+      className={`flex flex-row absolute bottom-8 right-16 gap-4 transition-all duration-200 ${isVisible ? "opacity-100 translate-y-0 pointer-events-auto animate-slideUp" : "opacity-0 translate-y-2 pointer-events-none"}`}
+      style={{ animationDelay: isVisible ? "200ms" : undefined }}
+      aria-hidden={!isVisible}
+    >
       {currentInstall !== "" && preloadAvailable && installSettings.version == gameManifest.latest_version ? (
         <button
           className={`p-2.5 rounded-full border border-white/20 shadow-lg disabled:cursor-not-allowed disabled:brightness-75 disabled:saturate-100 transition-colors focus:outline-none
