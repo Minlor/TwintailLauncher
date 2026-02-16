@@ -140,6 +140,8 @@ export default function PageViewContainer({
                         runners={runners}
                         installedRunners={installedRunners}
                         fetchInstalledRunners={fetchInstalledRunners}
+                        downloadQueueState={downloadQueueState}
+                        downloadProgressByJobId={downloadProgressByJobId}
                     />
                 )}
             </div>

@@ -4,6 +4,7 @@ import { ArrowLeft, AtomIcon, DownloadCloud, FolderOpen, Trash2, Check } from "l
 import { PAGES } from "./PAGES";
 import { SettingsSidebar, SettingsTab } from "../sidebar/SettingsSidebar.tsx";
 import { SettingsSection } from "../common/SettingsComponents.tsx";
+import type { DownloadJobProgress, DownloadQueueStatePayload } from "../../types/downloadQueue";
 
 interface RunnerVersion {
     version: string;
@@ -25,17 +26,25 @@ interface RunnersPageProps {
     runners: RunnerManifest[];
     installedRunners: InstalledRunner[];
     fetchInstalledRunners: () => void;
+    downloadQueueState: DownloadQueueStatePayload | null;
+    downloadProgressByJobId: Record<string, DownloadJobProgress>;
 }
 
 function RunnerItem({
     version,
     isInstalled,
+    isDownloading,
+    isQueued,
+    progress,
     onInstall,
     onRemove,
     onOpenFolder,
 }: {
     version: string;
     isInstalled: boolean;
+    isDownloading: boolean;
+    isQueued: boolean;
+    progress?: DownloadJobProgress;
     onInstall: () => void;
     onRemove: () => void;
     onOpenFolder: () => void;
@@ -60,10 +69,13 @@ function RunnerItem({
         }
     };
 
+    const progressPercent = (progress?.progress && progress?.total && progress.total > 0) ? Math.round((progress.progress / progress.total) * 100) : 0;
+    const downloading = isDownloading || isQueued;
+
     return (
         <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/60 hover:bg-zinc-800/80 border border-white/5 hover:border-white/10 transition-all duration-200 group">
             <div className="flex items-center gap-3">
-                <div className={`w-2 h-2 rounded-full ${isInstalled ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-zinc-600'}`} />
+                <div className={`w-2 h-2 rounded-full ${isInstalled ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : downloading ? 'bg-purple-500 shadow-[0_0_8px_rgba(147,51,234,0.5)] animate-pulse' : 'bg-zinc-600'}`} />
                 <span className="text-white/90 text-sm font-medium">{version}</span>
             </div>
             <div className="flex items-center gap-2">
@@ -89,6 +101,21 @@ function RunnerItem({
                             <span className="text-xs text-emerald-400 font-medium">Installed</span>
                         </div>
                     </>
+                ) : downloading ? (
+                    <div className="relative flex items-center gap-2 px-3 py-1.5 rounded-lg border border-purple-500/30 overflow-hidden">
+                        {/* Fill background */}
+                        <div
+                            className="absolute inset-0 bg-purple-500/25 transition-all duration-300 ease-out"
+                            style={{ width: isDownloading && progressPercent > 0 ? `${progressPercent}%` : isQueued ? '0%' : '100%' }}
+                        />
+                        <svg className="relative animate-spin w-4 h-4 text-purple-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                            <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
+                        </svg>
+                        <span className="relative text-xs font-medium text-purple-300">
+                            {isQueued ? 'Queued' : progressPercent > 0 ? `${progressPercent}%` : 'Installing...'}
+                        </span>
+                    </div>
                 ) : (
                     <button
                         onClick={handleInstall}
@@ -116,7 +143,11 @@ export default function RunnersPage({
     runners,
     installedRunners,
     fetchInstalledRunners,
+    downloadQueueState,
+    downloadProgressByJobId,
 }: RunnersPageProps) {
+    const runningJobs = downloadQueueState?.running || [];
+    const queuedJobs = downloadQueueState?.queued || [];
     // Generate tabs from runner manifests
     const tabs: SettingsTab[] = useMemo(() => {
         return runners.map((runner, index) => ({
@@ -205,11 +236,18 @@ export default function RunnersPage({
                                             const isInstalled = installedRunners.some(
                                                 r => r.version === v.version && r.is_installed
                                             );
+                                            const runningJob = runningJobs.find(j => j.kind === 'runner_download' && j.installId === v.version);
+                                            const isDownloading = !!runningJob;
+                                            const isQueued = queuedJobs.some(j => j.kind === 'runner_download' && j.installId === v.version);
+                                            const progress = runningJob ? downloadProgressByJobId[runningJob.id] || downloadProgressByJobId[v.version] : undefined;
                                             return (
                                                 <RunnerItem
                                                     key={v.version}
                                                     version={v.version}
                                                     isInstalled={isInstalled}
+                                                    isDownloading={isDownloading}
+                                                    isQueued={isQueued}
+                                                    progress={progress}
                                                     onInstall={async () => {
                                                         await invoke("add_installed_runner", {
                                                             runnerUrl: v.url,
