@@ -146,6 +146,12 @@ export default function GameSettings({
                                     checked={installSettings.skip_hash_check}
                                     onChange={(val) => handleUpdate("skip_hash_valid", val)}
                                 />
+                                <ModernToggle
+                                    label="Enable DiscordRPC"
+                                    description="Show Discord rich presence activity while you are playing the game."
+                                    checked={installSettings.show_discord_rpc}
+                                    onChange={(val) => handleUpdate("show_drpc", val)}
+                                />
                                 {prefetchedSwitches.xxmi && (
                                     <SettingsCard className="flex items-center justify-between">
                                         <div className="flex flex-col">

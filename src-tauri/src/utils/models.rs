@@ -93,7 +93,8 @@ pub struct LauncherInstall {
     pub preferred_background: Option<String>,
     pub sort_order: i32,
     pub last_played_time: String,
-    pub total_playtime: i64
+    pub total_playtime: i64,
+    pub show_discord_rpc: bool
 }
 
 #[derive(Serialize, Deserialize, Debug)]

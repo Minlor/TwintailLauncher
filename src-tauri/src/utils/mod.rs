@@ -36,6 +36,7 @@ pub mod models;
 pub mod repo_manager;
 pub mod shortcuts;
 pub mod system_tray;
+pub mod discord_rpc;
 
 pub fn generate_cuid() -> String {
     cuid2::create_id()

@@ -7,7 +7,8 @@ use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Error};
-use crate::utils::db_manager::{update_install_last_played_by_id, update_install_total_playtime_by_id};
+use crate::utils::db_manager::{update_install_last_played_by_id,update_install_total_playtime_by_id};
+use crate::utils::discord_rpc;
 use fischl::utils::is_process_running;
 
 #[cfg(target_os = "linux")]
@@ -22,7 +23,7 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
     let rm = get_compatibility(&app, &runner_from_runner_version(install.runner_version.clone()).unwrap()).unwrap();
     let is_proton = rm.display_name.to_ascii_lowercase().contains("proton") && !rm.display_name.to_ascii_lowercase().contains("wine");
     let mut compat_config = update_steam_compat_config(vec![]);
-    let cpo = gm.extra.compat_overrides;
+    let cpo = gm.extra.compat_overrides.clone();
 
     let dirp = Path::new(install.directory.as_str());
     let dir = dirp.to_str().unwrap().to_string();
@@ -192,7 +193,7 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
                 Ok(None) => {
                     let time = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs().to_string();
                     update_install_last_played_by_id(app, install.id.clone(), time);
-                    start_playtime_tracker(app, install.clone(), exe.clone());
+                    start_playtime_tracker(app, install.clone(), gm.clone(), exe.clone());
                     write_log(app, Path::new(&dir).to_path_buf(), child, "game.log".parse().unwrap());
                 }
                 Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute launch command! Please try again or check the command correctness.", None); }
@@ -277,7 +278,7 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
                 Ok(None) => {
                     let time = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs().to_string();
                     update_install_last_played_by_id(app, install.id.clone(), time);
-                    start_playtime_tracker(app, install.clone(), exe.clone());
+                    start_playtime_tracker(app, install.clone(), gm.clone(), exe.clone());
                     write_log(app, Path::new(&dir).to_path_buf(), child, "game.log".parse().unwrap());
                 }
                 Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute launch command! Please try again or check the command correctness.", None); }
@@ -489,7 +490,7 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
                 Ok(None) => {
                     let time = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs().to_string();
                     update_install_last_played_by_id(app, install.id.clone(), time);
-                    start_playtime_tracker(app, install.clone(), exe.clone());
+                    start_playtime_tracker(app, install.clone(), gm.clone(), exe.clone());
                     write_log(app, Path::new(&dir).to_path_buf(), child, "game.log".parse().unwrap());
                 }
                 Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to run launch command! Please try again or check the command correctness.", None); }
@@ -536,7 +537,7 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
                 Ok(None) => {
                     let time = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs().to_string();
                     update_install_last_played_by_id(app, install.id.clone(), time);
-                    start_playtime_tracker(app, install.clone(), exe.clone());
+                    start_playtime_tracker(app, install.clone(), gm.clone(), exe.clone());
                     write_log(app, Path::new(&dir).to_path_buf(), child, "game.log".parse().unwrap());
                 }
                 Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute launch command! Please try again or check the command correctness.", None); }
@@ -628,28 +629,30 @@ fn load_fps_unlock(app: &AppHandle, install: LauncherInstall, biz: String, game_
     }
 }
 
-fn start_playtime_tracker(app: &AppHandle, install: LauncherInstall, exe_name: String) {
+fn start_playtime_tracker(app: &AppHandle, install: LauncherInstall, gm: GameManifest, exe_name: String) {
     let app = app.clone();
     let install_id = install.id.clone();
     let base_playtime = install.total_playtime as u64;
     std::thread::spawn(move || {
         let poll_interval = std::time::Duration::from_secs(10);
-        let db_write_interval = 180u64;
+        let db_write_interval = 60u64;
         let mut last_db_write_elapsed: u64 = 0;
         std::thread::sleep(std::time::Duration::from_secs(5));
         if !is_process_running(&exe_name) { return; }
+        let mut rpc_client = None;
+        if install.show_discord_rpc { rpc_client = discord_rpc::init(&app, install.clone(), gm.clone()); }
         let started = std::time::Instant::now();
         loop {
             std::thread::sleep(poll_interval);
             let elapsed = started.elapsed().as_secs();
-            if !is_process_running(&exe_name) {
+            let running = is_process_running(&exe_name);
+            if !running || elapsed - last_db_write_elapsed >= db_write_interval {
                 let new_total = base_playtime + elapsed;
                 update_install_total_playtime_by_id(&app, install_id.clone(), new_total.to_string());
-                return;
-            }
-            if elapsed - last_db_write_elapsed >= db_write_interval {
-                let new_total = base_playtime + elapsed;
-                update_install_total_playtime_by_id(&app, install_id.clone(), new_total.to_string());
+                if !running {
+                   if install.show_discord_rpc { if let Some(ref mut client) = rpc_client { discord_rpc::terminate(client); } }
+                    return;
+                }
                 last_db_write_elapsed = elapsed;
             }
         }

@@ -169,6 +169,12 @@ pub async fn init_db(app: &AppHandle) {
             sql: r#"ALTER TABLE install ADD COLUMN total_playtime INTEGER DEFAULT 0 NOT NULL;"#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 25,
+            description: "alter_install_table_allow_discord_rpc",
+            sql: r#"ALTER TABLE install ADD COLUMN show_discord_rpc bool DEFAULT false NOT NULL;"#,
+            kind: MigrationKind::Up,
+        },
         // === 2.0.0 migrations end ===
     ];
 
@@ -859,6 +865,7 @@ pub fn get_install_info_by_id(app: &AppHandle, id: String) -> Option<LauncherIns
             sort_order: rslt.get(0).unwrap().get("sort_order"),
             last_played_time: rslt.get(0).unwrap().get("last_played_time"),
             total_playtime: rslt.get(0).unwrap().get("total_playtime"),
+            show_discord_rpc: rslt.get(0).unwrap().get("show_discord_rpc"),
         };
 
         Some(rsltt)
@@ -925,6 +932,7 @@ pub fn get_installs_by_manifest_id(
                 sort_order: r.get("sort_order"),
                 last_played_time: r.get("last_played_time"),
                 total_playtime: r.get("total_playtime"),
+                show_discord_rpc: r.get("show_discord_rpc"),
             })
         }
 
@@ -989,6 +997,7 @@ pub fn get_installs(app: &AppHandle) -> Option<Vec<LauncherInstall>> {
                 sort_order: r.get("sort_order"),
                 last_played_time: r.get("last_played_time"),
                 total_playtime: r.get("total_playtime"),
+                show_discord_rpc: r.get("show_discord_rpc"),
             })
         }
 
@@ -1494,6 +1503,15 @@ pub fn update_install_total_playtime_by_id(app: &AppHandle, id: String, total_pl
     run_async_command(async {
         let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
         let query = query("UPDATE install SET 'total_playtime' = $1 WHERE id = $2").bind(total_playtime).bind(id);
+        query.execute(&db).await.unwrap();
+    });
+}
+
+pub fn update_install_show_drpc_by_id(app: &AppHandle, id: String, enabled: bool) {
+    run_async_command(async {
+        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
+
+        let query = query("UPDATE install SET 'show_discord_rpc' = $1 WHERE id = $2").bind(enabled).bind(id);
         query.execute(&db).await.unwrap();
     });
 }
