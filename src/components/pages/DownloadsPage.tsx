@@ -531,7 +531,7 @@ export default function DownloadsPage({
                     const sample = speedHistory[hoveredIndex];
                     return (
                         <div
-                            className="fixed z-50 bg-zinc-900/95 backdrop-blur-sm border border-white/10 rounded-xl px-3 py-2 shadow-2xl ring-1 ring-white/5 pointer-events-none"
+                            className="fixed z-50 bg-zinc-900/95 border border-white/10 rounded-xl px-3 py-2 shadow-2xl ring-1 ring-white/5 pointer-events-none"
                             style={{ left: `${left}px`, top: `${top}px`, minWidth: tooltipWidth }}
                         >
                             <div className="text-xs space-y-1.5 min-w-[180px]">

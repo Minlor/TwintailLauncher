@@ -55,7 +55,7 @@ export default function PlayStatsOverlay({
 
     return (
         <div className="absolute top-4 right-6 z-20 animate-slideInRight pointer-events-none" style={{ animationDelay: "120ms" }}>
-            <div className="rounded-xl border border-white/10 bg-black/50 shadow-lg backdrop-blur-sm">
+            <div className="rounded-xl border border-white/10 bg-black/50 shadow-lg">
                 <div className="flex items-stretch divide-x divide-white/10">
                     <div className="px-3 py-2.5 min-w-[175px]">
                         <div className="flex items-center gap-2.5">

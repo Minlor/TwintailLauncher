@@ -156,7 +156,7 @@ export default function DownloadsQueue(props: DownloadsQueueProps) {
                     <div className="min-w-0 pr-4">
                       <h4 className="text-sm font-bold text-white break-all leading-snug" style={strongTextStyle}>{name}</h4>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className={`text-[10px] items-center px-1.5 py-0.5 rounded font-bold uppercase tracking-wide backdrop-blur-sm
+                        <span className={`text-[10px] items-center px-1.5 py-0.5 rounded font-bold uppercase tracking-wide
                            ${job.status === 'running' ? 'bg-purple-500/40 text-purple-100 border border-purple-300/70' : 'bg-black/30 text-white/90 border border-white/40'}
                         `} style={strongTextStyle}>
                           {formatStatus(job.status)}

@@ -118,7 +118,7 @@ const ManifestsPanel: React.FC<ManifestsPanelProps> = ({
       <div className="pl-3 pt-2 pr-6">
         <motion.div
           ref={manifestsPanelRef}
-          className="relative inline-flex rounded-2xl border border-white/10 bg-black/50 shadow-2xl overflow-hidden pointer-events-auto origin-left backdrop-blur-md"
+          className="relative inline-flex rounded-2xl border border-white/10 bg-black/50 shadow-2xl overflow-hidden pointer-events-auto origin-left"
           initial="closed"
           animate={animationState}
           // @ts-ignore
