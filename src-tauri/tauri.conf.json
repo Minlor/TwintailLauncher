@@ -48,7 +48,8 @@
             "./resources/hpatchz.exe",
             "./resources/hpatchz",
             "./resources/hkrpg_patch.dll",
-            "./resources/reaper"
+            "./resources/reaper",
+            "./resources/winetricks"
         ],
         "icon": [
             "icons/32x32.png",

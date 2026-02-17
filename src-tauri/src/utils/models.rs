@@ -289,6 +289,7 @@ pub struct GameCompatOverrides {
     pub proton_compat_config: Vec<String>,
     pub override_runner: CompatPlatformOverrides,
     pub min_runner_versions: Vec<String>,
+    pub winetricks_verbs: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

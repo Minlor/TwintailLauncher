@@ -64,7 +64,9 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
     }
 
     let pre_launch = install.pre_launch_command.clone();
-    let wine64 = if rm.paths.wine64.is_empty() { rm.paths.wine32 } else { rm.paths.wine64 };
+    let wine64 = if rm.paths.wine64.is_empty() { rm.paths.wine32.clone() } else { rm.paths.wine64.clone() };
+
+    if !prefixp.join("pfx").join("drive_c").exists() && !cpo.winetricks_verbs.is_empty() { run_winetricks(app, install.clone(), steamrt.clone(), reaper.clone(), appid, runner.clone(), wine64.clone(), prefix.clone(), dir.clone(), cpo.winetricks_verbs.clone()); }
 
     if !pre_launch.is_empty() {
         let command = format!("{pre_launch}").replace("%reaper%", reaper.clone().as_str()).replace("%steamrt_path%", steamrt_path.clone().as_str()).replace("%steamrt%", steamrt.clone().as_str()).replace("%prefix%", prefix.clone().as_str()).replace("%runner_dir%", runner.clone().as_str()).replace("%runner%", &*(runner.clone() + "/" + wine64.as_str())).replace("%install_dir%", dir.clone().as_str()).replace("%game_exe%", &*(dir.clone() + "/" + exe.clone().as_str()));
@@ -403,6 +405,79 @@ fn load_fps_unlock(app: &AppHandle, install: LauncherInstall, biz: String, prefi
             }
         });
     }
+}
+
+// TODO: if launching with xxmi or fps unlocker enabled this wont apply the wintricks... make sure we block game PROPERLY until this completes
+#[cfg(target_os = "linux")]
+fn run_winetricks(app: &AppHandle, install: LauncherInstall, steamrt: String, reaper: String, appid: u32, runner: String, wine64: String, prefix: String, install_dir: String, verbs: Vec<String>) {
+    let appc = app.clone();
+    // Prevent "App is not responding" by waiting in a separate thread
+    std::thread::spawn(move || {
+        let app = appc.clone();
+        let install_dir = install_dir.clone();
+        let winetricks_cache = app.path().app_cache_dir().unwrap().join("winetricks");
+        let winetricks_cache_str = winetricks_cache.to_str().unwrap().to_string();
+        if !winetricks_cache.exists() { let _ = fs::create_dir_all(&winetricks_cache); }
+
+        #[cfg(not(debug_assertions))]
+        let winetricks_bin = if crate::utils::is_flatpak() { app.path().resource_dir().unwrap().join("resources/winetricks").to_str().unwrap().to_string().replace("/app/lib/", "/run/parent/app/lib/") } else { app.path().resource_dir().unwrap().join("resources/winetricks").to_str().unwrap().to_string().replace("/usr/lib/", "/run/host/usr/lib/") };
+        #[cfg(debug_assertions)]
+        let winetricks_bin = app.path().resource_dir().unwrap().join("resources/winetricks").to_str().unwrap().to_string();
+
+        if verbs.is_empty() { return; }
+        let verbs_str = verbs.join(" ");
+        let run_verb = if install.use_xxmi || install.use_fps_unlock { "run" } else { "waitforexitandrun" };
+        let command = format!("'{steamrt}' --verb={run_verb} -- '{reaper}' SteamLaunch AppId={appid} -- '{runner}/{wine64}' {run_verb} '{winetricks_bin}' -q -f {verbs_str}");
+
+        let mut cmd = Command::new("bash");
+        cmd.arg("-c");
+        cmd.arg(&command);
+
+        cmd.env("WINE", format!("{runner}/files/bin/wine64"));
+        cmd.env("WINESERVER", format!("{runner}/files/bin/wineserver"));
+        cmd.env("WINE_BIN", format!("{runner}/files/bin/wine64"));
+        cmd.env("WINESERVER_BIN", format!("{runner}/files/bin/wineserver"));
+        cmd.env("WINEBOOT", format!("{runner}/files/bin/wineboot"));
+        cmd.env("WINEBOOT_BIN", format!("{runner}/files/bin/wineboot"));
+        cmd.env("W_OPT_UNATTENDED", "1");
+        cmd.env("W_CACHE", winetricks_cache_str);
+        cmd.env("WINEARCH", "win64");
+        cmd.env("WINEPREFIX", format!("{prefix}/pfx"));
+        cmd.env("STEAM_COMPAT_DATA_PATH", prefix);
+        cmd.env("STEAM_COMPAT_CLIENT_INSTALL_PATH", "");
+        cmd.env("PROTONFIXES_DISABLE", "1");
+        cmd.env("PROTON_USE_XALIA", "0");
+        cmd.env("WINEDLLOVERRIDES", "lsteamclient=d;KRSDKExternal.exe=d");
+        cmd.env("WINETRICKS_SUPER_QUIET", "1");
+
+        cmd.stdout(Stdio::piped());
+        cmd.stderr(Stdio::piped());
+        cmd.current_dir(&install_dir);
+        cmd.process_group(0);
+
+        if !install.env_vars.is_empty() {
+            let envs = install.env_vars.clone();
+            let splitted = envs.split(";").collect::<Vec<&str>>();
+            let parsed: Option<Vec<(&str, String)>> = splitted.iter().map(|env| {
+                if env.is_empty() { return Some(None); }
+                let mut tmp = env.splitn(2, "=");
+                match (tmp.next(), tmp.next()) { (Some(k), Some(v)) if !k.is_empty() => Some(Some((k, v.replace("\"", "")))), _ => None }
+            }).collect::<Option<Vec<_>>>().and_then(|vec| Some(vec.into_iter().flatten().collect()));
+            if let Some(env_vars) = parsed { for (k, v) in env_vars { cmd.env(k, v); } }
+        }
+
+        match cmd.spawn() {
+            Ok(mut child) => {
+                let status = child.wait();
+                write_log(&app, Path::new(&install_dir).to_path_buf(), child, "winetricks.log".parse().unwrap());
+                match status {
+                    Ok(s) => { if !s.success() { show_dialog(&app, "warning", "TwintailLauncher", "Winetricks setup failed! The game will still attempt to launch.", Some(vec!["I understand"])); } }
+                    Err(_) => { show_dialog(&app, "warning", "TwintailLauncher", "Winetricks setup failed! Please try again later!", Some(vec!["I understand"])); }
+                }
+            }
+            Err(_) => { show_dialog(&app, "warning", "TwintailLauncher", "Failed to execute winetricks for setup! Something serious is wrong.", Some(vec!["I understand"])); }
+        }
+    });
 }
 
 #[cfg(target_os = "windows")]
