@@ -67,6 +67,9 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
     let wine64 = if rm.paths.wine64.is_empty() { rm.paths.wine32.clone() } else { rm.paths.wine64.clone() };
     let can_game_launch: Option<std::thread::JoinHandle<bool>> = if !prefixp.join("pfx").join("drive_c").exists() && !cpo.winetricks_verbs.is_empty() { Some(run_winetricks(app, install.clone(), steamrt.clone(), reaper.clone(), appid, runner.clone(), wine64.clone(), prefix.clone(), dir.clone(), cpo.winetricks_verbs.clone())) } else { None };
 
+    // Wait for winetricks to fully exit before proceeding to game launch
+    if let Some(handle) = can_game_launch { if !handle.join().unwrap_or(false) { return Ok(false); } }
+
     if !pre_launch.is_empty() {
         let command = format!("{pre_launch}").replace("%reaper%", reaper.clone().as_str()).replace("%steamrt_path%", steamrt_path.clone().as_str()).replace("%steamrt%", steamrt.clone().as_str()).replace("%prefix%", prefix.clone().as_str()).replace("%runner_dir%", runner.clone().as_str()).replace("%runner%", &*(runner.clone() + "/" + wine64.as_str())).replace("%install_dir%", dir.clone().as_str()).replace("%game_exe%", &*(dir.clone() + "/" + exe.clone().as_str()));
 
@@ -103,9 +106,6 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
             Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute prelaunch command! Something serious is wrong.", None); }
         }
     }
-
-    // Wait for winetricks to fully exit before proceeding to game launch
-    if let Some(handle) = can_game_launch { if !handle.join().unwrap_or(false) { return Ok(false); } }
 
     let verb = if install.use_xxmi || install.use_fps_unlock { "run" } else { "waitforexitandrun" };
     let drive = if cpo.proton_compat_config.contains(&"gamedrive".to_string()) { format!("s:\\{game}") } else { format!("z:\\{dir}/{game}") };
@@ -427,8 +427,7 @@ fn run_winetricks(app: &AppHandle, install: LauncherInstall, steamrt: String, re
 
         if verbs.is_empty() { return true; }
         let verbs_str = verbs.join(" ");
-        let run_verb = if install.use_xxmi || install.use_fps_unlock { "run" } else { "waitforexitandrun" };
-        let command = format!("'{steamrt}' --verb={run_verb} -- '{reaper}' SteamLaunch AppId={appid} -- '{runner}/{wine64}' {run_verb} '{winetricks_bin}' -q -f {verbs_str}");
+        let command = format!("'{steamrt}' --verb=waitforexitandrun -- '{reaper}' SteamLaunch AppId={appid} -- '{runner}/{wine64}' waitforexitandrun '{winetricks_bin}' -q -f {verbs_str}");
 
         let mut cmd = Command::new("bash");
         cmd.arg("-c");
@@ -449,7 +448,6 @@ fn run_winetricks(app: &AppHandle, install: LauncherInstall, steamrt: String, re
         cmd.env("PROTONFIXES_DISABLE", "1");
         cmd.env("PROTON_USE_XALIA", "0");
         cmd.env("WINEDLLOVERRIDES", "lsteamclient=d;KRSDKExternal.exe=d");
-        //cmd.env("WINETRICKS_SUPER_QUIET", "1");
 
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
