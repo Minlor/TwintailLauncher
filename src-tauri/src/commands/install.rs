@@ -815,13 +815,9 @@ pub fn game_launch(app: AppHandle, id: String) -> Option<bool> {
         let gmm = get_manifest_info_by_id(&app, m.clone().manifest_id).unwrap();
         let gm = get_manifest(&app, gmm.filename).unwrap();
 
-        let rslt = launch(&app, m.clone(), gm, global_settings).unwrap();
-        if rslt {
-            Some(true)
-        } else {
-            show_dialog(&app, "warning", "TwintailLauncher", "Failed to launch game! Please check game.log file inside game directory for more information.", None);
-            None
-        }
+        let appc = app.clone();
+        std::thread::spawn(move || { let app = appc.clone(); launch(&app, m.clone(), gm, global_settings).unwrap() });
+        Some(true)
     } else {
         show_dialog(&app, "error", "TwintailLauncher", "Failed to find game installation!", None);
         None
