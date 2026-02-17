@@ -449,7 +449,7 @@ fn run_winetricks(app: &AppHandle, install: LauncherInstall, steamrt: String, re
         cmd.env("PROTONFIXES_DISABLE", "1");
         cmd.env("PROTON_USE_XALIA", "0");
         cmd.env("WINEDLLOVERRIDES", "lsteamclient=d;KRSDKExternal.exe=d");
-        cmd.env("WINETRICKS_SUPER_QUIET", "1");
+        //cmd.env("WINETRICKS_SUPER_QUIET", "1");
 
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
