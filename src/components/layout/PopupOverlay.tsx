@@ -5,9 +5,6 @@ import RepoManager from "../popups/repomanager/RepoManager";
 import AddRepo from "../popups/repomanager/AddRepo";
 import DownloadGame from "../popups/DownloadGame";
 import InstallDeleteConfirm from "../popups/settings/InstallDeleteConfirm";
-import FpsUnlockSettings from "../popups/settings/FpsUnlockSettings.tsx";
-import MangoHudSettings from "../popups/settings/MangoHudSettings.tsx";
-import XXMISettings from "../popups/settings/XXMISettings.tsx";
 import GameSettings from "../popups/settings/GameSettings.tsx";
 
 export type PopupOverlayProps = {
@@ -197,15 +194,6 @@ export default function PopupOverlay(props: PopupOverlayProps) {
             setDisplayName={setDisplayName}
             setGameIcon={setGameIcon}
           />
-        )}
-        {openPopup == POPUPS.FPSUNLOCKERSETTINGS && (
-          <FpsUnlockSettings install={installSettings} setOpenPopup={setOpenPopup} gameSwitches={installGameSwitches} gameFps={installGameFps} fetchInstallSettings={fetchInstallSettings} />
-        )}
-        {openPopup == POPUPS.XXMISETTINGS && (
-          <XXMISettings install={installSettings} setOpenPopup={setOpenPopup} gameSwitches={installGameSwitches} fetchInstallSettings={fetchInstallSettings} />
-        )}
-        {openPopup == POPUPS.MANGOHUDSETTINGS && (
-          <MangoHudSettings install={installSettings} setOpenPopup={setOpenPopup} fetchInstallSettings={fetchInstallSettings} gameSwitches={installGameSwitches} />
         )}
       </div>
     </div>

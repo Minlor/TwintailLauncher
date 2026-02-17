@@ -6,7 +6,7 @@ import { emit } from "@tauri-apps/api/event";
 import {Folder, Play, Wrench, Trash2, Sliders, Box, Monitor, Copy, FileCode2, LayoutDashboard} from "lucide-react";
 import { SettingsLayout } from "../../layout/SettingsLayout.tsx";
 import { SettingsSidebar, SettingsTab } from "../../sidebar/SettingsSidebar.tsx";
-import { SettingsSection, ModernToggle, ModernInput, ModernPathInput, ModernSelect, SettingsCard } from "../../common/SettingsComponents.tsx";
+import { SettingsSection, ModernToggle, ModernInput, ModernPathInput, ModernSelect } from "../../common/SettingsComponents.tsx";
 
 
 // Helper for Steam Icon
@@ -37,7 +37,7 @@ export default function GameSettings({
     gameManifest,
     fetchInstallSettings,
     prefetchedSwitches,
-    prefetchedFps: _prefetchedFps,
+    prefetchedFps,
     installedRunners,
     installs,
     gamesinfo,
@@ -45,11 +45,15 @@ export default function GameSettings({
 }: GameSettingsProps) {
     const [activeTab, setActiveTab] = useState("general");
     const [authkeyCopied, setAuthkeyCopied] = useState(false);
+    const isLinux = window.navigator.platform.includes("Linux");
 
     const tabs: SettingsTab[] = [
         { id: "general", label: "General", icon: Sliders, color: "blue" },
         { id: "launch", label: "Launch Options", icon: Play, color: "emerald" },
-        ...(window.navigator.platform.includes("Linux") ? [{ id: "linux", label: "Linux Options", icon: Monitor, color: "orange" }] : []),
+        ...(prefetchedSwitches.xxmi ? [{ id: "xxmi", label: "XXMI", icon: Wrench, color: "pink" }] : []),
+        ...(prefetchedSwitches.fps_unlocker ? [{ id: "fps_unlocker", label: "FPS Unlocker", icon: Monitor, color: "yellow" }] : []),
+        ...(isLinux ? [{ id: "linux", label: "Linux Options", icon: Monitor, color: "orange" }] : []),
+        ...(isLinux ? [{ id: "mangohud", label: "MangoHUD", icon: LayoutDashboard, color: "orange" }] : []),
         { id: "manage", label: "Manage", icon: Box, color: "red" },
     ];
 
@@ -112,6 +116,26 @@ export default function GameSettings({
     }, [installs, installSettings.id, installSettings.game_icon]);
 
     const gameBiz = gameManifest?.biz || "";
+    const xxmiConfig = installSettings.xxmi_config || {};
+    const selectedFps = `${installSettings.fps_value ?? "60"}`;
+    const fpsOptionsRaw = (Array.isArray(prefetchedFps) ? prefetchedFps : []).map((opt: any) => ({
+        value: `${opt.value}`,
+        name: `${opt.name ?? opt.value}`
+    }));
+    const fpsOptions = fpsOptionsRaw.some((opt: any) => opt.value === selectedFps)
+        ? fpsOptionsRaw
+        : [{ value: selectedFps, name: selectedFps }, ...fpsOptionsRaw];
+
+    const handleUpdateXxmiConfig = async (payload: Record<string, any>) => {
+        try {
+            await invoke("update_install_xxmi_config", { id: installSettings.id, ...payload });
+            requestAnimationFrame(() => {
+                fetchInstallSettings(installSettings.id);
+            });
+        } catch (e) {
+            console.error("Failed to update XXMI config:", e);
+        }
+    };
 
     return (
         <SettingsLayout
@@ -152,32 +176,6 @@ export default function GameSettings({
                                     checked={installSettings.show_discord_rpc}
                                     onChange={(val) => handleUpdate("show_drpc", val)}
                                 />
-                                {prefetchedSwitches.xxmi && (
-                                    <SettingsCard className="flex items-center justify-between">
-                                        <div className="flex flex-col">
-                                            <span className="font-medium text-white">XXMI Settings</span>
-                                            <span className="text-sm text-zinc-400">Configure mods and plugins.</span>
-                                        </div>
-                                        <button
-                                            onClick={() => setOpenPopup(POPUPS.XXMISETTINGS)}
-                                            className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors border border-white/5">
-                                            Configure
-                                        </button>
-                                    </SettingsCard>
-                                )}
-                                {prefetchedSwitches.fps_unlocker && (
-                                    <SettingsCard className="flex items-center justify-between">
-                                        <div className="flex flex-col">
-                                            <span className="font-medium text-white">FPS Unlocker</span>
-                                            <span className="text-sm text-zinc-400">Unlock frame rate limits.</span>
-                                        </div>
-                                        <button
-                                            onClick={() => setOpenPopup(POPUPS.FPSUNLOCKERSETTINGS)}
-                                            className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors border border-white/5">
-                                            Configure
-                                        </button>
-                                    </SettingsCard>
-                                )}
                             </div>
                         </SettingsSection>
                     )}
@@ -269,17 +267,83 @@ export default function GameSettings({
                                     checked={installSettings.use_gamemode}
                                     onChange={(val) => handleUpdate("use_gamemode", val)}
                                 />
-                                <SettingsCard className="flex items-center justify-between">
-                                    <div className="flex flex-col">
-                                        <span className="font-medium text-white">MangoHUD</span>
-                                        <span className="text-sm text-zinc-400">Configure HUD overlay settings.</span>
-                                    </div>
-                                    <button
-                                        onClick={() => setOpenPopup(POPUPS.MANGOHUDSETTINGS)}
-                                        className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors border border-white/5">
-                                        Configure
-                                    </button>
-                                </SettingsCard>
+                            </div>
+                        </SettingsSection>
+                    )}
+
+                    {activeTab === "xxmi" && (
+                        <SettingsSection title="XXMI Configuration">
+                            <div className="flex flex-col gap-4">
+                                <ModernToggle
+                                    label="Enable XXMI"
+                                    description="Enable and inject the XXMI modding tool."
+                                    checked={!!installSettings.use_xxmi}
+                                    onChange={(val) => handleUpdate("use_xxmi", val)}
+                                />
+                                <ModernToggle
+                                    label="Show Warnings"
+                                    description="Show mod parse warnings for debugging broken mods."
+                                    checked={!!xxmiConfig.show_warnings}
+                                    onChange={(val) => handleUpdateXxmiConfig({ xxmiSw: val })}
+                                />
+                                <ModernToggle
+                                    label="Dump Shaders"
+                                    description="Enable shader dumping for mod development."
+                                    checked={!!xxmiConfig.dump_shaders}
+                                    onChange={(val) => handleUpdateXxmiConfig({ xxmiSd: val })}
+                                />
+                                <ModernSelect
+                                    label="Hunting Mode"
+                                    description="Choose how XXMI hunting mode behaves."
+                                    value={`${xxmiConfig.hunting_mode ?? 0}`}
+                                    options={[
+                                        { value: "0", name: "Disabled" },
+                                        { value: "1", name: "Always enabled" },
+                                        { value: "2", name: "Soft disabled" }
+                                    ]}
+                                    onChange={(val) => handleUpdateXxmiConfig({ xxmiHunting: Number(val) })}
+                                />
+                            </div>
+                        </SettingsSection>
+                    )}
+
+                    {activeTab === "fps_unlocker" && (
+                        <SettingsSection title="FPS Unlocker Configuration">
+                            <div className="flex flex-col gap-4">
+                                <ModernToggle
+                                    label="Enable FPS Unlocker"
+                                    description="Load and inject frame-rate unlocking into the game."
+                                    checked={!!installSettings.use_fps_unlock}
+                                    onChange={(val) => handleUpdate("use_fps_unlock", val)}
+                                />
+                                <ModernSelect
+                                    label="FPS Target"
+                                    description="Target frame rate for unlocker."
+                                    value={selectedFps}
+                                    options={fpsOptions}
+                                    onChange={(val) => handleUpdate("fps_value", val)}
+                                />
+                            </div>
+                        </SettingsSection>
+                    )}
+
+                    {activeTab === "mangohud" && (
+                        <SettingsSection title="MangoHUD Configuration">
+                            <div className="flex flex-col gap-4">
+                                <ModernToggle
+                                    label="Enable MangoHUD"
+                                    description="Enable the MangoHUD overlay monitor while playing."
+                                    checked={!!installSettings.use_mangohud}
+                                    onChange={(val) => handleUpdate("use_mangohud", val)}
+                                />
+                                <ModernPathInput
+                                    label="Config Location"
+                                    description="MangoHUD configuration file to load."
+                                    value={`${installSettings.mangohud_config_path ?? ""}`}
+                                    folder={false}
+                                    extensions={["conf"]}
+                                    onChange={(val) => handleUpdate("mangohud_config_path", val)}
+                                />
                             </div>
                         </SettingsSection>
                     )}
