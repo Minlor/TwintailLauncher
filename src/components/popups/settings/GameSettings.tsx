@@ -3,7 +3,19 @@ import { POPUPS } from "../POPUPS.ts";
 import { PAGES } from "../../pages/PAGES.ts";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
-import {Folder, Play, Wrench, Trash2, Sliders, Box, Monitor, Copy, FileCode2, LayoutDashboard} from "lucide-react";
+import {
+    Folder,
+    Play,
+    Wrench,
+    Trash2,
+    Sliders,
+    Box,
+    Monitor,
+    Copy,
+    FileCode2,
+    LayoutDashboard,
+    Terminal
+} from "lucide-react";
 import { SettingsLayout } from "../../layout/SettingsLayout.tsx";
 import { SettingsSidebar, SettingsTab } from "../../sidebar/SettingsSidebar.tsx";
 import { SettingsSection, ModernToggle, ModernInput, ModernPathInput, ModernSelect } from "../../common/SettingsComponents.tsx";
@@ -567,6 +579,21 @@ export default function GameSettings({
                                             <div className="flex flex-col">
                                                 <span className="font-bold">Open Control Panel</span>
                                                 <span className="text-xs text-zinc-400">Open control.exe for Wine/Proton prefix</span>
+                                            </div>
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setOpenPopup(POPUPS.NONE);
+                                                invoke("open_in_prefix", {
+                                                    installId: installSettings.id,
+                                                    pathType: "cmd.exe"
+                                                });
+                                            }}
+                                            className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
+                                            <Terminal className="w-6 h-6 text-purple-400" />
+                                            <div className="flex flex-col">
+                                                <span className="font-bold">Open Command Prompt</span>
+                                                <span className="text-xs text-zinc-400">Open cmd.exe for Wine/Proton prefix</span>
                                             </div>
                                         </button>
                                     </div>
