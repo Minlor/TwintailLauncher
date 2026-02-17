@@ -578,13 +578,19 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
         true
     } else {
         // We assume user knows what he/she is doing so we just execute command that is configured without any checks
+        let dir = dir.trim_matches('\\');
+        let game = game.trim_matches('\\');
+        let tmp = game.replace("/", "\\");
+
+        let full_path = Path::new(dir).join(&tmp);
+        let full_path_str = full_path.to_str().unwrap().replace("/", "\\");
         let c = install.launch_command.clone();
         let args;
-        let mut command = format!("Start-Process -FilePath '{c}' -WorkingDirectory '{dir}' -Verb RunAs");
+        let mut command = format!("Start-Process -FilePath '{c}' -WorkingDirectory '{dir}' -Verb RunAs").replace("%install_dir%", dir).replace("%game_exe%", full_path_str.as_str());
 
         if !install.launch_args.is_empty() {
             args = &install.launch_args;
-            command = format!("Start-Process -FilePath '{c}' -ArgumentList '{args}' -WorkingDirectory '{dir}' -Verb RunAs");
+            command = format!("Start-Process -FilePath '{c}' -ArgumentList '{args}' -WorkingDirectory '{dir}' -Verb RunAs").replace("%install_dir%", dir).replace("%game_exe%", full_path_str.as_str());
         }
 
         let mut cmd = Command::new("powershell");
@@ -593,7 +599,7 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
 
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
-        cmd.current_dir(dir.clone());
+        cmd.current_dir(dir);
 
         if !install.env_vars.is_empty() {
             let envs = install.env_vars.clone();

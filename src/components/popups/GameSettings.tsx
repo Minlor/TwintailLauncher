@@ -307,6 +307,7 @@ export default function GameSettings({
                                 />
                                 <ModernInput
                                     label="Pre-Launch Command"
+                                    placeholder={isLinux ? "/bin/bash -c echo hi" : "cmd.exe"}
                                     description="Command executed before the game starts."
                                     value={installSettings.pre_launch_command || ""}
                                     onChange={(e) => handleUpdate("pre_launch_cmd", e.target.value)}
@@ -314,6 +315,7 @@ export default function GameSettings({
                                 />
                                 <ModernInput
                                     label="Custom Launch Command"
+                                    placeholder={isLinux ? "%steamrt% --verb=waitforexitandrun -- %reaper% SteamLaunch AppId=0 -- %runner% waitforexitandrun %game_exe%" : "Start-Process -FilePath '%game_exe%' -WorkingDirectory '%install_dir%' -Verb RunAs"}
                                     description="Override the default launch command."
                                     value={installSettings.launch_command || ""}
                                     onChange={(e) => handleUpdate("launch_cmd", e.target.value)}
