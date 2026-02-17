@@ -325,62 +325,6 @@ export default function GameSettings({
                                             </div>
                                         </button>
                                     )}
-                                    {window.navigator.platform.includes("Linux") && (
-                                        <button
-                                            onClick={() => {
-                                                setOpenPopup(POPUPS.NONE);
-                                                invoke("open_folder", {
-                                                    runnerVersion: "",
-                                                    manifestId: installSettings.manifest_id,
-                                                    installId: installSettings.id,
-                                                    pathType: "runner"
-                                                });
-                                            }}
-                                            className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
-                                            <Folder className="w-6 h-6 text-orange-400" />
-                                            <div className="flex flex-col">
-                                                <span className="font-bold">Open Runner Folder</span>
-                                                <span className="text-xs text-zinc-400">Wine/Proton location</span>
-                                            </div>
-                                        </button>
-                                    )}
-                                    {window.navigator.platform.includes("Linux") && (
-                                        <button
-                                            onClick={() => {
-                                                setOpenPopup(POPUPS.NONE);
-                                                invoke("open_folder", {
-                                                    runnerVersion: "",
-                                                    manifestId: installSettings.manifest_id,
-                                                    installId: installSettings.id,
-                                                    pathType: "runner_prefix"
-                                                });
-                                            }}
-                                            className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
-                                            <Folder className="w-6 h-6 text-yellow-400" />
-                                            <div className="flex flex-col">
-                                                <span className="font-bold">Open Prefix Folder</span>
-                                                <span className="text-xs text-zinc-400">Wine/Proton prefix location</span>
-                                            </div>
-                                        </button>
-                                    )}
-                                    {window.navigator.platform.includes("Linux") && (
-                                        <button
-                                            onClick={() => {
-                                                setOpenPopup(POPUPS.NONE);
-                                                invoke("empty_folder", {
-                                                    installId: installSettings.id,
-                                                    pathType: "runner_prefix"
-                                                });
-                                            }}
-                                            className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
-                                            <Wrench className="w-6 h-6 text-orange-400" />
-                                            <div className="flex flex-col">
-                                                <span className="font-bold">Repair Prefix</span>
-                                                <span className="text-xs text-zinc-400">Verify and fix Wine/Proton prefix</span>
-                                            </div>
-                                        </button>
-                                    )}
-
                                     <button
                                         onClick={() => {
                                             setOpenPopup(POPUPS.NONE);
@@ -395,7 +339,7 @@ export default function GameSettings({
                                         <Wrench className="w-6 h-6 text-orange-400" />
                                         <div className="flex flex-col">
                                             <span className="font-bold">Repair Game</span>
-                                            <span className="text-xs text-zinc-400">Verify and fix files</span>
+                                            <span className="text-xs text-zinc-400">Verify and fix game</span>
                                         </div>
                                     </button>
 
@@ -482,6 +426,55 @@ export default function GameSettings({
                             {window.navigator.platform.includes("Linux") && (
                                 <SettingsSection title="Linux Utilities">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <button
+                                            onClick={() => {
+                                                setOpenPopup(POPUPS.NONE);
+                                                invoke("open_folder", {
+                                                    runnerVersion: "",
+                                                    manifestId: installSettings.manifest_id,
+                                                    installId: installSettings.id,
+                                                    pathType: "runner"
+                                                });
+                                            }}
+                                            className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
+                                            <Folder className="w-6 h-6 text-orange-400" />
+                                            <div className="flex flex-col">
+                                                <span className="font-bold">Open Runner Folder</span>
+                                                <span className="text-xs text-zinc-400">Wine/Proton location</span>
+                                            </div>
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setOpenPopup(POPUPS.NONE);
+                                                invoke("open_folder", {
+                                                    runnerVersion: "",
+                                                    manifestId: installSettings.manifest_id,
+                                                    installId: installSettings.id,
+                                                    pathType: "runner_prefix"
+                                                });
+                                            }}
+                                            className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
+                                            <Folder className="w-6 h-6 text-yellow-400" />
+                                            <div className="flex flex-col">
+                                                <span className="font-bold">Open Prefix Folder</span>
+                                                <span className="text-xs text-zinc-400">Wine/Proton prefix location</span>
+                                            </div>
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setOpenPopup(POPUPS.NONE);
+                                                invoke("empty_folder", {
+                                                    installId: installSettings.id,
+                                                    pathType: "runner_prefix"
+                                                });
+                                            }}
+                                            className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
+                                            <Wrench className="w-6 h-6 text-orange-400" />
+                                            <div className="flex flex-col">
+                                                <span className="font-bold">Repair Prefix</span>
+                                                <span className="text-xs text-zinc-400">Verify and fix Wine/Proton prefix</span>
+                                            </div>
+                                        </button>
                                             <button
                                                 onClick={() => {
                                                     setOpenPopup(POPUPS.NONE);
