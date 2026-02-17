@@ -3,7 +3,7 @@ import { DownloadIcon, HardDriveDownloadIcon, RefreshCcwIcon, Play, PauseIcon, C
 import { emit } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 
-type GameStatus = "idle" | "launching" | "running";
+type GameStatus = "idle" | "preparing" | "launching" | "running";
 
 interface IProps {
     currentInstall: any,
@@ -59,11 +59,13 @@ export default function GameButton({ currentInstall, globalSettings, buttonType,
         // If it is, mark running and start polling to track when it stops.
         (async () => {
             try {
-                const isRunning = await invoke<boolean | null>("check_game_running", { id: currentInstall });
-                if (isRunning === true) {
+                const status = await invoke<string | null>("check_game_running", { id: currentInstall });
+                if (status === "running") {
                     wasRunningRef.current = true;
                     setGameStatus("running");
-                    // start polling to detect when the game exits
+                    startGameStatusPolling();
+                } else if (status === "preparing") {
+                    setGameStatus("preparing");
                     startGameStatusPolling();
                 }
             } catch (e) {}
@@ -97,9 +99,16 @@ export default function GameButton({ currentInstall, globalSettings, buttonType,
         // Poll every 2 seconds
         pollIntervalRef.current = window.setInterval(async () => {
             try {
-                const isRunning = await invoke<boolean | null>("check_game_running", { id: currentInstall });
+                const status = await invoke<string | null>("check_game_running", { id: currentInstall });
 
-                if (isRunning === true) {
+                if (status === "preparing") {
+                    setGameStatus("preparing");
+                    // Clear the fallback timeout since winetricks is active
+                    if (timeoutRef.current !== null) {
+                        clearTimeout(timeoutRef.current);
+                        timeoutRef.current = null;
+                    }
+                } else if (status === "running") {
                     wasRunningRef.current = true;
                     setGameStatus("running");
                     // Clear the fallback timeout since we detected the game
@@ -113,7 +122,7 @@ export default function GameButton({ currentInstall, globalSettings, buttonType,
                     setGameStatus("idle");
                     stopPolling();
                 }
-                // If isRunning is false/null and game was never running, keep "launching" state
+                // If status is "idle"/null and game was never running, keep "launching" state
                 // This handles the delay between spawn and actual process start
             } catch {
                 // On error, keep current state
@@ -148,6 +157,7 @@ export default function GameButton({ currentInstall, globalSettings, buttonType,
 
     const getLaunchLabel = (): string => {
         switch (gameStatus) {
+            case "preparing": return "PREPARING...";
             case "launching": return "LAUNCHING...";
             case "running": return "RUNNING";
             default: return "PLAY";

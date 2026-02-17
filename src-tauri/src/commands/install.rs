@@ -829,7 +829,7 @@ pub fn game_launch(app: AppHandle, id: String) -> Option<bool> {
 }
 
 #[tauri::command]
-pub fn check_game_running(app: AppHandle, id: String) -> Option<bool> {
+pub fn check_game_running(app: AppHandle, id: String) -> Option<String> {
     let install = get_install_info_by_id(&app, id.clone());
 
     if let Some(m) = install {
@@ -837,9 +837,10 @@ pub fn check_game_running(app: AppHandle, id: String) -> Option<bool> {
         if let Some(manifest_info) = gmm {
             let gm = get_manifest(&app, manifest_info.filename);
             if let Some(manifest) = gm {
+                if is_process_running("winetricks") { return Some("preparing".to_string()); }
                 let exe_name = manifest.paths.exe_filename.split('/').last().unwrap_or("");
-                let running = is_process_running(exe_name);
-                return Some(running);
+                if is_process_running(exe_name) { return Some("running".to_string()); }
+                return Some("idle".to_string());
             }
         }
     }
