@@ -15,6 +15,9 @@ use std::path::Path;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_opener::OpenerExt;
 
+#[cfg(target_os = "linux")]
+use std::os::unix::process::CommandExt;
+
 #[tauri::command]
 pub async fn list_settings(app: AppHandle) -> Option<String> {
     let settings = get_settings(&app);
@@ -247,6 +250,147 @@ pub fn open_folder(app: AppHandle, manifest_id: String, install_id: String, runn
                         Err(_e) => { show_dialog(&app, "error", "TwintailLauncher", "Directory opening failed, try again later!", None); }
                     }
                 } else { show_dialog(&app, "error", "TwintailLauncher", "Can not open runner prefix directory, Is runner prefix initialized?", None); };
+            }
+        }
+        _ => {}
+    }
+}
+
+#[tauri::command]
+pub fn empty_folder(app: AppHandle, install_id: String, path_type: String) {
+    match path_type.as_str() {
+        "runner_prefix" => {
+            let install = get_install_info_by_id(&app, install_id);
+            if install.is_some() {
+                let i = install.unwrap();
+                let fp = Path::new(&i.runner_prefix);
+                if fp.exists() {
+                    match crate::utils::empty_dir(fp) {
+                        Ok(_) => {}
+                        Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Runner prefix repair failed, try again later!", None); }
+                    }
+                } else { show_dialog(&app, "error", "TwintailLauncher", "Can not repair runner prefix directory, Is runner prefix initialized?", None); };
+            }
+        }
+        _ => {}
+    }
+}
+
+#[tauri::command]
+pub fn open_in_prefix(app: AppHandle, install_id: String, path_type: String) {
+    match path_type.as_str() {
+        "regedit.exe" => {
+            let install = get_install_info_by_id(&app, install_id);
+            if install.is_some() {
+                let i = install.unwrap();
+                let fp = Path::new(&i.runner_path);
+                let rp = Path::new(&i.runner_prefix).join("pfx/");
+                if fp.exists() {
+                    if !rp.exists() { show_dialog(&app, "error", "TwintailLauncher", "Can not execute regedit.exe, Please start game at least once!", None); return; }
+                    let runnerparent = fp.parent().unwrap().to_path_buf();
+                    let toolid = crate::utils::get_steam_tool_appid(fp.to_path_buf());
+                    let steamrtpp = runnerparent.join("steamrt/").join(toolid.clone());
+                    let steamrtp = steamrtpp.join("_v2-entry-point");
+                    let steamrt = steamrtp.to_str().unwrap().to_string();
+                    #[cfg(not(debug_assertions))]
+                    let reaper = if crate::utils::is_flatpak() { app.path().resource_dir().unwrap().join("resources/reaper").to_str().unwrap().to_string().replace("/app/lib/", "/run/parent/app/lib/") } else { app.path().resource_dir().unwrap().join("resources/reaper").to_str().unwrap().to_string().replace("/usr/lib/", "/run/host/usr/lib/") };
+                    #[cfg(debug_assertions)]
+                    let reaper = app.path().resource_dir().unwrap().join("resources/reaper").to_str().unwrap().to_string();
+                    let appid = crate::utils::get_steam_appid();
+
+                    let dir = i.directory.clone();
+                    let prefix = i.runner_prefix.clone();
+                    let runner = fp.to_str().unwrap().to_string();
+                    let command = format!("'{steamrt}' --verb=run -- '{reaper}' SteamLaunch AppId={appid} -- '{runner}/proton' run 'regedit.exe'");
+
+                    let mut cmd = std::process::Command::new("bash");
+                    cmd.arg("-c");
+                    cmd.arg(&command);
+
+                    cmd.env("WINEARCH", "win64");
+                    cmd.env("WINEPREFIX", prefix.clone() + "/pfx");
+                    cmd.env("STEAM_COMPAT_APP_ID", "0");
+                    cmd.env("STEAM_COMPAT_DATA_PATH", prefix.clone());
+                    cmd.env("STEAM_COMPAT_INSTALL_PATH", dir.clone());
+                    cmd.env("STEAM_COMPAT_CLIENT_INSTALL_PATH", "");
+                    cmd.env("STEAM_COMPAT_TOOL_PATHS", runner.clone());
+                    cmd.env("STEAM_COMPAT_SHADER_PATH", prefix.clone() + "/shadercache");
+                    cmd.env("WINEDLLOVERRIDES", "lsteamclient=d;KRSDKExternal.exe=d");
+                    cmd.env("PROTONFIXES_DISABLE", "1");
+
+                    cmd.stdout(std::process::Stdio::null());
+                    cmd.stderr(std::process::Stdio::null());
+                    cmd.current_dir(dir.clone());
+                    cmd.process_group(0);
+
+                    match cmd.spawn() {
+                        Ok(mut child) => match child.try_wait() {
+                            Ok(Some(status)) => {
+                                if !status.success() { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute regedit helper command! Please try again.", None); }
+                            }
+                            Ok(None) => {}
+                            Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute regedit helper command! Please try again or check the command correctness.", None); }
+                        },
+                        Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute regedit helper command! Something serious is wrong.", None); }
+                    }
+                } else { show_dialog(&app, "error", "TwintailLauncher", "Can not execute regedit.exe, Is runner downloaded properly?", None); };
+            }
+        }
+        "control.exe" => {
+            let install = get_install_info_by_id(&app, install_id);
+            if install.is_some() {
+                let i = install.unwrap();
+                let fp = Path::new(&i.runner_path);
+                let rp = Path::new(&i.runner_prefix).join("pfx/");
+                if fp.exists() {
+                    if !rp.exists() { show_dialog(&app, "error", "TwintailLauncher", "Can not execute control.exe, Please start game at least once!", None); return; }
+                    let runnerparent = fp.parent().unwrap().to_path_buf();
+                    let toolid = crate::utils::get_steam_tool_appid(fp.to_path_buf());
+                    let steamrtpp = runnerparent.join("steamrt/").join(toolid.clone());
+                    let steamrtp = steamrtpp.join("_v2-entry-point");
+                    let steamrt = steamrtp.to_str().unwrap().to_string();
+                    #[cfg(not(debug_assertions))]
+                    let reaper = if crate::utils::is_flatpak() { app.path().resource_dir().unwrap().join("resources/reaper").to_str().unwrap().to_string().replace("/app/lib/", "/run/parent/app/lib/") } else { app.path().resource_dir().unwrap().join("resources/reaper").to_str().unwrap().to_string().replace("/usr/lib/", "/run/host/usr/lib/") };
+                    #[cfg(debug_assertions)]
+                    let reaper = app.path().resource_dir().unwrap().join("resources/reaper").to_str().unwrap().to_string();
+                    let appid = crate::utils::get_steam_appid();
+
+                    let dir = i.directory.clone();
+                    let prefix = i.runner_prefix.clone();
+                    let runner = fp.to_str().unwrap().to_string();
+                    let command = format!("'{steamrt}' --verb=run -- '{reaper}' SteamLaunch AppId={appid} -- '{runner}/proton' run 'control.exe'");
+
+                    let mut cmd = std::process::Command::new("bash");
+                    cmd.arg("-c");
+                    cmd.arg(&command);
+
+                    cmd.env("WINEARCH", "win64");
+                    cmd.env("WINEPREFIX", prefix.clone() + "/pfx");
+                    cmd.env("STEAM_COMPAT_APP_ID", "0");
+                    cmd.env("STEAM_COMPAT_DATA_PATH", prefix.clone());
+                    cmd.env("STEAM_COMPAT_INSTALL_PATH", dir.clone());
+                    cmd.env("STEAM_COMPAT_CLIENT_INSTALL_PATH", "");
+                    cmd.env("STEAM_COMPAT_TOOL_PATHS", runner.clone());
+                    cmd.env("STEAM_COMPAT_SHADER_PATH", prefix.clone() + "/shadercache");
+                    cmd.env("WINEDLLOVERRIDES", "lsteamclient=d;KRSDKExternal.exe=d");
+                    cmd.env("PROTONFIXES_DISABLE", "1");
+
+                    cmd.stdout(std::process::Stdio::null());
+                    cmd.stderr(std::process::Stdio::null());
+                    cmd.current_dir(dir.clone());
+                    cmd.process_group(0);
+
+                    match cmd.spawn() {
+                        Ok(mut child) => match child.try_wait() {
+                            Ok(Some(status)) => {
+                                if !status.success() { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute regedit helper command! Please try again.", None); }
+                            }
+                            Ok(None) => {}
+                            Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute regedit helper command! Please try again or check the command correctness.", None); }
+                        },
+                        Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute regedit helper command! Something serious is wrong.", None); }
+                    }
+                } else { show_dialog(&app, "error", "TwintailLauncher", "Can not execute regedit.exe, Is runner downloaded properly?", None); };
             }
         }
         _ => {}

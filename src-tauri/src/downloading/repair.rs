@@ -10,9 +10,6 @@ use std::sync::atomic::{AtomicBool,Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Listener, Manager};
 
-#[cfg(target_os = "linux")]
-use crate::utils::empty_dir;
-
 pub fn register_repair_handler(app: &AppHandle) {
     let a = app.clone();
     app.listen("start_game_repair", move |event| {
@@ -72,13 +69,6 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
         let state = h5.state::<DownloadState>();
         let mut tokens = state.tokens.lock().unwrap();
         tokens.insert(install_id.clone(), cancel_token.clone());
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        // Set prefix in repair state by emptying the directory
-        let prefix_path = std::path::Path::new(&i.runner_prefix);
-        if prefix_path.exists() && !gm.extra.compat_overrides.install_to_prefix { empty_dir(prefix_path).unwrap(); }
     }
 
     let verified_files = {

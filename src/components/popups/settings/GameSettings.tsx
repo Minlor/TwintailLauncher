@@ -3,7 +3,7 @@ import { POPUPS } from "../POPUPS.ts";
 import { PAGES } from "../../pages/PAGES.ts";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
-import { Folder, Play, Wrench, Trash2, Sliders, Box, Monitor, Copy } from "lucide-react";
+import {Folder, Play, Wrench, Trash2, Sliders, Box, Monitor, Copy, FileCode2, LayoutDashboard} from "lucide-react";
 import { SettingsLayout } from "../../layout/SettingsLayout.tsx";
 import { SettingsSidebar, SettingsTab } from "../../sidebar/SettingsSidebar.tsx";
 import { SettingsSection, ModernToggle, ModernInput, ModernPathInput, ModernSelect, SettingsCard } from "../../common/SettingsComponents.tsx";
@@ -285,27 +285,9 @@ export default function GameSettings({
                     )}
 
                     {activeTab === "manage" && (
-                        <SettingsSection title="Manage Installation">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <button
-                                    onClick={() => {
-                                        setOpenPopup(POPUPS.NONE);
-                                        invoke("open_folder", {
-                                            runnerVersion: "",
-                                            manifestId: installSettings.manifest_id,
-                                            installId: installSettings.id,
-                                            pathType: "install"
-                                        });
-                                    }}
-                                    className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
-                                    <Folder className="w-6 h-6 text-purple-400" />
-                                    <div className="flex flex-col">
-                                        <span className="font-bold">Open Game Folder</span>
-                                        <span className="text-xs text-zinc-400">View game files</span>
-                                    </div>
-                                </button>
-
-                                {installSettings.use_xxmi && (
+                        <>
+                            <SettingsSection title="Manage Installation">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <button
                                         onClick={() => {
                                             setOpenPopup(POPUPS.NONE);
@@ -313,167 +295,228 @@ export default function GameSettings({
                                                 runnerVersion: "",
                                                 manifestId: installSettings.manifest_id,
                                                 installId: installSettings.id,
-                                                pathType: "mods"
+                                                pathType: "install"
                                             });
                                         }}
-                                        className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left"
-                                    >
-                                        <Folder className="w-6 h-6 text-pink-400" />
+                                        className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
+                                        <Folder className="w-6 h-6 text-purple-400" />
                                         <div className="flex flex-col">
-                                            <span className="font-bold">Open Mods Folder</span>
-                                            <span className="text-xs text-zinc-400">View XXMI mods</span>
+                                            <span className="font-bold">Open Game Folder</span>
+                                            <span className="text-xs text-zinc-400">View game files</span>
                                         </div>
                                     </button>
-                                )}
 
-                                {window.navigator.platform.includes("Linux") && (
+                                    {installSettings.use_xxmi && (
+                                        <button
+                                            onClick={() => {
+                                                setOpenPopup(POPUPS.NONE);
+                                                invoke("open_folder", {
+                                                    runnerVersion: "",
+                                                    manifestId: installSettings.manifest_id,
+                                                    installId: installSettings.id,
+                                                    pathType: "mods"
+                                                });
+                                            }}
+                                            className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
+                                            <Folder className="w-6 h-6 text-pink-400" />
+                                            <div className="flex flex-col">
+                                                <span className="font-bold">Open Mods Folder</span>
+                                                <span className="text-xs text-zinc-400">View XXMI mods</span>
+                                            </div>
+                                        </button>
+                                    )}
+                                    {window.navigator.platform.includes("Linux") && (
+                                        <button
+                                            onClick={() => {
+                                                setOpenPopup(POPUPS.NONE);
+                                                invoke("open_folder", {
+                                                    runnerVersion: "",
+                                                    manifestId: installSettings.manifest_id,
+                                                    installId: installSettings.id,
+                                                    pathType: "runner"
+                                                });
+                                            }}
+                                            className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
+                                            <Folder className="w-6 h-6 text-orange-400" />
+                                            <div className="flex flex-col">
+                                                <span className="font-bold">Open Runner Folder</span>
+                                                <span className="text-xs text-zinc-400">Wine/Proton location</span>
+                                            </div>
+                                        </button>
+                                    )}
+                                    {window.navigator.platform.includes("Linux") && (
+                                        <button
+                                            onClick={() => {
+                                                setOpenPopup(POPUPS.NONE);
+                                                invoke("open_folder", {
+                                                    runnerVersion: "",
+                                                    manifestId: installSettings.manifest_id,
+                                                    installId: installSettings.id,
+                                                    pathType: "runner_prefix"
+                                                });
+                                            }}
+                                            className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
+                                            <Folder className="w-6 h-6 text-yellow-400" />
+                                            <div className="flex flex-col">
+                                                <span className="font-bold">Open Prefix Folder</span>
+                                                <span className="text-xs text-zinc-400">Wine/Proton prefix location</span>
+                                            </div>
+                                        </button>
+                                    )}
+                                    {window.navigator.platform.includes("Linux") && (
+                                        <button
+                                            onClick={() => {
+                                                setOpenPopup(POPUPS.NONE);
+                                                invoke("empty_folder", {
+                                                    installId: installSettings.id,
+                                                    pathType: "runner_prefix"
+                                                });
+                                            }}
+                                            className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
+                                            <Wrench className="w-6 h-6 text-orange-400" />
+                                            <div className="flex flex-col">
+                                                <span className="font-bold">Repair Prefix</span>
+                                                <span className="text-xs text-zinc-400">Verify and fix Wine/Proton prefix</span>
+                                            </div>
+                                        </button>
+                                    )}
+
                                     <button
                                         onClick={() => {
                                             setOpenPopup(POPUPS.NONE);
-                                            invoke("open_folder", {
-                                                runnerVersion: "",
-                                                manifestId: installSettings.manifest_id,
-                                                installId: installSettings.id,
-                                                pathType: "runner"
+                                            emit("start_game_repair", {
+                                                install: installSettings.id,
+                                                biz: installSettings.manifest_id,
+                                                lang: "en-us",
+                                                region: installSettings.region_code
                                             });
                                         }}
-                                        className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left"
-                                    >
-                                        <Folder className="w-6 h-6 text-orange-400" />
+                                        className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
+                                        <Wrench className="w-6 h-6 text-orange-400" />
                                         <div className="flex flex-col">
-                                            <span className="font-bold">Open Runner Folder</span>
-                                            <span className="text-xs text-zinc-400">Wine/Proton location</span>
+                                            <span className="font-bold">Repair Game</span>
+                                            <span className="text-xs text-zinc-400">Verify and fix files</span>
                                         </div>
                                     </button>
-                                )}
 
-                                {window.navigator.platform.includes("Linux") && (
+                                    {installSettings.shortcut_is_steam ? (
+                                        <button
+                                            onClick={() => {
+                                                invoke("remove_shortcut", { installId: installSettings.id, shortcutType: "steam" }).then(() => fetchInstallSettings(installSettings.id));
+                                            }}
+                                            className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
+                                            <Trash2 className="w-6 h-6 text-blue-400" />
+                                            <div className="flex flex-col">
+                                                <span className="font-bold">Remove from Steam</span>
+                                                <span className="text-xs text-zinc-400">Delete shortcut</span>
+                                            </div>
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={() => {
+                                                invoke("add_shortcut", { installId: installSettings.id, shortcutType: "steam" }).then(() => fetchInstallSettings(installSettings.id));
+                                            }}
+                                            className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
+                                            <SteamIcon className="w-6 h-6 text-blue-400" />
+                                            <div className="flex flex-col">
+                                                <span className="font-bold">Add to Steam</span>
+                                                <span className="text-xs text-zinc-400">Create shortcut</span>
+                                            </div>
+                                        </button>
+                                    )}
+
+                                    {installSettings.shortcut_path !== "" ? (
+                                        <button
+                                            onClick={() => {
+                                                invoke("remove_shortcut", { installId: installSettings.id, shortcutType: "desktop" }).then(() => fetchInstallSettings(installSettings.id));
+                                            }}
+                                            className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
+                                            <Trash2 className="w-6 h-6 text-blue-400" />
+                                            <div className="flex flex-col">
+                                                <span className="font-bold">Remove from Desktop</span>
+                                                <span className="text-xs text-zinc-400">Delete shortcut</span>
+                                            </div>
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={() => {
+                                                invoke("add_shortcut", { installId: installSettings.id, shortcutType: "desktop" }).then(() => fetchInstallSettings(installSettings.id));
+                                            }}
+                                            className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
+                                            <Monitor className="w-6 h-6 text-blue-400" />
+                                            <div className="flex flex-col">
+                                                <span className="font-bold">Add to Desktop</span>
+                                                <span className="text-xs text-zinc-400">Create shortcut</span>
+                                            </div>
+                                        </button>
+                                    )}
+
+                                    {gameBiz && !gameBiz.startsWith("wuwa") && !gameBiz.startsWith("pgr") && (
+                                        <button
+                                            onClick={() => {
+                                                invoke("copy_authkey", { id: installSettings.id }).then(() => {
+                                                    setAuthkeyCopied(true);
+                                                    setTimeout(() => setAuthkeyCopied(false), 2000);
+                                                }).catch((e) => console.error("Failed to copy authkey:", e));
+                                            }}
+                                            className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
+                                            <Copy className="w-6 h-6 text-purple-400" />
+                                            <div className="flex flex-col">
+                                                <span className="font-bold">{authkeyCopied ? "Copied!" : "Copy Authkey"}</span>
+                                                <span className="text-xs text-zinc-400">Sync and view your pull history at <span className="text-purple-400">aivo.minlor.net/hoyo</span></span>
+                                            </div>
+                                        </button>
+                                    )}
+
                                     <button
-                                        onClick={() => {
-                                            setOpenPopup(POPUPS.NONE);
-                                            invoke("open_folder", {
-                                                runnerVersion: "",
-                                                manifestId: installSettings.manifest_id,
-                                                installId: installSettings.id,
-                                                pathType: "runner_prefix"
-                                            });
-                                        }}
-                                        className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left"
-                                    >
-                                        <Folder className="w-6 h-6 text-yellow-400" />
+                                        onClick={() => setOpenPopup(POPUPS.INSTALLDELETECONFIRMATION)}
+                                        className="flex items-center gap-3 p-4 bg-red-900/20 hover:bg-red-900/40 rounded-xl border border-red-500/20 transition-all hover:border-red-500/40 text-red-100 text-left">
+                                        <Trash2 className="w-6 h-6 text-red-500" />
                                         <div className="flex flex-col">
-                                            <span className="font-bold">Open Prefix Folder</span>
-                                            <span className="text-xs text-zinc-400">Wine/Proton prefix location</span>
+                                            <span className="font-bold text-red-400">Uninstall</span>
+                                            <span className="text-xs text-red-500/60">Remove game files</span>
                                         </div>
                                     </button>
-                                )}
-
-                                <button
-                                    onClick={() => {
-                                        setOpenPopup(POPUPS.NONE);
-                                        emit("start_game_repair", {
-                                            install: installSettings.id,
-                                            biz: installSettings.manifest_id,
-                                            lang: "en-us",
-                                            region: installSettings.region_code
-                                        });
-                                    }}
-                                    className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left"
-                                >
-                                    <Wrench className="w-6 h-6 text-orange-400" />
-                                    <div className="flex flex-col">
-                                        <span className="font-bold">Repair Game</span>
-                                        <span className="text-xs text-zinc-400">Verify and fix files</span>
+                                </div>
+                            </SettingsSection>
+                            {window.navigator.platform.includes("Linux") && (
+                                <SettingsSection title="Linux Utilities">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <button
+                                                onClick={() => {
+                                                    setOpenPopup(POPUPS.NONE);
+                                                    invoke("open_in_prefix", {
+                                                        installId: installSettings.id,
+                                                        pathType: "regedit.exe"
+                                                    });
+                                                }}
+                                                className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
+                                                <FileCode2 className="w-6 h-6 text-purple-400" />
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold">Open Registry Editor</span>
+                                                    <span className="text-xs text-zinc-400">Open regedit.exe for Wine/Proton prefix</span>
+                                                </div>
+                                            </button>
+                                        <button
+                                            onClick={() => {
+                                                setOpenPopup(POPUPS.NONE);
+                                                invoke("open_in_prefix", {
+                                                    installId: installSettings.id,
+                                                    pathType: "control.exe"
+                                                });
+                                            }}
+                                            className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
+                                            <LayoutDashboard className="w-6 h-6 text-purple-400" />
+                                            <div className="flex flex-col">
+                                                <span className="font-bold">Open Control Panel</span>
+                                                <span className="text-xs text-zinc-400">Open control.exe for Wine/Proton prefix</span>
+                                            </div>
+                                        </button>
                                     </div>
-                                </button>
-
-                                {installSettings.shortcut_is_steam ? (
-                                    <button
-                                        onClick={() => {
-                                            invoke("remove_shortcut", { installId: installSettings.id, shortcutType: "steam" }).then(() => fetchInstallSettings(installSettings.id));
-                                        }}
-                                        className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left"
-                                    >
-                                        <Trash2 className="w-6 h-6 text-blue-400" />
-                                        <div className="flex flex-col">
-                                            <span className="font-bold">Remove from Steam</span>
-                                            <span className="text-xs text-zinc-400">Delete shortcut</span>
-                                        </div>
-                                    </button>
-                                ) : (
-                                    <button
-                                        onClick={() => {
-                                            invoke("add_shortcut", { installId: installSettings.id, shortcutType: "steam" }).then(() => fetchInstallSettings(installSettings.id));
-                                        }}
-                                        className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left"
-                                    >
-                                        <SteamIcon className="w-6 h-6 text-blue-400" />
-                                        <div className="flex flex-col">
-                                            <span className="font-bold">Add to Steam</span>
-                                            <span className="text-xs text-zinc-400">Create shortcut</span>
-                                        </div>
-                                    </button>
-                                )}
-
-                                {installSettings.shortcut_path !== "" ? (
-                                    <button
-                                        onClick={() => {
-                                            invoke("remove_shortcut", { installId: installSettings.id, shortcutType: "desktop" }).then(() => fetchInstallSettings(installSettings.id));
-                                        }}
-                                        className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left"
-                                    >
-                                        <Trash2 className="w-6 h-6 text-blue-400" />
-                                        <div className="flex flex-col">
-                                            <span className="font-bold">Remove from Desktop</span>
-                                            <span className="text-xs text-zinc-400">Delete shortcut</span>
-                                        </div>
-                                    </button>
-                                ) : (
-                                    <button
-                                        onClick={() => {
-                                            invoke("add_shortcut", { installId: installSettings.id, shortcutType: "desktop" }).then(() => fetchInstallSettings(installSettings.id));
-                                        }}
-                                        className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left"
-                                    >
-                                        <Monitor className="w-6 h-6 text-blue-400" />
-                                        <div className="flex flex-col">
-                                            <span className="font-bold">Add to Desktop</span>
-                                            <span className="text-xs text-zinc-400">Create shortcut</span>
-                                        </div>
-                                    </button>
-                                )}
-
-                                {gameBiz && !gameBiz.startsWith("wuwa") && !gameBiz.startsWith("pgr") && (
-                                    <button
-                                        onClick={() => {
-                                            invoke("copy_authkey", { id: installSettings.id }).then(() => {
-                                                setAuthkeyCopied(true);
-                                                setTimeout(() => setAuthkeyCopied(false), 2000);
-                                            }).catch((e) => console.error("Failed to copy authkey:", e));
-                                        }}
-                                        className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left"
-                                    >
-                                        <Copy className="w-6 h-6 text-purple-400" />
-                                        <div className="flex flex-col">
-                                            <span className="font-bold">{authkeyCopied ? "Copied!" : "Copy Authkey"}</span>
-                                            <span className="text-xs text-zinc-400">Sync and view your wish history at <span className="text-purple-400">aivo.minlor.net/hoyo</span></span>
-                                        </div>
-                                    </button>
-                                )}
-
-                                <button
-                                    onClick={() => setOpenPopup(POPUPS.INSTALLDELETECONFIRMATION)}
-                                    className="flex items-center gap-3 p-4 bg-red-900/20 hover:bg-red-900/40 rounded-xl border border-red-500/20 transition-all hover:border-red-500/40 text-red-100 text-left"
-                                >
-                                    <Trash2 className="w-6 h-6 text-red-500" />
-                                    <div className="flex flex-col">
-                                        <span className="font-bold text-red-400">Uninstall</span>
-                                        <span className="text-xs text-red-500/60">Remove game files</span>
-                                    </div>
-                                </button>
-                            </div>
-                        </SettingsSection>
-                    )}
+                                </SettingsSection>
+                            )}
+                        </>
+                        )}
                 </div>
             </div>
         </SettingsLayout>

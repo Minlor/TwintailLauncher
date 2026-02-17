@@ -8,7 +8,7 @@ use crate::commands::install::{add_install, check_game_running, game_launch, get
 use crate::commands::queue::{pause_game_download, queue_move_up, queue_move_down, queue_remove, queue_set_paused, queue_activate_job, queue_reorder, queue_resume_job, get_download_queue_state, queue_clear_completed};
 use crate::commands::manifest::{get_manifest_by_filename, get_manifest_by_id, list_game_manifests, get_game_manifest_by_filename, list_manifests_by_repository_id, update_manifest_enabled, get_game_manifest_by_manifest_id, list_compatibility_manifests, get_compatibility_manifest_by_manifest_id};
 use crate::commands::repository::{list_repositories, remove_repository, add_repository, get_repository};
-use crate::commands::settings::{block_telemetry_cmd, list_settings, open_folder, open_uri, update_settings_default_dxvk_path, update_settings_default_fps_unlock_path, update_settings_default_game_path, update_settings_default_jadeite_path, update_settings_default_mangohud_config_path, update_settings_default_prefix_path, update_settings_default_runner_path, update_settings_default_xxmi_path, update_settings_download_speed_limit_cmd, update_settings_launcher_action, update_settings_manifests_hide, update_settings_third_party_repo_updates};
+use crate::commands::settings::{block_telemetry_cmd, empty_folder, list_settings, open_folder, open_in_prefix, open_uri, update_settings_default_dxvk_path, update_settings_default_fps_unlock_path, update_settings_default_game_path, update_settings_default_jadeite_path, update_settings_default_mangohud_config_path, update_settings_default_prefix_path, update_settings_default_runner_path, update_settings_default_xxmi_path, update_settings_download_speed_limit_cmd, update_settings_launcher_action, update_settings_manifests_hide, update_settings_third_party_repo_updates};
 use crate::downloading::download::register_download_handler;
 use crate::downloading::preload::register_preload_handler;
 use crate::downloading::repair::register_repair_handler;
@@ -168,7 +168,7 @@ pub fn run() {
                 }
             }
             Ok(())
-        }).invoke_handler(tauri::generate_handler![open_uri, open_folder, block_telemetry_cmd, list_settings, update_settings_third_party_repo_updates, update_settings_default_game_path, update_settings_default_xxmi_path, update_settings_default_fps_unlock_path, update_settings_default_jadeite_path, update_settings_default_prefix_path, update_settings_default_runner_path, update_settings_default_dxvk_path, update_settings_default_mangohud_config_path, update_settings_download_speed_limit_cmd, update_settings_launcher_action, update_settings_manifests_hide,
+        }).invoke_handler(tauri::generate_handler![open_uri, open_folder, empty_folder, open_in_prefix, block_telemetry_cmd, list_settings, update_settings_third_party_repo_updates, update_settings_default_game_path, update_settings_default_xxmi_path, update_settings_default_fps_unlock_path, update_settings_default_jadeite_path, update_settings_default_prefix_path, update_settings_default_runner_path, update_settings_default_dxvk_path, update_settings_default_mangohud_config_path, update_settings_download_speed_limit_cmd, update_settings_launcher_action, update_settings_manifests_hide,
             remove_repository, add_repository, get_repository, list_repositories,
             get_manifest_by_id, get_manifest_by_filename, list_manifests_by_repository_id, update_manifest_enabled,
             get_game_manifest_by_filename, list_game_manifests, get_game_manifest_by_manifest_id,
