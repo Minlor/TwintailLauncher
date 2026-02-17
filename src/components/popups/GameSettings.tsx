@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
-import { POPUPS } from "../POPUPS.ts";
-import { PAGES } from "../../pages/PAGES.ts";
+import { POPUPS } from "./POPUPS.ts";
+import { PAGES } from "../pages/PAGES.ts";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import {
@@ -18,9 +18,9 @@ import {
     LayoutDashboard,
     Terminal
 } from "lucide-react";
-import { SettingsLayout } from "../../layout/SettingsLayout.tsx";
-import { SettingsSidebar, SettingsTab } from "../../sidebar/SettingsSidebar.tsx";
-import { SettingsSection, ModernToggle, ModernInput, ModernPathInput, ModernSelect } from "../../common/SettingsComponents.tsx";
+import { SettingsLayout } from "../layout/SettingsLayout.tsx";
+import { SettingsSidebar, SettingsTab } from "../sidebar/SettingsSidebar.tsx";
+import { SettingsSection, ModernToggle, ModernInput, ModernPathInput, ModernSelect } from "../common/SettingsComponents.tsx";
 
 
 // Helper for Steam Icon
@@ -323,6 +323,7 @@ export default function GameSettings({
                     )}
 
                     {activeTab === "linux" && (
+                        <>
                         <SettingsSection title="Linux Configuration">
                             <div className="flex flex-col gap-4">
                                 <div className="flex flex-col gap-2">
@@ -368,11 +369,10 @@ export default function GameSettings({
                                     checked={installSettings.use_gamemode}
                                     onChange={(val) => handleUpdate("use_gamemode", val)}
                                 />
-
-                                <div className="pt-2">
-                                    <p className="text-sm font-semibold text-white/90">MangoHUD</p>
-                                    <p className="text-xs text-zinc-400">HUD overlay options for Linux gameplay sessions.</p>
-                                </div>
+                            </div>
+                        </SettingsSection>
+                        <SettingsSection title={"MangoHUD"}>
+                            <div className="flex flex-col gap-4">
                                 <ModernToggle
                                     label="Enable MangoHUD"
                                     description="Enable the MangoHUD overlay monitor while playing."
@@ -389,6 +389,7 @@ export default function GameSettings({
                                 />
                             </div>
                         </SettingsSection>
+                        </>
                     )}
 
                     {activeTab === "xxmi" && (

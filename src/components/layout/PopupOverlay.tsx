@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import RepoManager from "../popups/repomanager/RepoManager";
 import AddRepo from "../popups/repomanager/AddRepo";
 import DownloadGame from "../popups/DownloadGame";
-import GameSettings from "../popups/settings/GameSettings.tsx";
+import GameSettings from "../popups/GameSettings.tsx";
 
 export type PopupOverlayProps = {
   openPopup: POPUPS;
