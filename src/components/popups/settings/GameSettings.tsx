@@ -424,7 +424,7 @@ export default function GameSettings({
                                 </div>
                             </SettingsSection>
                             {window.navigator.platform.includes("Linux") && (
-                                <SettingsSection title="Linux Utilities">
+                                <SettingsSection title="Manage Runner">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <button
                                             onClick={() => {
