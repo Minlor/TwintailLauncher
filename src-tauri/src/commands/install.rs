@@ -231,7 +231,7 @@ pub fn add_install(app: AppHandle, manifest_id: String, version: String, audio_l
 }
 
 #[tauri::command]
-pub async fn remove_install(app: AppHandle, id: String, wipe_prefix: bool) -> Option<bool> {
+pub async fn remove_install(app: AppHandle, id: String, wipe_prefix: bool, keep_game_data: bool) -> Option<bool> {
     if id.is_empty() {
         None
     } else {
@@ -253,13 +253,15 @@ pub async fn remove_install(app: AppHandle, id: String, wipe_prefix: bool) -> Op
             if wipe_prefix {
                 if pdp.exists() { fs::remove_dir_all(prefixdir.clone()).unwrap(); }
             }
-            if idp.exists() && gexe.exists() {
-                let r = fs::remove_dir_all(installdir.clone());
-                match r {
-                    Ok(_) => {},
-                    Err(e) => { show_dialog(&app, "error", "TwintailLauncher", format!("Failed to remove game installation directory. {} - Please remove the folder manually!", e.to_string()).as_str(), None) }
-                }
-            } else { show_dialog(&app, "error", "TwintailLauncher", "Failed to remove game installation directory. Please remove the folder manually!", None); }
+            if !keep_game_data {
+                if idp.exists() && gexe.exists() {
+                    let r = fs::remove_dir_all(installdir.clone());
+                    match r {
+                        Ok(_) => {},
+                        Err(e) => { show_dialog(&app, "error", "TwintailLauncher", format!("Failed to remove game installation directory. {} - Please remove the folder manually!", e.to_string()).as_str(), None) }
+                    }
+                } else { show_dialog(&app, "error", "TwintailLauncher", "Failed to remove game installation directory. Please remove the folder manually!", None); }
+            }
             delete_installation_by_id(&app, id.clone()).unwrap();
             Some(true)
         } else {

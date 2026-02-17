@@ -74,6 +74,7 @@ export default function GameSettings({
     const [wipePrefixOnUninstall, setWipePrefixOnUninstall] = useState(false);
     const [showUninstallReview, setShowUninstallReview] = useState(false);
     const [uninstallAcknowledged, setUninstallAcknowledged] = useState(false);
+    const [keepGameUninstall, setKeepGameUninstall] = useState(false);
     const [isUninstalling, setIsUninstalling] = useState(false);
     const isLinux = window.navigator.platform.includes("Linux");
 
@@ -174,7 +175,7 @@ export default function GameSettings({
 
         setIsUninstalling(true);
         try {
-            const result = await invoke("remove_install", { id: installSettings.id, wipePrefix: wipePrefixOnUninstall });
+            const result = await invoke("remove_install", { id: installSettings.id, wipePrefix: wipePrefixOnUninstall, keepGameData: keepGameUninstall });
             if (!result) {
                 console.error("Uninstall error!");
                 return;
@@ -728,32 +729,34 @@ export default function GameSettings({
 
                                         {isLinux && (
                                             <ModernToggle
-                                                label="Delete Runner Prefix"
+                                                label="Delete Prefix"
                                                 description="Also remove the Wine/Proton prefix associated with this installation."
                                                 checked={wipePrefixOnUninstall}
                                                 onChange={setWipePrefixOnUninstall}
                                             />
                                         )}
-
+                                        <ModernToggle
+                                            label="Keep game data"
+                                            description="Do not delete game data if you want to import somewhere else."
+                                            checked={keepGameUninstall}
+                                            onChange={setKeepGameUninstall}
+                                        />
                                         <ModernToggle
                                             label="I Understand This Is Permanent"
                                             description="This action cannot be undone."
                                             checked={uninstallAcknowledged}
                                             onChange={setUninstallAcknowledged}
                                         />
-
                                         <div className="flex gap-3">
                                             <button
                                                 onClick={cancelUninstallReview}
-                                                className="flex-1 py-3 px-4 rounded-lg font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors"
-                                            >
+                                                className="flex-1 py-3 px-4 rounded-lg font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors">
                                                 Cancel
                                             </button>
                                             <button
                                                 onClick={handleInlineUninstall}
                                                 disabled={!canUninstall}
-                                                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-semibold transition-colors ${canUninstall ? "bg-red-600 hover:bg-red-500 text-white" : "bg-zinc-800 text-zinc-500 cursor-not-allowed"}`}
-                                            >
+                                                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-semibold transition-colors ${canUninstall ? "bg-red-600 hover:bg-red-500 text-white" : "bg-zinc-800 text-zinc-500 cursor-not-allowed"}`}>
                                                 <Trash2 className="w-5 h-5" />
                                                 <span>{isUninstalling ? "Uninstalling..." : "Uninstall Installation"}</span>
                                             </button>
