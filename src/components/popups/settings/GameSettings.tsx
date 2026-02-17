@@ -8,6 +8,8 @@ import {
     Play,
     Wrench,
     Trash2,
+    AlertTriangle,
+    Gauge,
     Sliders,
     Box,
     Monitor,
@@ -31,6 +33,12 @@ const SteamIcon = ({ className }: { className?: string }) => (
 interface GameSettingsProps {
     setOpenPopup: (popup: POPUPS) => void;
     setCurrentPage: (page: PAGES) => void;
+    setCurrentInstall: (id: string) => void;
+    setCurrentGame: (biz: string) => void;
+    setBackground: (background: string) => void;
+    setDisplayName: (name: string) => void;
+    setGameIcon: (icon: string) => void;
+    pushInstalls: () => void;
     installSettings: any;
     gameManifest: any;
     fetchInstallSettings: (id: string) => void;
@@ -45,6 +53,12 @@ interface GameSettingsProps {
 export default function GameSettings({
     setOpenPopup,
     setCurrentPage,
+    setCurrentInstall,
+    setCurrentGame,
+    setBackground,
+    setDisplayName,
+    setGameIcon,
+    pushInstalls,
     installSettings,
     gameManifest,
     fetchInstallSettings,
@@ -57,16 +71,20 @@ export default function GameSettings({
 }: GameSettingsProps) {
     const [activeTab, setActiveTab] = useState("general");
     const [authkeyCopied, setAuthkeyCopied] = useState(false);
+    const [wipePrefixOnUninstall, setWipePrefixOnUninstall] = useState(false);
+    const [showUninstallReview, setShowUninstallReview] = useState(false);
+    const [uninstallAcknowledged, setUninstallAcknowledged] = useState(false);
+    const [isUninstalling, setIsUninstalling] = useState(false);
     const isLinux = window.navigator.platform.includes("Linux");
 
     const tabs: SettingsTab[] = [
         { id: "general", label: "General", icon: Sliders, color: "blue" },
         { id: "launch", label: "Launch Options", icon: Play, color: "emerald" },
         ...(prefetchedSwitches.xxmi ? [{ id: "xxmi", label: "XXMI", icon: Wrench, color: "pink" }] : []),
-        ...(prefetchedSwitches.fps_unlocker ? [{ id: "fps_unlocker", label: "FPS Unlocker", icon: Monitor, color: "yellow" }] : []),
+        ...(prefetchedSwitches.fps_unlocker ? [{ id: "fps_unlocker", label: "FPS Unlocker", icon: Gauge, color: "yellow" }] : []),
         ...(isLinux ? [{ id: "linux", label: "Linux Options", icon: Monitor, color: "orange" }] : []),
-        ...(isLinux ? [{ id: "mangohud", label: "MangoHUD", icon: LayoutDashboard, color: "orange" }] : []),
-        { id: "manage", label: "Manage", icon: Box, color: "red" },
+        { id: "manage", label: "Manage", icon: Box, color: "purple" },
+        { id: "uninstall", label: "Uninstall", icon: AlertTriangle, color: "red" },
     ];
 
     // Generic update wrapper that matches backend command conventions
@@ -147,6 +165,77 @@ export default function GameSettings({
         } catch (e) {
             console.error("Failed to update XXMI config:", e);
         }
+    };
+
+    const canUninstall = showUninstallReview && uninstallAcknowledged && !isUninstalling;
+
+    const handleInlineUninstall = async () => {
+        if (!canUninstall) return;
+
+        setIsUninstalling(true);
+        try {
+            const result = await invoke("remove_install", { id: installSettings.id, wipePrefix: wipePrefixOnUninstall });
+            if (!result) {
+                console.error("Uninstall error!");
+                return;
+            }
+
+            pushInstalls();
+
+            const remainingInstalls = (installs || []).filter((i: any) => i.id !== installSettings.id);
+            const games = gamesinfo || [];
+
+            if (remainingInstalls.length > 0) {
+                const next = remainingInstalls[0];
+                const nextGame = games.find((g: any) => g.manifest_id === next.manifest_id);
+
+                setCurrentInstall(next.id);
+                setCurrentGame(nextGame ? nextGame.biz : (games.length > 0 ? games[0].biz : ""));
+                setBackground(next.game_background);
+                setDisplayName(next.name);
+                setGameIcon(next.game_icon);
+
+                requestAnimationFrame(() => {
+                    const el = document.getElementById(next.id);
+                    if (el) el.focus();
+                });
+            } else if (games.length > 0) {
+                const firstGame = games[0];
+                setCurrentInstall("");
+                setCurrentGame(firstGame.biz || "");
+                setBackground(firstGame.assets?.game_background || firstGame.background || "");
+                setDisplayName(firstGame.display_name || "");
+                setGameIcon(firstGame.assets?.game_icon || firstGame.icon || "");
+
+                requestAnimationFrame(() => {
+                    const targetId = firstGame.biz || firstGame.manifest_id;
+                    const el = targetId ? document.getElementById(targetId) : null;
+                    if (el) el.focus();
+                });
+            } else {
+                setCurrentInstall("");
+                setCurrentGame("");
+                setBackground("");
+                setDisplayName("");
+                setGameIcon("");
+            }
+
+            setOpenPopup(POPUPS.NONE);
+        } catch (e) {
+            console.error("Failed to uninstall installation:", e);
+        } finally {
+            setIsUninstalling(false);
+        }
+    };
+
+    const startUninstallReview = () => {
+        setShowUninstallReview(true);
+        setUninstallAcknowledged(false);
+    };
+
+    const cancelUninstallReview = () => {
+        setShowUninstallReview(false);
+        setUninstallAcknowledged(false);
     };
 
     return (
@@ -279,6 +368,25 @@ export default function GameSettings({
                                     checked={installSettings.use_gamemode}
                                     onChange={(val) => handleUpdate("use_gamemode", val)}
                                 />
+
+                                <div className="pt-2">
+                                    <p className="text-sm font-semibold text-white/90">MangoHUD</p>
+                                    <p className="text-xs text-zinc-400">HUD overlay options for Linux gameplay sessions.</p>
+                                </div>
+                                <ModernToggle
+                                    label="Enable MangoHUD"
+                                    description="Enable the MangoHUD overlay monitor while playing."
+                                    checked={!!installSettings.use_mangohud}
+                                    onChange={(val) => handleUpdate("use_mangohud", val)}
+                                />
+                                <ModernPathInput
+                                    label="MangoHUD Config"
+                                    description="MangoHUD configuration file to load."
+                                    value={`${installSettings.mangohud_config_path ?? ""}`}
+                                    folder={false}
+                                    extensions={["conf"]}
+                                    onChange={(val) => handleUpdate("mangohud_config_path", val)}
+                                />
                             </div>
                         </SettingsSection>
                     )}
@@ -322,40 +430,27 @@ export default function GameSettings({
                     {activeTab === "fps_unlocker" && (
                         <SettingsSection title="FPS Unlocker Configuration">
                             <div className="flex flex-col gap-4">
-                                <ModernToggle
-                                    label="Enable FPS Unlocker"
-                                    description="Load and inject frame-rate unlocking into the game."
-                                    checked={!!installSettings.use_fps_unlock}
-                                    onChange={(val) => handleUpdate("use_fps_unlock", val)}
-                                />
-                                <ModernSelect
-                                    label="FPS Target"
-                                    description="Target frame rate for unlocker."
-                                    value={selectedFps}
-                                    options={fpsOptions}
-                                    onChange={(val) => handleUpdate("fps_value", val)}
-                                />
-                            </div>
-                        </SettingsSection>
-                    )}
-
-                    {activeTab === "mangohud" && (
-                        <SettingsSection title="MangoHUD Configuration">
-                            <div className="flex flex-col gap-4">
-                                <ModernToggle
-                                    label="Enable MangoHUD"
-                                    description="Enable the MangoHUD overlay monitor while playing."
-                                    checked={!!installSettings.use_mangohud}
-                                    onChange={(val) => handleUpdate("use_mangohud", val)}
-                                />
-                                <ModernPathInput
-                                    label="Config Location"
-                                    description="MangoHUD configuration file to load."
-                                    value={`${installSettings.mangohud_config_path ?? ""}`}
-                                    folder={false}
-                                    extensions={["conf"]}
-                                    onChange={(val) => handleUpdate("mangohud_config_path", val)}
-                                />
+                                {prefetchedSwitches.fps_unlocker ? (
+                                    <>
+                                        <ModernToggle
+                                            label="Enable FPS Unlocker"
+                                            description="Load and inject frame-rate unlocking into the game."
+                                            checked={!!installSettings.use_fps_unlock}
+                                            onChange={(val) => handleUpdate("use_fps_unlock", val)}
+                                        />
+                                        <ModernSelect
+                                            label="FPS Target"
+                                            description="Target frame rate for unlocker."
+                                            value={selectedFps}
+                                            options={fpsOptions}
+                                            onChange={(val) => handleUpdate("fps_value", val)}
+                                        />
+                                    </>
+                                ) : (
+                                    <div className="rounded-xl border border-white/10 bg-zinc-900/70 p-4 text-sm text-zinc-300">
+                                        FPS Unlocker is not available for this installation.
+                                    </div>
+                                )}
                             </div>
                         </SettingsSection>
                     )}
@@ -488,15 +583,6 @@ export default function GameSettings({
                                         </button>
                                     )}
 
-                                    <button
-                                        onClick={() => setOpenPopup(POPUPS.INSTALLDELETECONFIRMATION)}
-                                        className="flex items-center gap-3 p-4 bg-red-900/20 hover:bg-red-900/40 rounded-xl border border-red-500/20 transition-all hover:border-red-500/40 text-red-100 text-left">
-                                        <Trash2 className="w-6 h-6 text-red-500" />
-                                        <div className="flex flex-col">
-                                            <span className="font-bold text-red-400">Uninstall</span>
-                                            <span className="text-xs text-red-500/60">Remove game files</span>
-                                        </div>
-                                    </button>
                                 </div>
                             </SettingsSection>
                             {window.navigator.platform.includes("Linux") && (
@@ -601,6 +687,81 @@ export default function GameSettings({
                             )}
                         </>
                         )}
+
+                    {activeTab === "uninstall" && (
+                        <SettingsSection title="Danger Zone">
+                            <div className="rounded-xl border border-red-500/30 bg-red-950/20 p-5 flex flex-col gap-4">
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-red-300 font-semibold">Uninstall Installation</span>
+                                    <span className="text-sm text-red-200/70">
+                                        This removes the selected installation permanently. Use review first to verify exactly what will be deleted.
+                                    </span>
+                                </div>
+
+                                {!showUninstallReview ? (
+                                    <button
+                                        onClick={startUninstallReview}
+                                        className="flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-semibold bg-red-900/40 hover:bg-red-800/50 border border-red-500/40 text-red-100 transition-colors"
+                                    >
+                                        <Trash2 className="w-5 h-5" />
+                                        <span>Review Uninstall</span>
+                                    </button>
+                                ) : (
+                                    <div className="flex flex-col gap-4">
+                                        <div className="rounded-lg border border-red-500/30 bg-black/30 p-4 text-sm text-red-100/90">
+                                            <p>
+                                                You are uninstalling <span className="font-semibold text-red-200">{installSettings.name}</span>.
+                                            </p>
+                                            <p className="mt-2">This will delete:</p>
+                                            <p className="text-red-200/80">- Game installation files for this install</p>
+                                            <p className="text-red-200/80">- Installation-specific tweak settings</p>
+                                            {isLinux && wipePrefixOnUninstall && (
+                                                <p className="text-red-200/80">- Runner prefix for this install</p>
+                                            )}
+                                            <p className="mt-2">This will not delete:</p>
+                                            <p className="text-red-200/80">- Installed runners or DXVK versions</p>
+                                            {isLinux && !wipePrefixOnUninstall && (
+                                                <p className="text-red-200/80">- Runner prefix (kept unless toggled below)</p>
+                                            )}
+                                        </div>
+
+                                        {isLinux && (
+                                            <ModernToggle
+                                                label="Delete Runner Prefix"
+                                                description="Also remove the Wine/Proton prefix associated with this installation."
+                                                checked={wipePrefixOnUninstall}
+                                                onChange={setWipePrefixOnUninstall}
+                                            />
+                                        )}
+
+                                        <ModernToggle
+                                            label="I Understand This Is Permanent"
+                                            description="This action cannot be undone."
+                                            checked={uninstallAcknowledged}
+                                            onChange={setUninstallAcknowledged}
+                                        />
+
+                                        <div className="flex gap-3">
+                                            <button
+                                                onClick={cancelUninstallReview}
+                                                className="flex-1 py-3 px-4 rounded-lg font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                onClick={handleInlineUninstall}
+                                                disabled={!canUninstall}
+                                                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-semibold transition-colors ${canUninstall ? "bg-red-600 hover:bg-red-500 text-white" : "bg-zinc-800 text-zinc-500 cursor-not-allowed"}`}
+                                            >
+                                                <Trash2 className="w-5 h-5" />
+                                                <span>{isUninstalling ? "Uninstalling..." : "Uninstall Installation"}</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </SettingsSection>
+                    )}
                 </div>
             </div>
         </SettingsLayout>

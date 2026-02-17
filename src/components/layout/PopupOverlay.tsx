@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import RepoManager from "../popups/repomanager/RepoManager";
 import AddRepo from "../popups/repomanager/AddRepo";
 import DownloadGame from "../popups/DownloadGame";
-import InstallDeleteConfirm from "../popups/settings/InstallDeleteConfirm";
 import GameSettings from "../popups/settings/GameSettings.tsx";
 
 export type PopupOverlayProps = {
@@ -172,6 +171,12 @@ export default function PopupOverlay(props: PopupOverlayProps) {
             installSettings={installSettings}
             gameManifest={gameManifest}
             setOpenPopup={setOpenPopup}
+            setCurrentInstall={setCurrentInstall}
+            setCurrentGame={setCurrentGame}
+            setBackground={setBackground}
+            setDisplayName={setDisplayName}
+            setGameIcon={setGameIcon}
+            pushInstalls={pushInstalls}
             fetchInstallSettings={fetchInstallSettings}
             prefetchedSwitches={installGameSwitches}
             prefetchedFps={installGameFps}
@@ -179,20 +184,6 @@ export default function PopupOverlay(props: PopupOverlayProps) {
             setCurrentPage={setCurrentPage}
             gamesinfo={gamesinfo}
             imageVersion={imageVersion}
-          />
-        )}
-        {openPopup == POPUPS.INSTALLDELETECONFIRMATION && (
-          <InstallDeleteConfirm
-            installs={installs}
-            games={gamesinfo}
-            install={installSettings}
-            setOpenPopup={setOpenPopup}
-            pushInstalls={pushInstalls}
-            setCurrentInstall={setCurrentInstall}
-            setCurrentGame={setCurrentGame}
-            setBackground={setBackground}
-            setDisplayName={setDisplayName}
-            setGameIcon={setGameIcon}
           />
         )}
       </div>

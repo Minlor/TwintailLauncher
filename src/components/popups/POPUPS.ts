@@ -5,6 +5,5 @@ export enum POPUPS {
     DOWNLOADGAME = 'popups/downloadgame',
     DOWNLOADS = 'popups/downloads',
     INSTALLSETTINGS = 'popups/installationsettings',
-    INSTALLDELETECONFIRMATION = 'popups/deleteinstall',
     RUNNERMANAGER = 'popups/runnermanager'
 }
