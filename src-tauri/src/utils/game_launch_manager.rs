@@ -65,8 +65,7 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
 
     let pre_launch = install.pre_launch_command.clone();
     let wine64 = if rm.paths.wine64.is_empty() { rm.paths.wine32.clone() } else { rm.paths.wine64.clone() };
-
-    if !prefixp.join("pfx").join("drive_c").exists() && !cpo.winetricks_verbs.is_empty() { run_winetricks(app, install.clone(), steamrt.clone(), reaper.clone(), appid, runner.clone(), wine64.clone(), prefix.clone(), dir.clone(), cpo.winetricks_verbs.clone()); }
+    let can_game_launch: Option<std::thread::JoinHandle<bool>> = if !prefixp.join("pfx").join("drive_c").exists() && !cpo.winetricks_verbs.is_empty() { Some(run_winetricks(app, install.clone(), steamrt.clone(), reaper.clone(), appid, runner.clone(), wine64.clone(), prefix.clone(), dir.clone(), cpo.winetricks_verbs.clone())) } else { None };
 
     if !pre_launch.is_empty() {
         let command = format!("{pre_launch}").replace("%reaper%", reaper.clone().as_str()).replace("%steamrt_path%", steamrt_path.clone().as_str()).replace("%steamrt%", steamrt.clone().as_str()).replace("%prefix%", prefix.clone().as_str()).replace("%runner_dir%", runner.clone().as_str()).replace("%runner%", &*(runner.clone() + "/" + wine64.as_str())).replace("%install_dir%", dir.clone().as_str()).replace("%game_exe%", &*(dir.clone() + "/" + exe.clone().as_str()));
@@ -104,6 +103,9 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
             Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute prelaunch command! Something serious is wrong.", None); }
         }
     }
+
+    // Wait for winetricks to fully exit before proceeding to game launch
+    if let Some(handle) = can_game_launch { if !handle.join().unwrap_or(false) { return Ok(false); } }
 
     let verb = if install.use_xxmi || install.use_fps_unlock { "run" } else { "waitforexitandrun" };
     let drive = if cpo.proton_compat_config.contains(&"gamedrive".to_string()) { format!("s:\\{game}") } else { format!("z:\\{dir}/{game}") };
@@ -407,11 +409,10 @@ fn load_fps_unlock(app: &AppHandle, install: LauncherInstall, biz: String, prefi
     }
 }
 
-// TODO: if launching with xxmi or fps unlocker enabled this wont apply the wintricks... make sure we block game PROPERLY until this completes
 #[cfg(target_os = "linux")]
-fn run_winetricks(app: &AppHandle, install: LauncherInstall, steamrt: String, reaper: String, appid: u32, runner: String, wine64: String, prefix: String, install_dir: String, verbs: Vec<String>) {
+fn run_winetricks(app: &AppHandle, install: LauncherInstall, steamrt: String, reaper: String, appid: u32, runner: String, wine64: String, prefix: String, install_dir: String, verbs: Vec<String>) -> std::thread::JoinHandle<bool> {
     let appc = app.clone();
-    // Prevent "App is not responding" by waiting in a separate thread
+    // Runs winetricks in a separate thread to avoid "App is not responding". Returns a JoinHandle<bool> that resolves to true only when winetricks fully exits successfully.
     std::thread::spawn(move || {
         let app = appc.clone();
         let install_dir = install_dir.clone();
@@ -424,7 +425,7 @@ fn run_winetricks(app: &AppHandle, install: LauncherInstall, steamrt: String, re
         #[cfg(debug_assertions)]
         let winetricks_bin = app.path().resource_dir().unwrap().join("resources/winetricks").to_str().unwrap().to_string();
 
-        if verbs.is_empty() { return; }
+        if verbs.is_empty() { return true; }
         let verbs_str = verbs.join(" ");
         let run_verb = if install.use_xxmi || install.use_fps_unlock { "run" } else { "waitforexitandrun" };
         let command = format!("'{steamrt}' --verb={run_verb} -- '{reaper}' SteamLaunch AppId={appid} -- '{runner}/{wine64}' {run_verb} '{winetricks_bin}' -q -f {verbs_str}");
@@ -471,13 +472,16 @@ fn run_winetricks(app: &AppHandle, install: LauncherInstall, steamrt: String, re
                 let status = child.wait();
                 write_log(&app, Path::new(&install_dir).to_path_buf(), child, "winetricks.log".parse().unwrap());
                 match status {
-                    Ok(s) => { if !s.success() { show_dialog(&app, "warning", "TwintailLauncher", "Winetricks setup failed! The game will still attempt to launch.", Some(vec!["I understand"])); } }
-                    Err(_) => { show_dialog(&app, "warning", "TwintailLauncher", "Winetricks setup failed! Please try again later!", Some(vec!["I understand"])); }
+                    Ok(s) => {
+                        if !s.success() { show_dialog(&app, "warning", "TwintailLauncher", "Winetricks setup failed! The game will still attempt to launch.", Some(vec!["I understand"])); }
+                        s.success()
+                    }
+                    Err(_) => { show_dialog(&app, "warning", "TwintailLauncher", "Winetricks setup failed! Please try again later!", Some(vec!["I understand"])); false }
                 }
             }
-            Err(_) => { show_dialog(&app, "warning", "TwintailLauncher", "Failed to execute winetricks for setup! Something serious is wrong.", Some(vec!["I understand"])); }
+            Err(_) => { show_dialog(&app, "warning", "TwintailLauncher", "Failed to execute winetricks for setup! Something serious is wrong.", Some(vec!["I understand"])); false }
         }
-    });
+    })
 }
 
 #[cfg(target_os = "windows")]
