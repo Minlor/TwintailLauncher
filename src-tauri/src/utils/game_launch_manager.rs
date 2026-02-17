@@ -444,6 +444,7 @@ fn run_winetricks(app: &AppHandle, install: LauncherInstall, steamrt: String, re
         cmd.env("WINEARCH", "win64");
         cmd.env("WINEPREFIX", format!("{prefix}/pfx"));
         cmd.env("STEAM_COMPAT_DATA_PATH", prefix);
+        cmd.env("STEAM_COMPAT_TOOL_PATHS", runner.clone());
         cmd.env("STEAM_COMPAT_CLIENT_INSTALL_PATH", "");
         cmd.env("PROTONFIXES_DISABLE", "1");
         cmd.env("PROTON_USE_XALIA", "0");
