@@ -56,7 +56,7 @@ pub fn start_connection_monitor(app: AppHandle) {
 
 /// Check if we have internet connectivity by trying multiple endpoints
 async fn check_connectivity() -> bool {
-    let endpoints = ["https://raw.githubusercontent.com/twintailteam/twintaillauncher/refs/heads/stable/README.md", "https://api.github.com/zen", "https://www.google.com/generate_204"];
+    let endpoints = ["https://store.steampowered.com", "https://1.1.1.1", "https://twintaillauncher.app"];
 
     let client = match reqwest::Client::builder().timeout(Duration::from_secs(5)).build() {
         Ok(c) => c,
