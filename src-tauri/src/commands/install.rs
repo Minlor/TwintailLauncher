@@ -837,7 +837,7 @@ pub fn check_game_running(app: AppHandle, id: String) -> Option<String> {
         if let Some(manifest_info) = gmm {
             let gm = get_manifest(&app, manifest_info.filename);
             if let Some(manifest) = gm {
-                if is_process_running("winetricks") { return Some("preparing".to_string()); }
+                if is_process_running("winetricks") || is_process_running("winetr") { return Some("preparing".to_string()); }
                 let exe_name = manifest.paths.exe_filename.split('/').last().unwrap_or("");
                 if is_process_running(exe_name) { return Some("running".to_string()); }
                 return Some("idle".to_string());

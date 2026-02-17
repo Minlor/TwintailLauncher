@@ -412,7 +412,7 @@ fn load_fps_unlock(app: &AppHandle, install: LauncherInstall, biz: String, prefi
 #[cfg(target_os = "linux")]
 fn run_winetricks(app: &AppHandle, install: LauncherInstall, steamrt: String, reaper: String, appid: u32, runner: String, wine64: String, prefix: String, install_dir: String, verbs: Vec<String>) -> std::thread::JoinHandle<bool> {
     let appc = app.clone();
-    // Runs winetricks in a separate thread to avoid "App is not responding". Returns a JoinHandle<bool> that resolves to true only when winetricks fully exits successfully.
+    // Prevent "App is not responding" by waiting in a separate thread
     std::thread::spawn(move || {
         let app = appc.clone();
         let install_dir = install_dir.clone();
@@ -449,9 +449,10 @@ fn run_winetricks(app: &AppHandle, install: LauncherInstall, steamrt: String, re
         cmd.env("PROTONFIXES_DISABLE", "1");
         cmd.env("PROTON_USE_XALIA", "0");
         cmd.env("WINEDLLOVERRIDES", "lsteamclient=d;KRSDKExternal.exe=d");
+        cmd.env("WINETRICKS_SUPER_QUIET", "1");
 
-        cmd.stdout(Stdio::piped());
-        cmd.stderr(Stdio::piped());
+        cmd.stdout(Stdio::null());
+        cmd.stderr(Stdio::null());
         cmd.current_dir(&install_dir);
         cmd.process_group(0);
 
@@ -469,7 +470,6 @@ fn run_winetricks(app: &AppHandle, install: LauncherInstall, steamrt: String, re
         match cmd.spawn() {
             Ok(mut child) => {
                 let status = child.wait();
-                write_log(&app, Path::new(&install_dir).to_path_buf(), child, "winetricks.log".parse().unwrap());
                 match status {
                     Ok(s) => {
                         if !s.success() { show_dialog(&app, "warning", "TwintailLauncher", "Winetricks setup failed! The game will still attempt to launch.", Some(vec!["I understand"])); }
