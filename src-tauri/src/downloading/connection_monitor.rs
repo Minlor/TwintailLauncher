@@ -3,9 +3,6 @@ use crate::downloading::queue::DownloadQueueHandle;
 use std::time::Duration;
 use tauri::{AppHandle,Emitter,Manager};
 
-/// Starts a background task that monitors internet connectivity.
-/// When connection is lost, it will auto-pause downloads.
-/// When connection is restored and downloads were auto-paused, it will auto-resume.
 pub fn start_connection_monitor(app: AppHandle) {
     let app_handle = app.clone();
 
@@ -56,9 +53,9 @@ pub fn start_connection_monitor(app: AppHandle) {
 
 /// Check if we have internet connectivity by trying multiple endpoints
 async fn check_connectivity() -> bool {
-    let endpoints = ["https://store.steampowered.com", "https://1.1.1.1", "https://twintaillauncher.app"];
+    let endpoints = ["https://store.steampowered.com", "https://one.one.one.one", "https://twintaillauncher.app"];
 
-    let client = match reqwest::Client::builder().timeout(Duration::from_secs(5)).build() {
+    let client = match reqwest::Client::builder().timeout(Duration::from_secs(10)).build() {
         Ok(c) => c,
         Err(_) => return false,
     };

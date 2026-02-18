@@ -8,15 +8,13 @@ pub struct NetworkStatus {
     pub message: String,
 }
 
-/// Check network connectivity by attempting to reach a reliable endpoint.
-/// Returns status: "online" (< 2s), "slow" (2-10s), or "offline" (failed/timeout)
 #[tauri::command]
 pub async fn check_network_connectivity() -> NetworkStatus {
     // Use a small, reliable endpoint - GitHub's raw content or similar
     // We'll try multiple endpoints in case one is blocked
-    let endpoints = ["https://store.steampowered.com", "https://1.1.1.1", "https://twintaillauncher.app"];
+    let endpoints = ["https://store.steampowered.com", "https://one.one.one.one", "https://twintaillauncher.app"];
 
-    let client = reqwest::Client::builder().timeout(Duration::from_secs(10)).build().unwrap_or_else(|_| reqwest::Client::new());
+    let client = reqwest::Client::builder().timeout(Duration::from_secs(30)).build().unwrap_or_else(|_| reqwest::Client::new());
     for endpoint in endpoints {
         let start = Instant::now();
 
