@@ -8,44 +8,36 @@ pub struct NetworkStatus {
     pub message: String,
 }
 
+/// Check network connectivity by attempting to reach a reliable endpoint.
+/// Returns status: "online" (< 5s), "slow" (5-10s), or "offline" (failed/timeout).
+/// Tries all endpoints and uses the best (fastest successful) result to avoid
+/// false "slow" reports from cold DNS/TLS on first boot.
 #[tauri::command]
 pub async fn check_network_connectivity() -> NetworkStatus {
-    // Use a small, reliable endpoint - GitHub's raw content or similar
-    // We'll try multiple endpoints in case one is blocked
     let endpoints = ["https://store.steampowered.com", "https://one.one.one.one", "https://twintaillauncher.app"];
 
     let client = reqwest::Client::builder().timeout(Duration::from_secs(30)).build().unwrap_or_else(|_| reqwest::Client::new());
+    let mut best_latency: Option<u64> = None;
     for endpoint in endpoints {
         let start = Instant::now();
-
         match client.head(endpoint).send().await {
             Ok(response) => {
                 let latency = start.elapsed().as_millis() as u64;
-
-                if response.status().is_success() || response.status().as_u16() == 204 {
-                    // Determine status based on latency
-                    if latency < 2000 {
-                        return NetworkStatus {
-                            status: "online".to_string(),
-                            latency_ms: Some(latency),
-                            message: "Connection is good".to_string(),
-                        };
-                    } else if latency < 10000 {
-                        return NetworkStatus {
-                            status: "slow".to_string(),
-                            latency_ms: Some(latency),
-                            message: format!("Connection is slow ({}ms)", latency),
-                        };
-                    }
+                if response.status().is_success() || response.status().as_u16() == 204 || response.status().as_u16() == 405 {
+                    // Return immediately if any endpoint is fast
+                    if latency < 5000 { return NetworkStatus { status: "online".to_string(), latency_ms: Some(latency), message: "Connection is good".to_string() }; }
+                    // Track best latency across slow endpoints
+                    if best_latency.is_none() || latency < best_latency.unwrap() { best_latency = Some(latency); }
                 }
             }
             Err(_) => { continue; }
         }
     }
-    // All endpoints failed
-    NetworkStatus {
-        status: "offline".to_string(),
-        latency_ms: None,
-        message: "Unable to connect to the internet".to_string(),
+
+    // If any endpoint responded (but all were slow), report slow with best latency
+    if let Some(latency) = best_latency {
+        return NetworkStatus { status: "slow".to_string(), latency_ms: Some(latency), message: "Connection is slow".to_string() };
     }
+
+    NetworkStatus { status: "offline".to_string(), latency_ms: None, message: "Unable to connect to the internet".to_string() }
 }

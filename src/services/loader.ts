@@ -32,7 +32,7 @@ export async function handleNetworkIssue(status: NetworkStatus): Promise<boolean
   const title = isOffline ? "No Internet Connection" : "Slow Internet Connection";
   const message = isOffline
     ? "Unable to connect to the internet. You can continue with limited functionality - you'll be able to launch installed games but won't be able to download or update."
-    : `Your internet connection appears to be slow (${status.latency_ms}ms latency). Downloads and updates may take longer than expected. You can continue with limited functionality or retry the connection.`;
+    : "Your internet connection appears to be slow. Downloads and updates may take longer than expected. You can continue with limited functionality or retry the connection.";
 
   const buttonIndex = await showDialogAsync({
     type: "warning",
