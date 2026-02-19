@@ -181,6 +181,12 @@ pub async fn init_db(app: &AppHandle) {
             sql: r#"ALTER TABLE install ADD COLUMN disable_system_idle bool DEFAULT false NOT NULL;"#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 27,
+            description: "alter_install_table_steam_imported",
+            sql: r#"ALTER TABLE install ADD COLUMN steam_imported bool DEFAULT false NOT NULL;"#,
+            kind: MigrationKind::Up,
+        },
         // === 2.0.0 migrations end ===
     ];
 
@@ -768,22 +774,16 @@ pub fn create_installation(
     use_mangohud: bool,
     mangohud_config_path: String,
     region_code: String,
+    steam_import: bool,
 ) -> Result<bool, Error> {
     let mut rslt = SqliteQueryResult::default();
 
     run_async_command(async {
-        let db = app
-            .state::<DbInstances>()
-            .0
-            .lock()
-            .await
-            .get("db")
-            .unwrap()
-            .clone();
+        let db = app.state::<DbInstances>().0.lock().await.get("db").unwrap().clone();
 
         let max_order: i32 = query("SELECT COALESCE(MAX(sort_order), -1) as max_order FROM install").fetch_one(&db).await.unwrap().get("max_order");
         let next_order = max_order + 1;
-        let query = query("INSERT INTO install(id, manifest_id, version, name, directory, runner_path, dxvk_path, runner_version, dxvk_version, game_icon, game_background, ignore_updates, skip_hash_check, use_jadeite, use_xxmi, use_fps_unlock, env_vars, pre_launch_command, launch_command, fps_value, runner_prefix_path, launch_args, audio_langs, use_gamemode, use_mangohud, mangohud_config_path, region_code, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)").bind(id).bind(manifest_id).bind(version).bind(name).bind(directory).bind(runner_path).bind(dxvk_path).bind(runner_version).bind(dxvk_version).bind(game_icon).bind(game_background).bind(ignore_updates).bind(skip_hash_check).bind(use_jadeite).bind(use_xxmi).bind(use_fps_unlock).bind(env_vars).bind(pre_launch_command).bind(launch_command).bind(fps_value).bind(runner_prefix_path).bind(launch_args).bind(audio_langs).bind(use_gamemode).bind(use_mangohud).bind(mangohud_config_path).bind(region_code).bind(next_order);
+        let query = query("INSERT INTO install(id, manifest_id, version, name, directory, runner_path, dxvk_path, runner_version, dxvk_version, game_icon, game_background, ignore_updates, skip_hash_check, use_jadeite, use_xxmi, use_fps_unlock, env_vars, pre_launch_command, launch_command, fps_value, runner_prefix_path, launch_args, audio_langs, use_gamemode, use_mangohud, mangohud_config_path, region_code, sort_order, steam_imported) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)").bind(id).bind(manifest_id).bind(version).bind(name).bind(directory).bind(runner_path).bind(dxvk_path).bind(runner_version).bind(dxvk_version).bind(game_icon).bind(game_background).bind(ignore_updates).bind(skip_hash_check).bind(use_jadeite).bind(use_xxmi).bind(use_fps_unlock).bind(env_vars).bind(pre_launch_command).bind(launch_command).bind(fps_value).bind(runner_prefix_path).bind(launch_args).bind(audio_langs).bind(use_gamemode).bind(use_mangohud).bind(mangohud_config_path).bind(region_code).bind(next_order).bind(steam_import);
         rslt = query.execute(&db).await.unwrap();
     });
 
@@ -873,6 +873,7 @@ pub fn get_install_info_by_id(app: &AppHandle, id: String) -> Option<LauncherIns
             total_playtime: rslt.get(0).unwrap().get("total_playtime"),
             show_discord_rpc: rslt.get(0).unwrap().get("show_discord_rpc"),
             disable_system_idle: rslt.get(0).unwrap().get("disable_system_idle"),
+            steam_imported: rslt.get(0).unwrap().get("steam_imported"),
         };
 
         Some(rsltt)
@@ -941,6 +942,7 @@ pub fn get_installs_by_manifest_id(
                 total_playtime: r.get("total_playtime"),
                 show_discord_rpc: r.get("show_discord_rpc"),
                 disable_system_idle: r.get("disable_system_idle"),
+                steam_imported: r.get("steam_imported"),
             })
         }
 
@@ -1007,6 +1009,7 @@ pub fn get_installs(app: &AppHandle) -> Option<Vec<LauncherInstall>> {
                 total_playtime: r.get("total_playtime"),
                 show_discord_rpc: r.get("show_discord_rpc"),
                 disable_system_idle: r.get("disable_system_idle"),
+                steam_imported: r.get("steam_imported"),
             })
         }
 

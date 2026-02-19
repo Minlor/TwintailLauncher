@@ -510,7 +510,8 @@ export default function GameSettings({
                                                 region: installSettings.region_code
                                             });
                                         }}
-                                        className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
+                                        disabled={installSettings.steam_imported}
+                                        className={`flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left ${installSettings.steam_imported ? "cursor-not-allowed" : ""}`}>
                                         <Wrench className="w-6 h-6 text-orange-400" />
                                         <div className="flex flex-col">
                                             <span className="font-bold">Repair Game</span>
@@ -523,7 +524,8 @@ export default function GameSettings({
                                             onClick={() => {
                                                 invoke("remove_shortcut", { installId: installSettings.id, shortcutType: "steam" }).then(() => fetchInstallSettings(installSettings.id));
                                             }}
-                                            className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
+                                            disabled={installSettings.steam_imported}
+                                            className={`flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left ${installSettings.steam_imported ? "cursor-not-allowed" : ""}`}>
                                             <Trash2 className="w-6 h-6 text-blue-400" />
                                             <div className="flex flex-col">
                                                 <span className="font-bold">Remove from Steam</span>
@@ -535,7 +537,8 @@ export default function GameSettings({
                                             onClick={() => {
                                                 invoke("add_shortcut", { installId: installSettings.id, shortcutType: "steam" }).then(() => fetchInstallSettings(installSettings.id));
                                             }}
-                                            className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
+                                            disabled={installSettings.steam_imported}
+                                            className={`flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left ${installSettings.steam_imported ? "cursor-not-allowed" : ""}`}>
                                             <SteamIcon className="w-6 h-6 text-blue-400" />
                                             <div className="flex flex-col">
                                                 <span className="font-bold">Add to Steam</span>

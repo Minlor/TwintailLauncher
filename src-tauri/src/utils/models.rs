@@ -96,6 +96,7 @@ pub struct LauncherInstall {
     pub total_playtime: i64,
     pub show_discord_rpc: bool,
     pub disable_system_idle: bool,
+    pub steam_imported: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -293,9 +294,17 @@ pub struct GameCompatOverrides {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SteamImportConfig {
+    pub enabled: bool,
+    pub steam_appid_txt: String,
+    pub steam_api_dll: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GameExtras {
     pub preload: Option<GamePreload>,
     pub switches: GameTweakSwitches,
     pub compat_overrides: GameCompatOverrides,
     pub fps_unlock_options: Vec<String>,
+    pub steam_import_config: SteamImportConfig,
 }

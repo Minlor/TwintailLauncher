@@ -98,7 +98,7 @@ pub fn add_install(app: AppHandle, manifest_id: String, version: String, audio_l
                 if let Some(ref queue) = q {
                     for ei in &existing_installs {
                         if ei.version == version && queue.has_job_for_id(ei.id.clone()) {
-                            crate::utils::show_dialog(&app, "warning", "TwintailLauncher", format!("{in} is already queued for download!", in = ei.name.clone()).as_str(), None);
+                            show_dialog(&app, "warning", "TwintailLauncher", format!("{in} is already queued for download!", in = ei.name.clone()).as_str(), None);
                             return Some(AddInstallRsp { success: false, install_id: "".to_string(), background: "".to_string() });
                         }
                     }
@@ -106,13 +106,19 @@ pub fn add_install(app: AppHandle, manifest_id: String, version: String, audio_l
             }
         }
 
+        let mut steam_import = false;
         let mut install_location = if skip_game_dl { Path::new(directory.as_str()).to_path_buf() } else { Path::new(directory.as_str()).join(cuid.clone()) };
         directory = install_location.to_str().unwrap().to_string();
 
-        // If wuwa is steam build auto ignore updates
-        if gm.biz == "wuwa_global" && skip_game_dl {
-            let steamdll = install_location.join("Client/Binaries/Win64/steam_api64.dll");
-            if steamdll.exists() { ignore_updates = true; }
+        if gm.extra.steam_import_config.enabled {
+            if !gm.extra.steam_import_config.steam_api_dll.is_empty() {
+                let steamdll = install_location.join(gm.extra.steam_import_config.steam_api_dll);
+                if steamdll.exists() { ignore_updates = true; steam_import = true; }
+            }
+            if !gm.extra.steam_import_config.steam_appid_txt.is_empty() {
+                let steamappid = install_location.join(gm.extra.steam_import_config.steam_appid_txt);
+                if steamappid.exists() { ignore_updates = true; steam_import = true; }
+            }
         }
 
         #[cfg(target_os = "windows")]
@@ -196,7 +202,6 @@ pub fn add_install(app: AppHandle, manifest_id: String, version: String, audio_l
                     }
                 }
             }
-
             // Patch wuwa if existing install
             if gm.biz == "wuwa_global" && skip_game_dl { crate::utils::apply_patch(&app, Path::new(&directory.clone()).to_str().unwrap().to_string(), "aki".to_string(), "add".to_string()); }
         }
@@ -214,14 +219,11 @@ pub fn add_install(app: AppHandle, manifest_id: String, version: String, audio_l
                 });
             }
         }
-        // Create downloading marker immediately so queued downloads show "Resume" on restart
-        // This marker is normally created in run_game_download, but if the job is queued
-        // and the launcher restarts before the job runs, the marker wouldn't exist.
         if !skip_game_dl {
             let downloading_marker = install_location.join("downloading");
             if !downloading_marker.exists() { let _ = fs::create_dir(&downloading_marker); }
         }
-        create_installation(&app, cuid.clone(), dbm.id, version, audio_lang, g.metadata.versioned_name.clone(), directory, runner_path, dxvk_path, runner_version, dxvk_version, g.assets.game_icon.clone(), gbg.clone(), ignore_updates, skip_hash_check, use_jadeite, use_xxmi, use_fps_unlock, env_vars, pre_launch_command, launch_command, fps_value, runner_prefix, launch_args, false, false, gs.default_mangohud_config_path.clone(), region_code).unwrap();
+        create_installation(&app, cuid.clone(), dbm.id, version, audio_lang, g.metadata.versioned_name.clone(), directory, runner_path, dxvk_path, runner_version, dxvk_version, g.assets.game_icon.clone(), gbg.clone(), ignore_updates, skip_hash_check, use_jadeite, use_xxmi, use_fps_unlock, env_vars, pre_launch_command, launch_command, fps_value, runner_prefix, launch_args, false, false, gs.default_mangohud_config_path.clone(), region_code, steam_import).unwrap();
         Some(AddInstallRsp {
             success: true,
             install_id: cuid.clone(),
@@ -253,7 +255,7 @@ pub async fn remove_install(app: AppHandle, id: String, wipe_prefix: bool, keep_
             if wipe_prefix {
                 if pdp.exists() { fs::remove_dir_all(prefixdir.clone()).unwrap(); }
             }
-            if !keep_game_data {
+            if !keep_game_data && !i.steam_imported {
                 if idp.exists() && gexe.exists() {
                     let r = fs::remove_dir_all(installdir.clone());
                     match r {
