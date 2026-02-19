@@ -265,7 +265,10 @@ export default function GameSettings({
                                     description="Don't check for game updates."
                                     disabled={installSettings.steam_imported}
                                     checked={installSettings.ignore_updates}
-                                    onChange={(val) => handleUpdate("skip_version_updates", val)}
+                                    onChange={(val) => {
+                                        if (installSettings.steam_imported) return;
+                                        handleUpdate("skip_version_updates", val);
+                                    }}
                                 />
                                 <ModernToggle
                                     label="Skip Hash Validation"
@@ -503,6 +506,7 @@ export default function GameSettings({
                                     )}
                                     <button
                                         onClick={() => {
+                                            if (installSettings.steam_imported) return;
                                             setOpenPopup(POPUPS.NONE);
                                             emit("start_game_repair", {
                                                 install: installSettings.id,
@@ -512,8 +516,8 @@ export default function GameSettings({
                                             });
                                         }}
                                         disabled={installSettings.steam_imported}
-                                        className={`flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left ${installSettings.steam_imported ? "cursor-not-allowed" : ""}`}>
-                                        <Wrench className="w-6 h-6 text-orange-400" />
+                                        className={`flex items-center gap-3 p-4 rounded-xl border border-white/5 transition-all text-white text-left ${installSettings.steam_imported ? "cursor-not-allowed bg-zinc-800" : "bg-zinc-800/50 hover:bg-zinc-700/50 hover:border-white/20"}`}>
+                                        <Wrench className={`w-6 h-6 ${installSettings.steam_imported ? "text-zinc-500" : "text-orange-400"}`}/>
                                         <div className="flex flex-col">
                                             <span className="font-bold">Repair Game</span>
                                             <span className="text-xs text-zinc-400">Verify and fix game</span>
@@ -523,11 +527,12 @@ export default function GameSettings({
                                     {installSettings.shortcut_is_steam ? (
                                         <button
                                             onClick={() => {
+                                                if (installSettings.steam_imported) return;
                                                 invoke("remove_shortcut", { installId: installSettings.id, shortcutType: "steam" }).then(() => fetchInstallSettings(installSettings.id));
                                             }}
                                             disabled={installSettings.steam_imported}
-                                            className={`flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left ${installSettings.steam_imported ? "cursor-not-allowed" : ""}`}>
-                                            <Trash2 className="w-6 h-6 text-blue-400" />
+                                            className={`flex items-center gap-3 p-4 rounded-xl border border-white/5 transition-all text-white text-left ${installSettings.steam_imported ? "cursor-not-allowed bg-zinc-800" : "bg-zinc-800/50 hover:bg-zinc-700/50 hover:border-white/20"}`}>
+                                            <Trash2 className={`w-6 h-6 ${installSettings.steam_imported ? "text-zinc-500" : "text-blue-400"}`}/>
                                             <div className="flex flex-col">
                                                 <span className="font-bold">Remove from Steam</span>
                                                 <span className="text-xs text-zinc-400">Delete shortcut</span>
@@ -536,11 +541,12 @@ export default function GameSettings({
                                     ) : (
                                         <button
                                             onClick={() => {
+                                                if (installSettings.steam_imported) return;
                                                 invoke("add_shortcut", { installId: installSettings.id, shortcutType: "steam" }).then(() => fetchInstallSettings(installSettings.id));
                                             }}
                                             disabled={installSettings.steam_imported}
-                                            className={`flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left ${installSettings.steam_imported ? "cursor-not-allowed" : ""}`}>
-                                            <SteamIcon className="w-6 h-6 text-blue-400" />
+                                            className={`flex items-center gap-3 p-4 rounded-xl border border-white/5 transition-all text-white text-left ${installSettings.steam_imported ? "cursor-not-allowed bg-zinc-800" : "bg-zinc-800/50 hover:bg-zinc-700/50 hover:border-white/20"}`}>
+                                            <SteamIcon className={`w-6 h-6 ${installSettings.steam_imported ? "text-zinc-500" : "text-blue-400"}`}/>
                                             <div className="flex flex-col">
                                                 <span className="font-bold">Add to Steam</span>
                                                 <span className="text-xs text-zinc-400">Create shortcut</span>
@@ -709,28 +715,21 @@ export default function GameSettings({
                                 {!showUninstallReview ? (
                                     <button
                                         onClick={startUninstallReview}
-                                        className="flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-semibold bg-red-900/40 hover:bg-red-800/50 border border-red-500/40 text-red-100 transition-colors"
-                                    >
+                                        className="flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-semibold bg-red-900/40 hover:bg-red-800/50 border border-red-500/40 text-red-100 transition-colors">
                                         <Trash2 className="w-5 h-5" />
                                         <span>Review Uninstall</span>
                                     </button>
                                 ) : (
                                     <div className="flex flex-col gap-4">
                                         <div className="rounded-lg border border-red-500/30 bg-black/30 p-4 text-sm text-red-100/90">
-                                            <p>
-                                                You are uninstalling <span className="font-semibold text-red-200">{installSettings.name}</span>.
-                                            </p>
+                                            <p>You are uninstalling <span className="font-semibold text-red-200">{installSettings.name}</span>.</p>
                                             <p className="mt-2">This will delete:</p>
                                             <p className="text-red-200/80">- Game installation files for this install</p>
                                             <p className="text-red-200/80">- Installation-specific tweak settings</p>
-                                            {isLinux && wipePrefixOnUninstall && (
-                                                <p className="text-red-200/80">- Runner prefix for this install</p>
-                                            )}
+                                            {isLinux && wipePrefixOnUninstall && (<p className="text-red-200/80">- Runner prefix for this install</p>)}
                                             <p className="mt-2">This will not delete:</p>
                                             <p className="text-red-200/80">- Installed runners or DXVK versions</p>
-                                            {isLinux && !wipePrefixOnUninstall && (
-                                                <p className="text-red-200/80">- Runner prefix (kept unless toggled below)</p>
-                                            )}
+                                            {isLinux && !wipePrefixOnUninstall && (<p className="text-red-200/80">- Runner prefix (kept unless toggled below)</p>)}
                                         </div>
 
                                         {isLinux && (
