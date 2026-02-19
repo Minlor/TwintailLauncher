@@ -263,6 +263,7 @@ export default function GameSettings({
                                 <ModernToggle
                                     label="Skip Version Checks"
                                     description="Don't check for game updates."
+                                    disabled={installSettings.steam_imported}
                                     checked={installSettings.ignore_updates}
                                     onChange={(val) => handleUpdate("skip_version_updates", val)}
                                 />

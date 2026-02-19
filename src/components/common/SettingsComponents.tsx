@@ -28,7 +28,7 @@ interface SettingsControlProps {
     helpText?: string;
 }
 
-export const ModernToggle = ({ label, description, checked, onChange, ...props }: SettingsControlProps & { checked: boolean, onChange: (val: boolean) => void }) => {
+export const ModernToggle = ({ label, description, checked, disabled = false, onChange, ...props }: SettingsControlProps & { checked: boolean, disabled?: boolean, onChange: (val: boolean) => void }) => {
     return (
         <SettingsCard className="flex flex-row items-center justify-between group cursor-pointer" onClick={() => onChange(!checked)}>
             <div className="flex flex-col gap-1 pr-4">
