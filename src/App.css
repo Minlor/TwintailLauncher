@@ -186,6 +186,51 @@ textarea,
     animation-fill-mode: both;
 }
 
+@keyframes downloadIconPop {
+    0% {
+        transform: scale(1);
+    }
+
+    40% {
+        transform: scale(1.2);
+    }
+
+    70% {
+        transform: scale(0.92);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+.animate-download-icon-pop {
+    animation: downloadIconPop 380ms ease-out;
+    animation-fill-mode: both;
+}
+
+@keyframes downloadAddedBurst {
+    0% {
+        opacity: 0;
+        transform: scale(0.5);
+    }
+
+    35% {
+        opacity: 0.95;
+        transform: scale(1.25);
+    }
+
+    100% {
+        opacity: 0;
+        transform: scale(1.95);
+    }
+}
+
+.animate-download-added-burst {
+    animation: downloadAddedBurst 560ms cubic-bezier(0.22, 1, 0.36, 1);
+    animation-fill-mode: both;
+}
+
 @keyframes shimmer {
     0% {
         transform: translateX(-100%);
@@ -255,7 +300,9 @@ textarea,
 .animate-slideDown,
 .animate-slideUpToPosition,
 .animate-slideDownToPosition,
-.animate-fadeIn {
+.animate-fadeIn,
+.animate-download-icon-pop,
+.animate-download-added-burst {
     will-change: transform, opacity;
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
@@ -397,6 +444,8 @@ textarea,
     .animate-slideOutLeft,
     .animate-slideUpToPosition,
     .animate-slideDownToPosition,
+    .animate-download-icon-pop,
+    .animate-download-added-burst,
     .animate-shimmer,
     .animate-bg-fade-in,
     .animate-bg-fade-out,

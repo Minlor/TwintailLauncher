@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   arrow,
   autoUpdate,
@@ -18,6 +18,7 @@ export default function SidebarDownloads({
   setOpenPopup,
   popup,
   hasDownloads,
+  queueCount,
   progressPercent,
   currentPage,
   setCurrentPage,
@@ -25,11 +26,16 @@ export default function SidebarDownloads({
   setOpenPopup: (a: POPUPS) => void;
   popup: POPUPS;
   hasDownloads: boolean;
+  queueCount?: number;
   progressPercent?: number;
   currentPage?: PAGES;
   setCurrentPage?: (page: PAGES) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [iconPop, setIconPop] = useState(false);
+  const [addedBurstTick, setAddedBurstTick] = useState(0);
+  const prevQueueCountRef = useRef<number | null>(null);
+  const iconPopTimeoutRef = useRef<number | null>(null);
 
   const arrowRef = useRef(null);
   const { refs, floatingStyles, context } = useFloating({
@@ -57,6 +63,41 @@ export default function SidebarDownloads({
       : "w-8 h-10";
 
   const isActive = currentPage === PAGES.DOWNLOADS;
+
+  useEffect(() => {
+    const normalizedQueueCount = typeof queueCount === "number"
+      ? Math.max(0, queueCount)
+      : (hasDownloads ? 1 : 0);
+
+    if (prevQueueCountRef.current === null) {
+      prevQueueCountRef.current = normalizedQueueCount;
+      return;
+    }
+
+    if (normalizedQueueCount > prevQueueCountRef.current) {
+      setAddedBurstTick((tick) => tick + 1);
+      setIconPop(true);
+
+      if (iconPopTimeoutRef.current !== null) {
+        window.clearTimeout(iconPopTimeoutRef.current);
+      }
+
+      iconPopTimeoutRef.current = window.setTimeout(() => {
+        setIconPop(false);
+        iconPopTimeoutRef.current = null;
+      }, 380);
+    }
+
+    prevQueueCountRef.current = normalizedQueueCount;
+  }, [queueCount, hasDownloads]);
+
+  useEffect(() => {
+    return () => {
+      if (iconPopTimeoutRef.current !== null) {
+        window.clearTimeout(iconPopTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <React.Fragment>
@@ -104,8 +145,20 @@ export default function SidebarDownloads({
         )}
 
         <DownloadIcon
-          className={`relative z-10 flex-initial transition-all duration-200 ease-out ${iconClass}`}
+          className={`relative z-10 flex-initial transition-all duration-200 ease-out ${iconClass} ${iconPop ? "animate-download-icon-pop" : ""}`}
         />
+
+        {addedBurstTick > 0 && (
+          <span
+            key={addedBurstTick}
+            aria-hidden="true"
+            className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none"
+          >
+            <DownloadIcon
+              className={`${iconClass} text-purple-300/90 drop-shadow-[0_0_10px_rgba(168,85,247,0.85)] animate-download-added-burst`}
+            />
+          </span>
+        )}
 
         {showActivityDot && (
           <span className="absolute top-1 right-0.5 z-20 flex h-2 w-2">
