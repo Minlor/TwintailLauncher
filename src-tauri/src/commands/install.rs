@@ -110,7 +110,7 @@ pub fn add_install(app: AppHandle, manifest_id: String, version: String, audio_l
         let mut install_location = if skip_game_dl { Path::new(directory.as_str()).to_path_buf() } else { Path::new(directory.as_str()).join(cuid.clone()) };
         directory = install_location.to_str().unwrap().to_string();
 
-        if gm.extra.steam_import_config.enabled {
+        if gm.extra.steam_import_config.enabled && skip_game_dl {
             if !gm.extra.steam_import_config.steam_api_dll.is_empty() {
                 let steamdll = install_location.join(gm.extra.steam_import_config.steam_api_dll);
                 if steamdll.exists() { ignore_updates = true; steam_import = true; }
