@@ -5,7 +5,6 @@ use crate::utils::db_manager::{get_install_info_by_id, get_manifest_info_by_id};
 use crate::utils::repo_manager::get_manifest;
 use crate::utils::{models::{FullGameFile, GameVersion}, run_async_command, show_dialog};
 use fischl::download::game::{Game, Kuro, Sophon, Zipped};
-use fischl::utils::{assemble_multipart_archive, extract_archive_with_progress};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -58,7 +57,10 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
         dlp.insert("name", instn.clone().to_string());
         dlp.insert("progress", "0".to_string());
         dlp.insert("total", "1000".to_string());
-
+        dlp.insert("speed", "0".to_string());
+        dlp.insert("disk", "0".to_string());
+        dlp.insert("install_progress", "0".to_string());
+        dlp.insert("install_total", "1000".to_string());
         h4.emit("download_progress", dlp.clone()).unwrap();
         drop(dlp);
 
@@ -98,10 +100,13 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
                                 dlp.insert("total", total.to_string());
                                 dlp.insert("speed", net_speed.to_string());
                                 dlp.insert("disk", disk_speed.to_string());
+                                dlp.insert("install_progress", "0".to_string());
+                                dlp.insert("install_total", "1000".to_string());
+                                dlp.insert("phase", "2".to_string());
                                 h4.emit("download_progress", dlp.clone()).unwrap();
                                 drop(dlp);
                             }
-                        }, Some(cancel_token), None).await
+                        }, Some(cancel_token), Some(verified_files.clone())).await
                 });
                 if rslt {
                     // Get first entry in the list, and start extraction
@@ -109,61 +114,33 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
                     let tmpf = first.split('/').collect::<Vec<&str>>();
                     let fnn = tmpf.last().unwrap().to_string();
                     let ap = Path::new(&install.directory).to_path_buf();
-                    let aps = ap.to_str().unwrap().to_string();
-                    let parts = urls.into_iter().map(|e| { e.split('/').collect::<Vec<&str>>().last().unwrap().to_string() }).collect::<Vec<String>>();
+                    let downloading_path = ap.join("downloading");
+                    let archive_path = downloading_path.join("staging").join(fnn.clone());
+                    let far = archive_path.to_str().unwrap().to_string();
 
-                    if fnn.ends_with(".001") {
-                        let r = assemble_multipart_archive(parts, aps);
-                        if r {
-                            let aar = fnn.strip_suffix(".001").unwrap().to_string();
-                            let far = ap.join(aar).to_str().unwrap().to_string();
-
-                            // Extraction stage (Steam-like "Installing files")
-                            let ext = extract_archive_with_progress(far, install.directory.clone(), false, {
-                                    let dlpayload = dlpayload.clone();
-                                    let h4 = h4.clone();
-                                    let instn = instn.clone();
-                                    let job_id = job_id.clone();
-                                    move |current, total| {
-                                        let mut dlp = dlpayload.lock().unwrap();
-                                        dlp.insert("job_id", job_id.to_string());
-                                        dlp.insert("name", instn.to_string());
-                                        dlp.insert("progress", current.to_string());
-                                        dlp.insert("total", total.to_string());
-                                        h4.emit("download_installing", dlp.clone()).unwrap();
-                                    }
-                                });
-                            if ext {
-                                h4.emit("download_complete", ()).unwrap();
-                                success = true;
-                            }
+                    let ext = fischl::utils::extract_archive_with_progress(far, install.directory.clone(), false, {
+                        let dlpayload = dlpayload.clone();
+                        let h4 = h4.clone();
+                        let instn = instn.clone();
+                        let job_id = job_id.clone();
+                        move |current, total| {
+                            let mut dlp = dlpayload.lock().unwrap();
+                            dlp.insert("job_id", job_id.to_string());
+                            dlp.insert("name", instn.to_string());
+                            dlp.insert("install_progress", current.to_string());
+                            dlp.insert("install_total", total.to_string());
+                            dlp.insert("phase", "3".to_string());
+                            h4.emit("download_progress", dlp.clone()).unwrap();
                         }
-                    } else {
-                        let far = ap.join(fnn.clone()).to_str().unwrap().to_string();
-                        // Extraction stage (Steam-like "Installing files")
-                        let ext = extract_archive_with_progress(far, install.directory.clone(), false, {
-                                let dlpayload = dlpayload.clone();
-                                let h4 = h4.clone();
-                                let instn = instn.clone();
-                                let job_id = job_id.clone();
-                                move |current, total| {
-                                    let mut dlp = dlpayload.lock().unwrap();
-                                    dlp.insert("job_id", job_id.to_string());
-                                    dlp.insert("name", instn.to_string());
-                                    dlp.insert("progress", current.to_string());
-                                    dlp.insert("total", total.to_string());
-                                    h4.emit("download_installing", dlp.clone()).unwrap();
-                                }
-                            });
-                        if ext {
-                            h4.emit("download_complete", ()).unwrap();
-                            success = true;
-                        }
+                    });
+                    if ext {
+                        if downloading_path.exists() { std::fs::remove_dir_all(&downloading_path).unwrap_or_default(); }
+                        h4.emit("download_complete", ()).unwrap();
+                        success = true;
                     }
                 } else {
                     show_dialog(&h4, "warning", "TwintailLauncher", &format!("Error occurred while trying to download {}\nPlease try again!", install.name), Some(vec!["Ok"]));
                     h4.emit("download_complete", ()).unwrap();
-                    success = false;
                 }
             }
             "DOWNLOAD_MODE_CHUNK" => {
@@ -227,7 +204,6 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
                 } else {
                     show_dialog(&h4, "warning", "TwintailLauncher", &format!("Error occurred while trying to download {}\nPlease try again!", install.name), Some(vec!["Ok"]));
                     h4.emit("download_complete", ()).unwrap();
-                    success = false;
                 }
             }
             "DOWNLOAD_MODE_RAW" => {

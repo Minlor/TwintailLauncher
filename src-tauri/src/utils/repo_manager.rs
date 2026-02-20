@@ -264,9 +264,9 @@ pub fn load_manifests(app: &AppHandle) {
                                                                         if installedr.is_none() { create_installed_runner(&app, first.version.clone(), true, np.clone()).unwrap(); } else { update_installed_runner_is_installed_by_version(&app, first.version.clone(), true); }
                                                                         if !pp.exists() {
                                                                             fs::create_dir_all(&pp).unwrap();
-                                                                            run_async_command(async { fischl::compat::download_runner(first.url.clone(), pp.to_str().unwrap().to_string(),true, move |_current, _total, _net, _disk| {}).await });
+                                                                            run_async_command(async { fischl::compat::download_runner(first.url.clone(), pp.to_str().unwrap().to_string(),true, move |_current, _total, _net, _disk| {}, move |_current, _total| {}).await });
                                                                         } else {
-                                                                            run_async_command(async { fischl::compat::download_runner(first.url.clone(), pp.to_str().unwrap().to_string(),true, move |_current, _total, _net, _disk| {}).await });
+                                                                            run_async_command(async { fischl::compat::download_runner(first.url.clone(), pp.to_str().unwrap().to_string(),true, move |_current, _total, _net, _disk| {}, move |_current, _total| {}).await });
                                                                         }
                                                                         update_install_runner_location_by_id(&app, i.id.clone(), np.clone());
                                                                         update_install_runner_version_by_id(&app, i.id, first.version.clone());

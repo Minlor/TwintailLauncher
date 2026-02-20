@@ -68,7 +68,6 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
         dlp.insert("name", install.name.clone());
         dlp.insert("progress", "0".to_string());
         dlp.insert("total", "1000".to_string());
-
         h5.emit("update_progress", dlp.clone()).unwrap();
         drop(dlp);
 

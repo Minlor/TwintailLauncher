@@ -56,7 +56,6 @@ pub fn run_game_preload(h5: AppHandle, payload: DownloadGamePayload, job_id: Str
             dlp.insert("name", instn.to_string());
             dlp.insert("progress", "0".to_string());
             dlp.insert("total", "1000".to_string());
-
             h5.emit("preload_progress", dlp.clone()).unwrap();
             drop(dlp);
 

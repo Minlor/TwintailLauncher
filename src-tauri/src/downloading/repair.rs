@@ -60,7 +60,6 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
     dlp.insert("name", i.name.clone());
     dlp.insert("progress", "0".to_string());
     dlp.insert("total", "1000".to_string());
-
     h5.emit("repair_progress", dlp.clone()).unwrap();
     drop(dlp);
 

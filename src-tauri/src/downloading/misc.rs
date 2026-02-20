@@ -73,6 +73,8 @@ pub fn run_steamrt3_download(app: AppHandle, payload: SteamrtDownloadPayload, jo
         dlp.insert("total".to_string(), "1000".to_string());
         dlp.insert("speed".to_string(), "0".to_string());
         dlp.insert("disk".to_string(), "0".to_string());
+        dlp.insert("install_progress".to_string(), "0".to_string());
+        dlp.insert("install_total".to_string(), "1000".to_string());
         app.emit(event_name, dlp.clone()).unwrap();
     }
 
@@ -90,6 +92,8 @@ pub fn run_steamrt3_download(app: AppHandle, payload: SteamrtDownloadPayload, jo
                 dlp.insert("total".to_string(), total.to_string());
                 dlp.insert("speed".to_string(), net_speed.to_string());
                 dlp.insert("disk".to_string(), disk_speed.to_string());
+                dlp.insert("install_progress".to_string(), "0".to_string());
+                dlp.insert("install_total".to_string(), "1000".to_string());
                 dlp.insert("phase".to_string(), "2".to_string()); // downloading phase
                 app.emit(&event_name, dlp.clone()).unwrap();
             }
@@ -171,6 +175,8 @@ pub fn run_steamrt4_download(app: AppHandle, payload: SteamrtDownloadPayload, jo
         dlp.insert("total".to_string(), "1000".to_string());
         dlp.insert("speed".to_string(), "0".to_string());
         dlp.insert("disk".to_string(), "0".to_string());
+        dlp.insert("install_progress".to_string(), "0".to_string());
+        dlp.insert("install_total".to_string(), "1000".to_string());
         app.emit(event_name, dlp.clone()).unwrap();
     }
 
@@ -188,24 +194,26 @@ pub fn run_steamrt4_download(app: AppHandle, payload: SteamrtDownloadPayload, jo
                 dlp.insert("total".to_string(), total.to_string());
                 dlp.insert("speed".to_string(), net_speed.to_string());
                 dlp.insert("disk".to_string(), disk_speed.to_string());
+                dlp.insert("install_progress".to_string(), "0".to_string());
+                dlp.insert("install_total".to_string(), "1000".to_string());
                 dlp.insert("phase".to_string(), "2".to_string()); // downloading phase
                 app.emit(&event_name, dlp.clone()).unwrap();
             }
         }, {
-                             let app = app.clone();
-                             let dlpayload = dlpayload.clone();
-                             let job_id = job_id.clone();
-                             let event_name = event_name.to_string();
-                             move |current, total| {
-                                 let mut dlp = dlpayload.lock().unwrap();
-                                 dlp.insert("job_id".to_string(), job_id.to_string());
-                                 dlp.insert("name".to_string(), "SteamLinuxRuntime 4".to_string());
-                                 dlp.insert("install_progress".to_string(), current.to_string());
-                                 dlp.insert("install_total".to_string(), total.to_string());
-                                 dlp.insert("phase".to_string(), "3".to_string()); // installing phase
-                                 app.emit(&event_name, dlp.clone()).unwrap();
-                             }
-                         }).await
+            let app = app.clone();
+            let dlpayload = dlpayload.clone();
+            let job_id = job_id.clone();
+            let event_name = event_name.to_string();
+            move |current, total| {
+                let mut dlp = dlpayload.lock().unwrap();
+                dlp.insert("job_id".to_string(), job_id.to_string());
+                dlp.insert("name".to_string(), "SteamLinuxRuntime 4".to_string());
+                dlp.insert("install_progress".to_string(), current.to_string());
+                dlp.insert("install_total".to_string(), total.to_string());
+                dlp.insert("phase".to_string(), "3".to_string()); // installing phase
+                app.emit(&event_name, dlp.clone()).unwrap();
+            }
+        }).await
     });
 
     if success {
@@ -232,6 +240,8 @@ pub fn run_runner_download(app: AppHandle, payload: RunnerDownloadPayload, job_i
         dlp.insert("total".to_string(), "1000".to_string());
         dlp.insert("speed".to_string(), "0".to_string());
         dlp.insert("disk".to_string(), "0".to_string());
+        dlp.insert("install_progress".to_string(), "0".to_string());
+        dlp.insert("install_total".to_string(), "1000".to_string());
         app.emit("download_progress", dlp.clone()).unwrap();
     }
 
@@ -249,6 +259,23 @@ pub fn run_runner_download(app: AppHandle, payload: RunnerDownloadPayload, job_i
                 dlp.insert("total".to_string(), total.to_string());
                 dlp.insert("speed".to_string(), net_speed.to_string());
                 dlp.insert("disk".to_string(), disk_speed.to_string());
+                dlp.insert("install_progress".to_string(), "0".to_string());
+                dlp.insert("install_total".to_string(), "1000".to_string());
+                dlp.insert("phase".to_string(), "2".to_string()); // downloading phase
+                app.emit("download_progress", dlp.clone()).unwrap();
+            }
+        }, {
+            let app = app.clone();
+            let dlpayload = dlpayload.clone();
+            let job_id = job_id.clone();
+            let runner_name = runner_name.clone();
+            move |current, total| {
+                let mut dlp = dlpayload.lock().unwrap();
+                dlp.insert("job_id".to_string(), job_id.to_string());
+                dlp.insert("name".to_string(), runner_name.clone());
+                dlp.insert("install_progress".to_string(), current.to_string());
+                dlp.insert("install_total".to_string(), total.to_string());
+                dlp.insert("phase".to_string(), "3".to_string()); // installing phase
                 app.emit("download_progress", dlp.clone()).unwrap();
             }
         }).await
