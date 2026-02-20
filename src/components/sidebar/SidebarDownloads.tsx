@@ -50,25 +50,30 @@ export default function SidebarDownloads({
   const { getReferenceProps, getFloatingProps } = useInteractions([hover]);
 
   const ringPercent = typeof progressPercent === "number" ? Math.max(0, Math.min(100, progressPercent)) : undefined;
+  const normalizedQueueCount = typeof queueCount === "number"
+    ? Math.max(0, queueCount)
+    : (hasDownloads ? 1 : 0);
+  const showQueueBadge = normalizedQueueCount >= 2;
+  const queueBadgeLabel = normalizedQueueCount > 99 ? "99+" : String(normalizedQueueCount);
   const cx = 16;
   const cy = 20;
   const r = 14;
   const c = 2 * Math.PI * r;
   const dashOffset = ringPercent !== undefined ? c * (1 - ringPercent / 100) : c;
 
-  const showActivityDot = hasDownloads && ringPercent === undefined;
+  const showActivityDot = hasDownloads && ringPercent === undefined && !showQueueBadge;
   const iconClass =
     ringPercent !== undefined
       ? "w-4 h-5"
       : "w-8 h-10";
+  const burstIconClass =
+    ringPercent !== undefined
+      ? "w-7 h-8"
+      : "w-10 h-12";
 
   const isActive = currentPage === PAGES.DOWNLOADS;
 
   useEffect(() => {
-    const normalizedQueueCount = typeof queueCount === "number"
-      ? Math.max(0, queueCount)
-      : (hasDownloads ? 1 : 0);
-
     if (prevQueueCountRef.current === null) {
       prevQueueCountRef.current = normalizedQueueCount;
       return;
@@ -85,11 +90,11 @@ export default function SidebarDownloads({
       iconPopTimeoutRef.current = window.setTimeout(() => {
         setIconPop(false);
         iconPopTimeoutRef.current = null;
-      }, 380);
+      }, 430);
     }
 
     prevQueueCountRef.current = normalizedQueueCount;
-  }, [queueCount, hasDownloads]);
+  }, [normalizedQueueCount]);
 
   useEffect(() => {
     return () => {
@@ -104,7 +109,7 @@ export default function SidebarDownloads({
       <div
         ref={refs.setReference}
         {...getReferenceProps()}
-        className={`relative flex items-center justify-center w-10 h-10 rounded-xl cursor-pointer transition-all duration-200 ${isActive ? 'text-purple-400 bg-purple-500/15 shadow-[0_0_12px_rgba(147,51,234,0.3)]' : 'text-white/70 hover:text-white hover:bg-white/5 hover:shadow-[0_0_12px_rgba(147,51,234,0.15)]'} active:scale-95`}
+        className={`relative flex items-center justify-center w-10 h-10 rounded-xl cursor-pointer transition-all duration-200 ${isActive ? 'text-purple-400 bg-purple-500/15 shadow-[0_0_12px_rgba(147,51,234,0.3)]' : 'text-white/70 hover:text-white hover:bg-white/5 hover:shadow-[0_0_12px_rgba(147,51,234,0.15)]'} ${iconPop ? "animate-download-attention-pop" : ""} active:scale-95`}
         onClick={() => {
           if (setCurrentPage) {
             setCurrentPage(currentPage === PAGES.DOWNLOADS ? PAGES.NONE : PAGES.DOWNLOADS);
@@ -155,8 +160,18 @@ export default function SidebarDownloads({
             className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none"
           >
             <DownloadIcon
-              className={`${iconClass} text-purple-300/90 drop-shadow-[0_0_10px_rgba(168,85,247,0.85)] animate-download-added-burst`}
+              className={`${burstIconClass} text-purple-300/90 drop-shadow-[0_0_12px_rgba(168,85,247,0.9)] animate-download-added-burst`}
             />
+          </span>
+        )}
+
+        {showQueueBadge && (
+          <span
+            key={`queue-badge-${normalizedQueueCount}-${addedBurstTick}`}
+            className="absolute -top-1.5 -right-1.5 z-30 min-w-[16px] h-4 px-1 rounded-full bg-purple-500 text-[10px] leading-none font-bold text-white flex items-center justify-center shadow-[0_0_10px_rgba(168,85,247,0.85)] border border-white/20 animate-download-queue-badge-pop"
+            aria-label={`${normalizedQueueCount} items in download queue`}
+          >
+            {queueBadgeLabel}
           </span>
         )}
 
@@ -182,4 +197,3 @@ export default function SidebarDownloads({
     </React.Fragment>
   );
 }
-

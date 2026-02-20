@@ -191,12 +191,12 @@ textarea,
         transform: scale(1);
     }
 
-    40% {
-        transform: scale(1.2);
+    35% {
+        transform: scale(1.34);
     }
 
-    70% {
-        transform: scale(0.92);
+    65% {
+        transform: scale(0.88);
     }
 
     100% {
@@ -209,25 +209,73 @@ textarea,
     animation-fill-mode: both;
 }
 
-@keyframes downloadAddedBurst {
+@keyframes downloadAttentionPop {
     0% {
-        opacity: 0;
-        transform: scale(0.5);
+        transform: scale(1);
     }
 
     35% {
+        transform: scale(1.14);
+    }
+
+    65% {
+        transform: scale(0.95);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+.animate-download-attention-pop {
+    animation: downloadAttentionPop 430ms cubic-bezier(0.22, 1, 0.36, 1);
+    animation-fill-mode: both;
+}
+
+@keyframes downloadAddedBurst {
+    0% {
+        opacity: 0;
+        transform: translateX(-6px) scale(0.58);
+    }
+
+    12% {
         opacity: 0.95;
-        transform: scale(1.25);
+    }
+
+    75% {
+        opacity: 0.55;
     }
 
     100% {
         opacity: 0;
-        transform: scale(1.95);
+        transform: translateX(20px) scale(2.05);
     }
 }
 
 .animate-download-added-burst {
-    animation: downloadAddedBurst 560ms cubic-bezier(0.22, 1, 0.36, 1);
+    animation: downloadAddedBurst 560ms linear;
+    animation-fill-mode: both;
+}
+
+@keyframes downloadQueueBadgePop {
+    0% {
+        opacity: 0;
+        transform: scale(0.5) translateY(3px);
+    }
+
+    50% {
+        opacity: 1;
+        transform: scale(1.18) translateY(-1px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.animate-download-queue-badge-pop {
+    animation: downloadQueueBadgePop 360ms cubic-bezier(0.22, 1, 0.36, 1);
     animation-fill-mode: both;
 }
 
@@ -302,7 +350,9 @@ textarea,
 .animate-slideDownToPosition,
 .animate-fadeIn,
 .animate-download-icon-pop,
-.animate-download-added-burst {
+.animate-download-attention-pop,
+.animate-download-added-burst,
+.animate-download-queue-badge-pop {
     will-change: transform, opacity;
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
@@ -445,7 +495,9 @@ textarea,
     .animate-slideUpToPosition,
     .animate-slideDownToPosition,
     .animate-download-icon-pop,
+    .animate-download-attention-pop,
     .animate-download-added-burst,
+    .animate-download-queue-badge-pop,
     .animate-shimmer,
     .animate-bg-fade-in,
     .animate-bg-fade-out,
