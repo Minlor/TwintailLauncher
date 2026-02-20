@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+    --stagger-delay: 0ms;
+}
+
 /* === Global Styles === */
 body {
     background: #000;
@@ -27,11 +31,6 @@ label {
 img {
     pointer-events: auto;
     -webkit-user-drag: none;
-    -khtml-user-drag: none;
-    -moz-user-drag: none;
-    -o-user-drag: none;
-    user-drag: none;
-    draggable: false;
 }
 
 /* Allow text selection in input fields and text areas */
@@ -186,74 +185,47 @@ textarea,
     animation-fill-mode: both;
 }
 
-@keyframes downloadIconPop {
-    0% {
-        transform: scale(1);
-    }
-
-    35% {
-        transform: scale(1.34);
-    }
-
-    65% {
-        transform: scale(0.88);
-    }
-
-    100% {
-        transform: scale(1);
-    }
-}
-
-.animate-download-icon-pop {
-    animation: downloadIconPop 380ms ease-out;
-    animation-fill-mode: both;
-}
-
 @keyframes downloadAttentionPop {
     0% {
-        transform: scale(1);
+        filter: brightness(1);
     }
 
     35% {
-        transform: scale(1.14);
+        filter: brightness(1.35);
     }
 
     65% {
-        transform: scale(0.95);
+        filter: brightness(1.1);
     }
 
     100% {
-        transform: scale(1);
+        filter: brightness(1);
     }
 }
 
 .animate-download-attention-pop {
-    animation: downloadAttentionPop 430ms cubic-bezier(0.22, 1, 0.36, 1);
+    animation: downloadAttentionPop 200ms cubic-bezier(0.22, 1, 0.36, 1);
     animation-fill-mode: both;
 }
 
 @keyframes downloadAddedBurst {
     0% {
         opacity: 0;
-        transform: translateX(-6px) scale(0.58);
+        transform: translateX(20px) scale(2.05);
     }
 
     12% {
         opacity: 0.95;
     }
 
-    75% {
-        opacity: 0.55;
-    }
-
     100% {
         opacity: 0;
-        transform: translateX(20px) scale(2.05);
+        transform: translateX(0px) scale(0.72);
     }
 }
 
 .animate-download-added-burst {
-    animation: downloadAddedBurst 560ms linear;
+    animation: downloadAddedBurst 240ms linear;
     animation-fill-mode: both;
 }
 
@@ -275,7 +247,7 @@ textarea,
 }
 
 .animate-download-queue-badge-pop {
-    animation: downloadQueueBadgePop 360ms cubic-bezier(0.22, 1, 0.36, 1);
+    animation: downloadQueueBadgePop 170ms cubic-bezier(0.22, 1, 0.36, 1);
     animation-fill-mode: both;
 }
 
@@ -349,7 +321,6 @@ textarea,
 .animate-slideUpToPosition,
 .animate-slideDownToPosition,
 .animate-fadeIn,
-.animate-download-icon-pop,
 .animate-download-attention-pop,
 .animate-download-added-burst,
 .animate-download-queue-badge-pop {
@@ -494,7 +465,6 @@ textarea,
     .animate-slideOutLeft,
     .animate-slideUpToPosition,
     .animate-slideDownToPosition,
-    .animate-download-icon-pop,
     .animate-download-attention-pop,
     .animate-download-added-burst,
     .animate-download-queue-badge-pop,

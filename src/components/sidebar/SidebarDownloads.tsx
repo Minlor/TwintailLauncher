@@ -26,8 +26,8 @@ export default function SidebarDownloads({
   setOpenPopup: (a: POPUPS) => void;
   popup: POPUPS;
   hasDownloads: boolean;
-  queueCount?: number;
-  progressPercent?: number;
+  queueCount: number;
+  progressPercent: number | undefined;
   currentPage?: PAGES;
   setCurrentPage?: (page: PAGES) => void;
 }) {
@@ -49,10 +49,8 @@ export default function SidebarDownloads({
   const hover = useHover(context, { move: false });
   const { getReferenceProps, getFloatingProps } = useInteractions([hover]);
 
-  const ringPercent = typeof progressPercent === "number" ? Math.max(0, Math.min(100, progressPercent)) : undefined;
-  const normalizedQueueCount = typeof queueCount === "number"
-    ? Math.max(0, queueCount)
-    : (hasDownloads ? 1 : 0);
+  const ringPercent = progressPercent === undefined ? undefined : Math.max(0, Math.min(100, progressPercent));
+  const normalizedQueueCount = Math.max(0, queueCount);
   const showQueueBadge = normalizedQueueCount >= 2;
   const queueBadgeLabel = normalizedQueueCount > 99 ? "99+" : String(normalizedQueueCount);
   const cx = 16;
@@ -90,7 +88,7 @@ export default function SidebarDownloads({
       iconPopTimeoutRef.current = window.setTimeout(() => {
         setIconPop(false);
         iconPopTimeoutRef.current = null;
-      }, 430);
+      }, 200);
     }
 
     prevQueueCountRef.current = normalizedQueueCount;
@@ -150,7 +148,7 @@ export default function SidebarDownloads({
         )}
 
         <DownloadIcon
-          className={`relative z-10 flex-initial transition-all duration-200 ease-out ${iconClass} ${iconPop ? "animate-download-icon-pop" : ""}`}
+          className={`relative z-10 flex-initial transition-all duration-200 ease-out ${iconClass}`}
         />
 
         {addedBurstTick > 0 && (
