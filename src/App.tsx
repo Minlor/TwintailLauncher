@@ -140,7 +140,10 @@ export default class App extends React.Component<any, any> {
     render() {
         const runningJobs = this.state.downloadQueueState?.running || [];
         const queuedJobs = this.state.downloadQueueState?.queued || [];
-        const downloadQueueCount = runningJobs.length + queuedJobs.length;
+        const pausedJobs = this.state.downloadQueueState?.pausedJobs || [];
+        const downloadQueueCount = new Set(
+            [...runningJobs, ...queuedJobs, ...pausedJobs].map((j: any) => j.id)
+        ).size;
 
         const isCurrentInstallDownloading = runningJobs.some((j: any) => j.installId === this.state.currentInstall);
         const isCurrentInstallQueued = queuedJobs.some((j: any) => j.installId === this.state.currentInstall);
