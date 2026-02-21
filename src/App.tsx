@@ -140,10 +140,11 @@ export default class App extends React.Component<any, any> {
     render() {
         const runningJobs = this.state.downloadQueueState?.running || [];
         const queuedJobs = this.state.downloadQueueState?.queued || [];
+        const downloadQueueCount = runningJobs.length + queuedJobs.length;
 
         const isCurrentInstallDownloading = runningJobs.some((j: any) => j.installId === this.state.currentInstall);
         const isCurrentInstallQueued = queuedJobs.some((j: any) => j.installId === this.state.currentInstall);
-        const hasDownloads = runningJobs.length + queuedJobs.length > 0;
+        const hasDownloads = downloadQueueCount > 0;
 
         // Check if runner dependencies are ready (Linux only)
         const isLinux = window.navigator.platform.includes("Linux");
@@ -458,6 +459,7 @@ export default class App extends React.Component<any, any> {
                                     popup={this.state.openPopup}
                                     setOpenPopup={this.setOpenPopup}
                                     hasDownloads={hasDownloads}
+                                    queueCount={downloadQueueCount}
                                     progressPercent={downloadsPercent}
                                     currentPage={this.state.currentPage}
                                     setCurrentPage={this.setCurrentPage}
