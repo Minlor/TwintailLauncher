@@ -325,8 +325,15 @@ pub fn setup_or_fix_default_paths(app: &AppHandle, path: PathBuf, fix_mode: bool
                 if !steamrtpath.exists() { fs::create_dir_all(&steamrtpath).unwrap(); }
                 if !steamrt3.exists() { fs::create_dir_all(&steamrt3).unwrap(); }
                 if !steamrt4.exists() { fs::create_dir_all(&steamrt4).unwrap(); }
-                // Clean up legacy files directly inside steamrt/
-                let _ = empty_dir(&steamrtpath);
+
+                // steamrt migration code
+                for entry in fs::read_dir(&steamrtpath).unwrap().flatten() {
+                    let name = entry.file_name().into_string().unwrap();
+                    if name != "steamrt3" && name != "steamrt4" {
+                        let p = entry.path();
+                        (if p.is_dir() { fs::remove_dir_all } else { fs::remove_file as fn(_) -> _ })(&p).ok();
+                    }
+                }
 
                 if g.jadeite_path == "" { fs::create_dir_all(&jadeitepath).unwrap(); update_settings_default_jadeite_location(app, jadeitepath.to_str().unwrap().to_string()); }
                 if g.default_runner_path == "" { fs::create_dir_all(&wine).unwrap(); update_settings_default_runner_location(app, wine.to_str().unwrap().to_string()); }
@@ -356,8 +363,15 @@ pub fn setup_or_fix_default_paths(app: &AppHandle, path: PathBuf, fix_mode: bool
             if !steamrtpath.exists() { fs::create_dir_all(&steamrtpath).unwrap(); }
             if !steamrt3.exists() { fs::create_dir_all(&steamrt3).unwrap(); }
             if !steamrt4.exists() { fs::create_dir_all(&steamrt4).unwrap(); }
-            // Clean up legacy files directly inside steamrt/
-            let _ = empty_dir(&steamrtpath);
+
+            // steamrt migration code
+            for entry in fs::read_dir(&steamrtpath).unwrap().flatten() {
+                let name = entry.file_name().into_string().unwrap();
+                if name != "steamrt3" && name != "steamrt4" {
+                    let p = entry.path();
+                    (if p.is_dir() { fs::remove_dir_all } else { fs::remove_file as fn(_) -> _ })(&p).ok();
+                }
+            }
 
             if !mangohudcfg.exists() { db_manager::update_settings_default_mangohud_config_location(app, mangohudcfg.to_str().unwrap().to_string()); } else { db_manager::update_settings_default_mangohud_config_location(app, mangohudcfg.to_str().unwrap().to_string()); }
             if !jadeitepath.exists() { fs::create_dir_all(&jadeitepath).unwrap();update_settings_default_jadeite_location(app, jadeitepath.to_str().unwrap().to_string()); }
@@ -827,7 +841,7 @@ pub fn is_using_overriden_runner(installed_runner: String, override_runner: Stri
 
 #[allow(dead_code)]
 pub fn empty_dir<P: AsRef<Path>>(dir: P) -> io::Result<()> {
-    const EXCEPTIONS: &[&str] = &["Mods/", "ShaderCache/", "d3dx_user.ini", "gimi/", "srmi/", "zzmi/", "himi/", "wwmi/", "ssmi/", "efmi/", "steamrt3/", "steamrt4/"];
+    const EXCEPTIONS: &[&str] = &["Mods/", "ShaderCache/", "d3dx_user.ini", "gimi/", "srmi/", "zzmi/", "himi/", "wwmi/", "ssmi/", "efmi/"];
     if dir.as_ref().exists() {
         for entry in fs::read_dir(dir.as_ref())? {
             let entry = entry?;
