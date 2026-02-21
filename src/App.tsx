@@ -359,7 +359,7 @@ export default class App extends React.Component<any, any> {
                                     // Find corresponding game manifest info by manifest_id
                                     const game = (this.state.gamesinfo || []).find((g: any) => g.manifest_id === install.manifest_id);
                                     const latest = game?.latest_version ?? null;
-                                    const hasUpdate = !!(latest && install?.version && latest !== install.version && !install?.ignore_updates);
+                                    const hasUpdate = !!(latest && install?.version && latest !== install.version && !install?.ignore_updates && !install?.steam_imported);
                                     // Only apply slideInLeft animation during initial loading, not during drag reorder
                                     const isInitialAnim = this.state.isInitialLoading || this.state.showLoadingOverlay;
                                     const isJustDropped = this.state.droppedItemId === install.id;
@@ -510,7 +510,7 @@ export default class App extends React.Component<any, any> {
                             const install = this.state.installs.find((i: any) => i.id === this.state.currentInstall);
                             const game = this.state.gamesinfo.find((g: any) => g.manifest_id === install?.manifest_id);
                             const latest = game?.latest_version ?? null;
-                            return !!(latest && install?.version && latest !== install.version && !install?.ignore_updates);
+                            return !!(latest && install?.version && latest !== install.version && !install?.ignore_updates && !install?.steam_imported);
                         })()}
                         isVisible={(this.state.currentInstall !== "" || this.state.currentGame !== "") && this.state.openPopup === POPUPS.NONE && this.state.currentPage === PAGES.NONE}
                         imageVersion={this.state.imageVersion}

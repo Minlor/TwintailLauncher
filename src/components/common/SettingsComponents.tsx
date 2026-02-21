@@ -26,27 +26,39 @@ interface SettingsControlProps {
     label: string;
     description?: string;
     helpText?: string;
+    descriptionClassName?: string;
 }
 
-export const ModernToggle = ({ label, description, checked, disabled = false, onChange, ...props }: SettingsControlProps & { checked: boolean, disabled?: boolean, onChange: (val: boolean) => void }) => {
+export const ModernToggle = ({ label, description, helpText, descriptionClassName, checked, disabled = false, onChange }: SettingsControlProps & { checked: boolean, disabled?: boolean, onChange: (val: boolean) => void }) => {
+    const interactive = !disabled;
+
     return (
-        <SettingsCard className="flex flex-row items-center justify-between group cursor-pointer" onClick={() => onChange(!checked)}>
+        <SettingsCard
+            className={`flex flex-row items-center justify-between ${interactive ? "group cursor-pointer" : "cursor-not-allowed opacity-70"}`}
+            onClick={interactive ? () => onChange(!checked) : undefined}
+        >
             <div className="flex flex-col gap-1 pr-4">
                 <div className="flex items-center gap-2">
-                    <label className="text-base font-medium text-white group-hover:text-purple-100 transition-colors pointer-events-none">{label}</label>
-                    {description && description.includes("help") ? null : (props.helpText && <div onClick={e => e.stopPropagation()}><HelpTooltip text={props.helpText} /></div>)}
+                    <label className={`text-base font-medium transition-colors pointer-events-none ${interactive ? "text-white group-hover:text-purple-100" : "text-zinc-200"}`}>{label}</label>
+                    {description && description.includes("help") ? null : (helpText && <div onClick={e => e.stopPropagation()}><HelpTooltip text={helpText} /></div>)}
                 </div>
-                {description && <span className="text-sm text-zinc-400 pointer-events-none">{description}</span>}
+                {description && <span className={`text-sm pointer-events-none ${descriptionClassName ?? "text-zinc-400"}`}>{description}</span>}
             </div>
 
             <div
-                onClick={(e) => { e.stopPropagation(); onChange(!checked); }}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    if (!interactive) return;
+                    onChange(!checked);
+                }}
                 className={`
-                    w-12 h-7 rounded-full transition-all duration-300 relative flex items-center shadow-inner cursor-pointer
-                    ${checked ? "bg-purple-600 shadow-[0_0_15px_rgba(147,51,234,0.4)]" : "bg-zinc-800"}
+                    w-12 h-7 rounded-full transition-all duration-300 relative flex items-center shadow-inner
+                    ${interactive ? "cursor-pointer" : "cursor-not-allowed"}
+                    ${checked ? (interactive ? "bg-purple-600 shadow-[0_0_15px_rgba(147,51,234,0.4)]" : "bg-purple-700/70") : "bg-zinc-800"}
                 `}>
                 <div className={`
-                    w-5 h-5 rounded-full bg-white shadow-md transform transition-all duration-300 absolute
+                    w-5 h-5 rounded-full shadow-md transform transition-all duration-300 absolute
+                    ${interactive ? "bg-white" : "bg-zinc-300"}
                     ${checked ? "translate-x-6" : "translate-x-1"}
                 `} />
             </div>

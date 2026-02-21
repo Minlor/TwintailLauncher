@@ -262,9 +262,13 @@ export default function GameSettings({
                             <div className="grid grid-cols-1 gap-4 mt-4">
                                 <ModernToggle
                                     label="Skip Version Checks"
-                                    description="Don't check for game updates."
+                                    description={installSettings.steam_imported
+                                        ? "Updates are managed by Steam for this installation."
+                                        : "Don't check for game updates."
+                                    }
+                                    descriptionClassName={installSettings.steam_imported ? "text-yellow-300 font-medium" : undefined}
                                     disabled={installSettings.steam_imported}
-                                    checked={installSettings.ignore_updates}
+                                    checked={installSettings.steam_imported || installSettings.ignore_updates}
                                     onChange={(val) => {
                                         if (installSettings.steam_imported) return;
                                         handleUpdate("skip_version_updates", val);
@@ -516,11 +520,16 @@ export default function GameSettings({
                                             });
                                         }}
                                         disabled={installSettings.steam_imported}
-                                        className={`flex items-center gap-3 p-4 rounded-xl border border-white/5 transition-all text-white text-left ${installSettings.steam_imported ? "cursor-not-allowed bg-zinc-800" : "bg-zinc-800/50 hover:bg-zinc-700/50 hover:border-white/20"}`}>
+                                        className={`flex items-center gap-3 p-4 rounded-xl border border-white/5 transition-colors text-white text-left ${installSettings.steam_imported ? "cursor-not-allowed bg-zinc-900/85 opacity-70" : "bg-zinc-900/85 hover:bg-zinc-900 hover:border-white/10"}`}>
                                         <Wrench className={`w-6 h-6 ${installSettings.steam_imported ? "text-zinc-500" : "text-orange-400"}`}/>
                                         <div className="flex flex-col">
                                             <span className="font-bold">Repair Game</span>
-                                            <span className="text-xs text-zinc-400">Verify and fix game</span>
+                                            <span className={`text-xs ${installSettings.steam_imported ? "text-yellow-300 font-medium" : "text-zinc-400"}`}>
+                                                {installSettings.steam_imported
+                                                    ? "Managed by Steam."
+                                                    : "Verify and fix game"
+                                                }
+                                            </span>
                                         </div>
                                     </button>
 
@@ -531,11 +540,16 @@ export default function GameSettings({
                                                 invoke("remove_shortcut", { installId: installSettings.id, shortcutType: "steam" }).then(() => fetchInstallSettings(installSettings.id));
                                             }}
                                             disabled={installSettings.steam_imported}
-                                            className={`flex items-center gap-3 p-4 rounded-xl border border-white/5 transition-all text-white text-left ${installSettings.steam_imported ? "cursor-not-allowed bg-zinc-800" : "bg-zinc-800/50 hover:bg-zinc-700/50 hover:border-white/20"}`}>
+                                            className={`flex items-center gap-3 p-4 rounded-xl border border-white/5 transition-colors text-white text-left ${installSettings.steam_imported ? "cursor-not-allowed bg-zinc-900/85 opacity-70" : "bg-zinc-900/85 hover:bg-zinc-900 hover:border-white/10"}`}>
                                             <Trash2 className={`w-6 h-6 ${installSettings.steam_imported ? "text-zinc-500" : "text-blue-400"}`}/>
                                             <div className="flex flex-col">
                                                 <span className="font-bold">Remove from Steam</span>
-                                                <span className="text-xs text-zinc-400">Delete shortcut</span>
+                                                <span className={`text-xs ${installSettings.steam_imported ? "text-yellow-300 font-medium" : "text-zinc-400"}`}>
+                                                    {installSettings.steam_imported
+                                                        ? "Managed by Steam."
+                                                        : "Delete shortcut"
+                                                    }
+                                                </span>
                                             </div>
                                         </button>
                                     ) : (
@@ -545,11 +559,16 @@ export default function GameSettings({
                                                 invoke("add_shortcut", { installId: installSettings.id, shortcutType: "steam" }).then(() => fetchInstallSettings(installSettings.id));
                                             }}
                                             disabled={installSettings.steam_imported}
-                                            className={`flex items-center gap-3 p-4 rounded-xl border border-white/5 transition-all text-white text-left ${installSettings.steam_imported ? "cursor-not-allowed bg-zinc-800" : "bg-zinc-800/50 hover:bg-zinc-700/50 hover:border-white/20"}`}>
+                                            className={`flex items-center gap-3 p-4 rounded-xl border border-white/5 transition-colors text-white text-left ${installSettings.steam_imported ? "cursor-not-allowed bg-zinc-900/85 opacity-70" : "bg-zinc-900/85 hover:bg-zinc-900 hover:border-white/10"}`}>
                                             <SteamIcon className={`w-6 h-6 ${installSettings.steam_imported ? "text-zinc-500" : "text-blue-400"}`}/>
                                             <div className="flex flex-col">
                                                 <span className="font-bold">Add to Steam</span>
-                                                <span className="text-xs text-zinc-400">Create shortcut</span>
+                                                <span className={`text-xs ${installSettings.steam_imported ? "text-yellow-300 font-medium" : "text-zinc-400"}`}>
+                                                    {installSettings.steam_imported
+                                                        ? "Managed by Steam."
+                                                        : "Create shortcut"
+                                                    }
+                                                </span>
                                             </div>
                                         </button>
                                     )}

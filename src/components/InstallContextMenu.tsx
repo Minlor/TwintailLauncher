@@ -166,20 +166,28 @@ export default function InstallContextMenu({
                     <div className="px-4 py-2.5 text-sm text-white/50">Loading...</div>
                 ) : (
                     <>
-                        {installSettings?.shortcut_is_steam ? (
-                            <MenuItem
-                                icon={Trash2Icon}
-                                label="Remove from Steam"
-                                onClick={handleRemoveFromSteam}
-                                variant="danger"
-                            />
+                        {installSettings?.steam_imported ? (
+                            <div className="px-4 py-2.5 text-xs text-yellow-300 font-medium">
+                                Steam shortcuts are managed by Steam for this installation.
+                            </div>
                         ) : (
-                            <MenuItem
-                                icon={SteamIcon}
-                                label="Add to Steam"
-                                onClick={handleAddToSteam}
-                                variant="primary"
-                            />
+                            <>
+                                {installSettings?.shortcut_is_steam ? (
+                                    <MenuItem
+                                        icon={Trash2Icon}
+                                        label="Remove from Steam"
+                                        onClick={handleRemoveFromSteam}
+                                        variant="danger"
+                                    />
+                                ) : (
+                                    <MenuItem
+                                        icon={SteamIcon}
+                                        label="Add to Steam"
+                                        onClick={handleAddToSteam}
+                                        variant="primary"
+                                    />
+                                )}
+                            </>
                         )}
 
                         {installSettings?.shortcut_path !== "" ? (
