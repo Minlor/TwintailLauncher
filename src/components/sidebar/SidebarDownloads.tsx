@@ -51,7 +51,7 @@ export default function SidebarDownloads({
 
   const ringPercent = progressPercent === undefined ? undefined : Math.max(0, Math.min(100, progressPercent));
   const normalizedQueueCount = Math.max(0, queueCount);
-  const showQueueBadge = normalizedQueueCount >= 2;
+  const showQueueBadge = normalizedQueueCount >= 1;
   const queueBadgeLabel = normalizedQueueCount > 99 ? "99+" : String(normalizedQueueCount);
   const cx = 16;
   const cy = 20;
