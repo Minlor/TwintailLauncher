@@ -165,7 +165,8 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
         if gm.biz == "wuwa_global" {
             if install.use_xxmi {
                 let engine_file = dirp.join("Client/Saved/Config/WindowsNoEditor/Engine.ini");
-                edit_wuwa_configs_xxmi(engine_file.to_str().unwrap().to_string());
+                let device_profiles_file = dirp.join("Client/Saved/Config/WindowsNoEditor/DeviceProfiles.ini");
+                edit_wuwa_configs_xxmi(engine_file.to_str().unwrap().to_string(), device_profiles_file.to_str().unwrap().to_string());
             }
         }
 
@@ -250,7 +251,8 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
         if gm.biz == "wuwa_global" {
             if install.use_xxmi {
                 let engine_file = dirp.join("Client/Saved/Config/WindowsNoEditor/Engine.ini");
-                edit_wuwa_configs_xxmi(engine_file.to_str().unwrap().to_string());
+                let device_profiles_file = dirp.join("Client/Saved/Config/WindowsNoEditor/DeviceProfiles.ini");
+                edit_wuwa_configs_xxmi(engine_file.to_str().unwrap().to_string(), device_profiles_file.to_str().unwrap().to_string());
             }
         }
 
@@ -518,7 +520,8 @@ pub fn launch(app: &AppHandle, install: LauncherInstall, gm: GameManifest, gs: G
     if gm.biz == "wuwa_global" {
         if install.use_xxmi {
             let engine_file = dirp.join("Client/Saved/Config/WindowsNoEditor/Engine.ini");
-            edit_wuwa_configs_xxmi(engine_file.to_str().unwrap().to_string());
+            let device_profiles_file = dirp.join("Client/Saved/Config/WindowsNoEditor/DeviceProfiles.ini");
+            edit_wuwa_configs_xxmi(engine_file.to_str().unwrap().to_string(), device_profiles_file.to_str().unwrap().to_string());
         }
     }
     // Run xxmi first

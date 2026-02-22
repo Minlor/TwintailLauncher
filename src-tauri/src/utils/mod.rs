@@ -680,44 +680,54 @@ pub fn apply_patch(app: &AppHandle, dir: String, patch_type: String, mode: Strin
     }
 }
 
-pub fn edit_wuwa_configs_xxmi(engine_ini: String) {
-    let file = Path::new(&engine_ini);
-    if file.exists() {
-        let mut ini = configparser::ini::Ini::new_cs();
-        let f = ini.load(&file);
-        match f {
-            Ok(_) => {
-                let perf_tweaks: HashMap<&str, HashMap<&str, String>> = HashMap::from([(
-                    "SystemSettings",
-                    HashMap::from([
-                        ("r.Streaming.HLODStrategy", "2".to_string()),
-                        ("r.Streaming.PoolSizeForMeshes", "-1".to_string()),
-                        ("r.XGEShaderCompile", "0".to_string()),
-                        ("FX.BatchAsync", "1".to_string()),
-                        ("FX.EarlyScheduleAsync", "1".to_string()),
-                        ("fx.Niagara.ForceAutoPooling", "1".to_string()),
-                        ("wp.Runtime.KuroRuntimeStreamingRangeOverallScale", "0.5".to_string()),
-                        ("tick.AllowAsyncTickCleanup", "1".to_string()),
-                        ("tick.AllowAsyncTickDispatch", "1".to_string()),
-                    ]),
-                )]);
-                for (section_name, section_data) in perf_tweaks {
-                    for (option_name, option_value) in section_data { ini.set(section_name, option_name, Some(option_value)); }
-                }
-                for section in ini.get_map_ref().keys().cloned().collect::<Vec<_>>() {
-                    ini.remove_key(&section, "r.Streaming.UsingNewKuroStreaming"); // Ancient 3rd-party configs set it to 0 with bad results
-                    ini.remove_key(&section, "r.Streaming.Boost"); // Replaced with r.Streaming.MinBoost
-                }
-                ini.set("ConsoleVariables", "r.Streaming.LimitPoolSizeToVRAM", Some("1".to_string()));
-                ini.set("ConsoleVariables", "r.Streaming.PoolSize", Some("0".to_string()));
-                ini.set("ConsoleVariables", "r.Streaming.UseAllMips", Some("1".to_string()));
-                ini.set("ConsoleVariables", "r.Streaming.MinBoost", Some("20.0".to_string()));
-                ini.set("ConsoleVariables", "r.Kuro.SkeletalMesh.LODDistanceScale", Some("24".to_string()));
-                ini.set("ConsoleVariables", "r.Kuro.SkeletalMesh.LODDistanceScaleDeviceOffset", Some("-50".to_string()));
-                let r = ini.write(&file);
-                match r { Ok(_) => {} Err(_) => {} }
+pub fn edit_wuwa_configs_xxmi(engine_ini: String, device_profiles_ini: String) {
+    let engine_file = Path::new(&engine_ini);
+    if engine_file.exists() {
+        let perf = [("r.Streaming.HLODStrategy","2"),("r.Streaming.PoolSizeForMeshes","-1"),("r.XGEShaderCompile","0"),("FX.BatchAsync","1"),("FX.EarlyScheduleAsync","1"),("fx.Niagara.ForceAutoPooling","1"),("wp.Runtime.KuroRuntimeStreamingRangeOverallScale","0.5"),("tick.AllowAsyncTickCleanup","1"),("tick.AllowAsyncTickDispatch","1")];
+        let rm = ["r.Streaming.UsingNewKuroStreaming","r.Streaming.LimitPoolSizeToVRAM","r.Streaming.PoolSize","r.Streaming.UseAllMips","r.Streaming.MinBoost","r.Streaming.Boost","r.Kuro.SkeletalMesh.LODDistanceScale","r.Kuro.SkeletalMesh.LODDistanceScaleDeviceOffset"];
+        if let Ok(content) = fs::read_to_string(engine_file) {
+            let mut out: Vec<String> = Vec::new();
+            let mut in_ss = false;
+            let mut found_ss = false;
+            let mut written = [false; 9];
+            for line in content.lines() {
+                let tr = line.trim();
+                if tr.starts_with('[') && tr.ends_with(']') {
+                    if in_ss { for (i,(k,v)) in perf.iter().enumerate() { if !written[i] { out.push(format!("{}={}",k,v)); written[i]=true; } } }
+                    in_ss = &tr[1..tr.len()-1] == "SystemSettings";
+                    if in_ss { found_ss = true; }
+                    out.push(line.to_string());
+                } else if !tr.starts_with(';') && !tr.starts_with('#') && tr.contains('=') {
+                    let key = tr.splitn(2,'=').next().unwrap_or("").trim();
+                    if rm.contains(&key) { continue; }
+                    if in_ss { if let Some(i) = perf.iter().position(|(pk,_)| *pk == key) { out.push(format!("{}={}",perf[i].0,perf[i].1)); written[i]=true; continue; } }
+                    out.push(line.to_string());
+                } else { out.push(line.to_string()); }
             }
-            Err(_) => {}
+            if in_ss { for (i,(k,v)) in perf.iter().enumerate() { if !written[i] { out.push(format!("{}={}",k,v)); } } }
+            if !found_ss { out.push("[SystemSettings]".to_string()); for (k,v) in &perf { out.push(format!("{}={}",k,v)); } }
+            let _ = fs::write(engine_file, out.join("\n"));
+        }
+    }
+    let dp_file = Path::new(&device_profiles_ini);
+    if dp_file.exists() {
+        let cvars = [("CVars=r.Kuro.SkeletalMesh.LODDistanceScaleDeviceOffset","-10"),("CVars=r.Streaming.Boost","20.0"),("CVars=r.Streaming.MinBoost","0.0"),("CVars=r.Streaming.UseAllMips","1"),("CVars=r.Streaming.PoolSize","0"),("CVars=r.Streaming.LimitPoolSizeToVRAM","1"),("CVars=r.Streaming.UseFixedPoolSize","1")];
+        let profiles = ["Windows_Highest DeviceProfile","Windows_VeryHigh DeviceProfile","Windows_High DeviceProfile","Windows_Mid DeviceProfile","Windows_Low DeviceProfile","Windows_Lowest DeviceProfile"];
+        if let Ok(content) = fs::read_to_string(dp_file) {
+            let mut out: Vec<String> = Vec::new();
+            let mut in_target = false;
+            for line in content.lines() {
+                let tr = line.trim();
+                if tr.starts_with('[') && tr.ends_with(']') {
+                    if in_target { for (k,v) in &cvars { out.push(format!("{}={}",k,v)); } }
+                    in_target = profiles.iter().any(|&s| s == &tr[1..tr.len()-1]);
+                    out.push(line.to_string());
+                } else if in_target {
+                    if !cvars.iter().any(|(k,_)| tr.starts_with(&format!("{}=",k))) { out.push(line.to_string()); }
+                } else { out.push(line.to_string()); }
+            }
+            if in_target { for (k,v) in &cvars { out.push(format!("{}={}",k,v)); } }
+            let _ = fs::write(dp_file, out.join("\n"));
         }
     }
 }
@@ -727,33 +737,42 @@ pub fn apply_xxmi_tweaks(package: PathBuf, mut data: Json<XXMISettings>) -> Json
     if package.exists() {
         let cfg = package.join("d3dx.ini");
         if cfg.exists() {
-            let mut ini = configparser::ini::Ini::new_cs();
-            let f = ini.load(&cfg);
-            match f {
-                Ok(_) => {
-                    // Why is ini parser fucking these lines?? Explicitly set them back...
-                    ini.set("Include", "exclude_recursive", Some("DISABLED*".to_string()));
+            let actions = if data.dump_shaders { "clipboard hlsl asm regex" } else { "clipboard" };
+            let mut managed: Vec<(&str, &str, String)> = vec![
+                //("Include","exclude_recursive","DISABLED*".to_string()),
+                ("Hunting","hunting",data.hunting_mode.to_string()),
+                ("Hunting","marking_actions",actions.to_string()),
+                ("Logging","show_warnings",data.show_warnings.to_string()),
+            ];
 
-                    // Apply edits
-                    ini.set("Hunting", "hunting", Some(data.hunting_mode.to_string()));
-                    let actions = if data.dump_shaders { "clipboard hlsl asm regex" } else { "clipboard" };
-                    ini.set("Hunting", "marking_actions", Some(actions.to_string()));
-                    ini.set("Logging", "show_warnings", Some(data.show_warnings.to_string()));
-                    #[cfg(target_os = "linux")]
-                    {
-                        if package.to_str().unwrap().contains("gimi") || package.to_str().unwrap().contains("zzmi") {
-                            data.require_admin = false;
-                            data.dll_init_delay = 500;
-                            data.close_delay = 20;
-                            ini.set("Loader", "require_admin", Some(data.require_admin.to_string()));
-                            ini.set("Loader", "delay", Some(data.close_delay.to_string()));
-                            ini.set("System", "dll_initialization_delay", Some(data.dll_init_delay.to_string()));
-                        }
-                    }
-                    let r = ini.write(&cfg);
-                    match r { Ok(_) => {} Err(_) => {} }
+            #[cfg(target_os = "linux")]
+            {
+                if package.to_str().unwrap().contains("gimi") || package.to_str().unwrap().contains("zzmi") {
+                    data.require_admin = false;
+                    data.dll_init_delay = 500;
+                    data.close_delay = 20;
+                    managed.push(("Loader","require_admin",data.require_admin.to_string()));
+                    managed.push(("Loader","delay",data.close_delay.to_string()));
+                    managed.push(("System","dll_initialization_delay",data.dll_init_delay.to_string()));
                 }
-                Err(_) => {}
+            }
+            if let Ok(content) = fs::read_to_string(&cfg) {
+                let mut out: Vec<String> = Vec::new();
+                let mut cur = String::new();
+                let mut written = vec![false; managed.len()];
+                for line in content.lines() {
+                    let tr = line.trim();
+                    if tr.starts_with('[') && tr.ends_with(']') {
+                        for (i,(s,k,v)) in managed.iter().enumerate() { if !written[i] && *s == cur.as_str() { out.push(format!("{} = {}",k,v)); written[i]=true; } }
+                        cur = tr[1..tr.len()-1].to_string();
+                        out.push(line.to_string());
+                    } else if !tr.starts_with(';') && !tr.starts_with('#') && tr.contains('=') {
+                        let key = tr.splitn(2,'=').next().unwrap_or("").trim();
+                        if let Some(i) = managed.iter().position(|(s,k,_)| *s == cur.as_str() && *k == key) { out.push(format!("{} = {}",managed[i].1,managed[i].2)); written[i]=true; } else { out.push(line.to_string()); }
+                    } else { out.push(line.to_string()); }
+                }
+                for (i,(s,k,v)) in managed.iter().enumerate() { if !written[i] && *s == cur.as_str() { out.push(format!("{} = {}",k,v)); } }
+                let _ = fs::write(&cfg, out.join("\n"));
             }
             data
         } else { data }
