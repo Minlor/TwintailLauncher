@@ -3,10 +3,9 @@ use fischl::download::Extras;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path,PathBuf};
-use tauri::{AppHandle,Emitter};
-
-#[cfg(target_os = "linux")]
+use tauri::{AppHandle,Emitter,Manager};
 use crate::DownloadState;
+
 #[cfg(target_os = "linux")]
 use crate::downloading::queue::{QueueJobKind,QueueJobOutcome};
 #[cfg(target_os = "linux")]
@@ -19,8 +18,6 @@ use crate::utils::show_dialog;
 use fischl::compat::{download_runner, check_steamrt_update, download_steamrt};
 #[cfg(target_os = "linux")]
 use std::sync::{Arc,Mutex};
-#[cfg(target_os = "linux")]
-use tauri::Manager;
 
 /// Check if SteamRT3 needs to be downloaded or updated, and enqueue the job
 #[cfg(target_os = "linux")]
@@ -387,9 +384,14 @@ pub fn check_extras_update(app: &AppHandle) {
 /// When job_id is Some, runs synchronously and returns success/failure (used by queue worker).
 pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: String, package_type: String, update_mode: bool, job_id: Option<String>) -> bool {
     if job_id.is_none() {
-        let app = app.clone();
-        let path = path.clone();
-        std::thread::spawn(move || { download_or_update_extra(&app, path, package_id, package_type, update_mode, Some(String::new())); });
+        if !update_mode {
+            let state = app.state::<DownloadState>();
+            let q = state.queue.lock().unwrap().clone();
+            if let Some(queue) = q { if !queue.has_job_for_id(package_type.clone()) { queue.enqueue(QueueJobKind::ExtrasDownload, QueueJobPayload::Extras(crate::downloading::ExtrasDownloadPayload { path: path.to_str().unwrap().to_string(), package_id, package_type, update_mode: false })); } }
+        } else {
+            let app = app.clone();
+            let path = path.clone();
+            std::thread::spawn(move || { download_or_update_extra(&app, path, package_id, package_type, true, Some(String::new())); }); }
         return true;
     }
     let app = app.clone();
@@ -413,6 +415,14 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                             let pkg = pkgs.packages.iter().find(|e| e.package_name.to_ascii_lowercase().contains(package_type.as_str()));
                             if let Some(p) = pkg {
                                 if compare_version(lv.as_str(), p.version.as_str()).is_lt() {
+                                    if job_id.as_ref().unwrap().is_empty() {
+                                        let state = app.state::<DownloadState>();
+                                        let q = state.queue.lock().unwrap().clone();
+                                        if let Some(queue) = q {
+                                            if !queue.has_job_for_id(package_type.clone()) { queue.enqueue(QueueJobKind::ExtrasDownload, QueueJobPayload::Extras(crate::downloading::ExtrasDownloadPayload { path: path.to_str().unwrap().to_string(), package_id: package_id.clone(), package_type: package_type.clone(), update_mode: true })); }
+                                        }
+                                        return true;
+                                    }
                                     if package_type == "xxmi" {
                                         for file in &p.file_list {
                                             let f_path = path.join(file);

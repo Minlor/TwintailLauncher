@@ -1147,7 +1147,7 @@ pub fn copy_authkey(app: AppHandle, id: String) {
 fn enqueue_extras_download(app: &AppHandle, path: String, package_id: String, package_type: String, update_mode: bool) {
     let state = app.state::<DownloadState>();
     let q = state.queue.lock().unwrap().clone();
-    if let Some(queue) = q { queue.enqueue(QueueJobKind::ExtrasDownload, QueueJobPayload::Extras(ExtrasDownloadPayload { path, package_id, package_type, update_mode })); }
+    if let Some(queue) = q { if !queue.has_job_for_id(package_type.clone()) { queue.enqueue(QueueJobKind::ExtrasDownload, QueueJobPayload::Extras(ExtrasDownloadPayload { path, package_id, package_type, update_mode })); } }
 }
 
 pub fn cancel_download_for_install(app: &AppHandle, install_id: &str) {
