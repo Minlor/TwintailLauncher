@@ -5,11 +5,12 @@ use std::fs;
 use std::path::{Path,PathBuf};
 use tauri::{AppHandle,Emitter,Manager};
 use crate::DownloadState;
+use crate::downloading::{QueueJobPayload, queue::{QueueJobKind}};
 
 #[cfg(target_os = "linux")]
-use crate::downloading::queue::{QueueJobKind,QueueJobOutcome};
+use crate::downloading::queue::{QueueJobOutcome};
 #[cfg(target_os = "linux")]
-use crate::downloading::{QueueJobPayload,RunnerDownloadPayload,SteamrtDownloadPayload};
+use crate::downloading::{RunnerDownloadPayload,SteamrtDownloadPayload};
 #[cfg(target_os = "linux")]
 use crate::utils::db_manager::update_installed_runner_is_installed_by_version;
 #[cfg(target_os = "linux")]
