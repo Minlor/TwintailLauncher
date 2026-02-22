@@ -1116,6 +1116,34 @@ pub fn remove_shortcut(app: AppHandle, install_id: String, shortcut_type: String
     };
 }
 
+#[tauri::command]
+pub fn copy_authkey(app: AppHandle, id: String) {
+    let install = get_install_info_by_id(&app, id).unwrap();
+    fn get_engine_log_from_game(game_name: String) -> String {
+        if game_name.to_ascii_lowercase().contains("genshin") { return "miHoYo/Genshin Impact/output_log.txt".to_string() }
+        if game_name.to_ascii_lowercase().contains("starrail") { return "Cognosphere/Star Rail/Player.log".to_string() }
+        if game_name.to_ascii_lowercase().contains("zenless") { return "miHoYo/ZenlessZoneZero/Player.log".to_string() }
+        "".to_string()
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let prefix = Path::new(&install.runner_prefix).to_path_buf();
+        let prefix_exists = prefix.join("pfx/").exists();
+        if prefix_exists {
+            let engine_log = prefix.join("pfx/drive_c/users/steamuser/AppData/LocalLow/").join(get_engine_log_from_game(install.name));
+            if engine_log.exists() {
+                // TODO: Read latest authkey from log and copy to clipboard
+            }
+        } else { show_dialog(&app, "error", "TwintailLauncher", "Unable to find game engine log to extract AuthKey, please run the game and open pull history page.", Some(vec!["Ok"])); }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // TODO: Minlor handle this side...
+    }
+}
+
 fn enqueue_extras_download(app: &AppHandle, path: String, package_id: String, package_type: String, update_mode: bool) {
     let state = app.state::<DownloadState>();
     let q = state.queue.lock().unwrap().clone();
