@@ -189,15 +189,24 @@ pub fn show_dialog(app: &AppHandle, dialog_type: &str, title: &str, message: &st
 }
 
 pub fn show_dialog_with_callback(app: &AppHandle, dialog_type: &str, title: &str, message: &str, buttons: Option<Vec<&str>>, callback_id: Option<&str>) {
-    let mut payload = HashMap::new();
-    payload.insert("dialog_type", dialog_type.to_string());
-    payload.insert("title", title.to_string());
-    payload.insert("message", message.to_string());
-    if let Some(btns) = buttons {
-        let btns_str = serde_json::to_string(&btns).unwrap_or_else(|_| "[\"OK\"]".to_string());
-        payload.insert("buttons", btns_str);
+    #[derive(Serialize, Clone)]
+    struct DialogPayload {
+        dialog_type: String,
+        title: String,
+        message: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        buttons: Option<Vec<String>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        callback_id: Option<String>,
     }
-    if let Some(cb_id) = callback_id { payload.insert("callback_id", cb_id.to_string()); }
+
+    let payload = DialogPayload {
+        dialog_type: dialog_type.to_string(),
+        title: title.to_string(),
+        message: message.to_string(),
+        buttons: buttons.map(|btns| btns.into_iter().map(|b| b.to_string()).collect::<Vec<String>>()),
+        callback_id: callback_id.map(|id| id.to_string()),
+    };
     app.emit("show_dialog", payload).unwrap();
 }
 

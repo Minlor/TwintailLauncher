@@ -4,7 +4,7 @@ export interface DialogPayload {
     dialog_type: "error" | "warning" | "info" | "confirm";
     title: string;
     message: string;
-    buttons?: string[];
+    buttons?: string[] | string;
     callback_id?: string;
 }
 

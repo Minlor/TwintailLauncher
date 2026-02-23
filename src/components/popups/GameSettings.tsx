@@ -14,6 +14,9 @@ import {
     Box,
     Monitor,
     Copy,
+    Loader2,
+    Check,
+    X,
     FileCode2,
     LayoutDashboard,
     Terminal
@@ -70,7 +73,7 @@ export default function GameSettings({
     imageVersion = 0
 }: GameSettingsProps) {
     const [activeTab, setActiveTab] = useState("general");
-    const [authkeyCopied, setAuthkeyCopied] = useState(false);
+    const [authkeyCopyState, setAuthkeyCopyState] = useState<"idle" | "copying" | "copied" | "failed">("idle");
     const [wipePrefixOnUninstall, setWipePrefixOnUninstall] = useState(false);
     const [showUninstallReview, setShowUninstallReview] = useState(false);
     const [uninstallAcknowledged, setUninstallAcknowledged] = useState(false);
@@ -169,6 +172,9 @@ export default function GameSettings({
     };
 
     const canUninstall = showUninstallReview && uninstallAcknowledged && !isUninstalling;
+    const isAuthkeyCopying = authkeyCopyState === "copying";
+    const isAuthkeyCopied = authkeyCopyState === "copied";
+    const isAuthkeyFailed = authkeyCopyState === "failed";
 
     const handleInlineUninstall = async () => {
         if (!canUninstall) return;
@@ -601,17 +607,33 @@ export default function GameSettings({
 
                                     {gameBiz && !gameBiz.startsWith("wuwa") && !gameBiz.startsWith("pgr") && (
                                         <button
-                                            onClick={() => {
-                                                invoke("copy_authkey", { id: installSettings.id }).then(() => {
-                                                    setAuthkeyCopied(true);
-                                                    setTimeout(() => setAuthkeyCopied(false), 2000);
-                                                }).catch((e) => console.error("Failed to copy authkey:", e));
+                                            onClick={async () => {
+                                                if (isAuthkeyCopying) { return; }
+                                                setAuthkeyCopyState("copying");
+                                                try {
+                                                    const copied = await invoke<boolean>("copy_authkey", { id: installSettings.id });
+                                                    if (copied) {
+                                                        setAuthkeyCopyState("copied");
+                                                        setTimeout(() => setAuthkeyCopyState("idle"), 2400);
+                                                    } else {
+                                                        setAuthkeyCopyState("failed");
+                                                        setTimeout(() => setAuthkeyCopyState("idle"), 2600);
+                                                    }
+                                                } catch (e) {
+                                                    console.error("Failed to copy authkey:", e);
+                                                    setAuthkeyCopyState("failed");
+                                                    setTimeout(() => setAuthkeyCopyState("idle"), 2600);
+                                                }
                                             }}
-                                            className="flex items-center gap-3 p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-xl border border-white/5 transition-all hover:border-white/20 text-white text-left">
-                                            <Copy className="w-6 h-6 text-purple-400" />
+                                            disabled={isAuthkeyCopying}
+                                            className={`flex items-center gap-3 p-4 rounded-xl border transition-all text-white text-left ${isAuthkeyCopying ? "bg-purple-900/25 border-purple-400/30 cursor-wait" : ""} ${isAuthkeyCopied ? "bg-emerald-900/25 border-emerald-400/40" : ""} ${isAuthkeyFailed ? "bg-red-900/25 border-red-400/35" : ""} ${!isAuthkeyCopying && !isAuthkeyCopied && !isAuthkeyFailed ? "bg-zinc-800/50 hover:bg-zinc-700/50 border-white/5 hover:border-white/20" : ""}`}>
+                                            {isAuthkeyCopying && <Loader2 className="w-6 h-6 text-purple-300 animate-spin" />}
+                                            {isAuthkeyCopied && <Check className="w-6 h-6 text-emerald-300" />}
+                                            {isAuthkeyFailed && <X className="w-6 h-6 text-red-300" />}
+                                            {!isAuthkeyCopying && !isAuthkeyCopied && !isAuthkeyFailed && <Copy className="w-6 h-6 text-purple-400" />}
                                             <div className="flex flex-col">
-                                                <span className="font-bold">{authkeyCopied ? "Copied!" : "Copy Authkey"}</span>
-                                                <span className="text-xs text-zinc-400">Sync and view your pull history at <span className="text-purple-400">aivo.minlor.net/hoyo</span></span>
+                                                <span className="font-bold">{isAuthkeyCopying ? "Copying authkey..." : isAuthkeyCopied ? "Authkey copied" : isAuthkeyFailed ? "Copy failed" : "Copy Authkey"}</span>
+                                                <span className={`text-xs ${isAuthkeyCopied ? "text-emerald-300" : isAuthkeyFailed ? "text-red-300" : "text-zinc-400"}`}>{isAuthkeyCopying ? "Reading latest game log and copying to clipboard..." : isAuthkeyCopied ? "Ready to paste into Aivo sync." : isAuthkeyFailed ? "Could not copy authkey. Check the warning dialog." : <>Sync and view your pull history at <span className="text-purple-400">aivo.minlor.net/hoyo</span></>}</span>
                                             </div>
                                         </button>
                                     )}
