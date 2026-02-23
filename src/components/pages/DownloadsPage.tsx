@@ -53,17 +53,39 @@ const formatTime = (seconds: number): string => {
     return `${hours}h ${minutes % 60}m`;
 };
 
+const INSTALL_ETA_PHASES: DownloadPhase[] = ['installing', 'extracting', 'validating', 'moving'];
+const MAX_ETA_SECONDS = 60 * 60 * 24 * 7; // Hide unrealistic ETAs (>7 days)
+
 /* Calculate ETA using average of recent speeds */
-const calculateETA = (totalBytes: number, progressBytes: number, speedHistory: TelemetrySample[]): string => {
+const calculateETA = (
+    downloadTotalBytes: number,
+    downloadProgressBytes: number,
+    installTotalBytes: number,
+    installProgressBytes: number,
+    speedHistory: TelemetrySample[],
+    phase: DownloadPhase | undefined,
+    preferInstallETA: boolean
+): string => {
+    if (speedHistory.length === 0) return '—';
+
+    const useInstallProgress = installTotalBytes > 0 && (preferInstallETA || (phase !== undefined && INSTALL_ETA_PHASES.includes(phase)));
+    const totalBytes = useInstallProgress ? installTotalBytes : downloadTotalBytes;
+    const progressBytes = useInstallProgress ? installProgressBytes : downloadProgressBytes;
     const remaining = Math.max(totalBytes - progressBytes, 0);
-    if (remaining === 0 || speedHistory.length === 0) return '—';
+    if (remaining === 0) return '—';
 
-    // Use last 10 samples (or all if less than 10) for average
+    // Use last 10 samples (or all if less than 10), and ignore zero/invalid samples.
     const recentSamples = speedHistory.slice(-10);
-    const avgSpeed = recentSamples.reduce((sum, sample) => sum + sample.net, 0) / recentSamples.length;
+    const sampleSpeeds = recentSamples
+        .map((sample) => useInstallProgress ? Math.max(sample.disk, sample.net) : sample.net)
+        .filter((speed) => Number.isFinite(speed) && speed > 0);
+    if (sampleSpeeds.length === 0) return '—';
 
-    if (!avgSpeed || avgSpeed <= 0) return '—';
+    const avgSpeed = sampleSpeeds.reduce((sum, speed) => sum + speed, 0) / sampleSpeeds.length;
+    if (!Number.isFinite(avgSpeed) || avgSpeed <= 0) return '—';
+
     const seconds = Math.ceil(remaining / avgSpeed);
+    if (!Number.isFinite(seconds) || seconds > MAX_ETA_SECONDS) return '—';
     return formatTime(seconds);
 };
 
@@ -147,6 +169,7 @@ export default function DownloadsPage({
 
     // Ref to track last sampled speed to avoid duplicate samples
     const lastSampleRef = useRef<{ net: number; disk: number; time: number } | null>(null);
+    const progressSnapshotRef = useRef<{ downloadBytes: number; installBytes: number; time: number } | null>(null);
 
     // Hover state for graph tooltip
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -192,6 +215,9 @@ export default function DownloadsPage({
     const downloadProgress = totalBytes > 0 ? toPercent(progressBytes, totalBytes) : 0;
     const currentSpeed = currentProgress?.speed ?? 0;
     const currentDisk = currentProgress?.disk ?? 0;
+    const latestSample = speedHistory.length > 0 ? speedHistory[speedHistory.length - 1] : undefined;
+    const displayNetSpeed = Math.max(currentSpeed, latestSample?.net ?? 0);
+    const displayDiskSpeed = Math.max(currentDisk, latestSample?.disk ?? 0);
 
     // Installation progress (for extraction/verification phase)
     const installProgressBytes = currentProgress?.installProgress ?? 0;
@@ -201,6 +227,7 @@ export default function DownloadsPage({
 
     // Current phase/status
     const currentPhase = currentProgress?.phase;
+    const etaText = calculateETA(totalBytes, progressBytes, installTotalBytes, installProgressBytes, speedHistory, currentPhase, currentJob?.kind === 'game_repair');
 
 
     // Reset graph history and peak speed when active job changes
@@ -210,6 +237,7 @@ export default function DownloadsPage({
             onClearHistory();
             setPeakSpeed(0);
             lastSampleRef.current = null;
+            progressSnapshotRef.current = null;
             onSpeedSample({ net: 0, disk: 0 });
         }
         previousJobIdRef.current = currentJobId;
@@ -218,18 +246,35 @@ export default function DownloadsPage({
     // Sample speed/disk for graph when we have a running job
     useEffect(() => {
         if (!currentJob || isPaused) return;
-        if (currentSpeed <= 0 && currentDisk <= 0) return;
 
         const now = Date.now();
         const last = lastSampleRef.current;
-
         if (last && now - last.time < 900) return;
 
-        lastSampleRef.current = { net: currentSpeed, disk: currentDisk, time: now };
-        onSpeedSample({ net: currentSpeed, disk: currentDisk });
-        setPeakSpeed(prev => Math.max(prev, currentSpeed));
-        if (currentSpeed > peakSpeed) setPeakSpeed(currentSpeed);
-    }, [currentSpeed, currentDisk, currentJob, isPaused, onSpeedSample, peakSpeed]);
+        const snapshot = progressSnapshotRef.current;
+        const isDownloadingPhase = currentPhase === 'downloading';
+        let derivedNet = 0;
+        let derivedDisk = 0;
+        if (snapshot && now > snapshot.time) {
+            const elapsedSeconds = (now - snapshot.time) / 1000;
+            const downloadDelta = Math.max(0, progressBytes - snapshot.downloadBytes);
+            const installDelta = Math.max(0, installProgressBytes - snapshot.installBytes);
+            if (elapsedSeconds > 0) {
+                // Only infer network throughput from progress deltas in real download phase.
+                // Repair verify/validate can move download progress without network traffic.
+                if (isDownloadingPhase) derivedNet = Math.round(downloadDelta / elapsedSeconds);
+                derivedDisk = Math.round(installDelta / elapsedSeconds);
+            }
+        }
+
+        progressSnapshotRef.current = { downloadBytes: progressBytes, installBytes: installProgressBytes, time: now };
+        const sampledNet = currentSpeed > 0 ? currentSpeed : (isDownloadingPhase ? derivedNet : 0);
+        const sampledDisk = currentDisk > 0 ? currentDisk : derivedDisk;
+
+        lastSampleRef.current = { net: sampledNet, disk: sampledDisk, time: now };
+        onSpeedSample({ net: sampledNet, disk: sampledDisk });
+        setPeakSpeed(prev => Math.max(prev, sampledNet));
+    }, [currentSpeed, currentDisk, progressBytes, installProgressBytes, currentPhase, currentJob, isPaused, onSpeedSample]);
 
     // Draw canvas graph
     const GRAPH_SLOTS = 60;
@@ -281,8 +326,9 @@ export default function DownloadsPage({
         }
         paddedHistory.push(...speedHistory);
 
-        const maxNet = Math.max(...paddedHistory.map(s => s.net), 1024 * 1024);
-        const maxDisk = Math.max(...paddedHistory.map(s => s.disk), 1024 * 1024);
+        const minGraphScale = 128 * 1024;
+        const maxNet = Math.max(...paddedHistory.map(s => s.net), minGraphScale);
+        const maxDisk = Math.max(...paddedHistory.map(s => s.disk), minGraphScale);
         const maxValue = Math.max(maxNet, maxDisk);
 
         ctx.clearRect(0, 0, width, height);
@@ -572,7 +618,7 @@ export default function DownloadsPage({
                         <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">Download Manager</h1>
                         {currentJob && (
                             <p className="text-sm text-white/50">
-                                {formatSpeed(currentSpeed)} • {allJobs.length} item{allJobs.length !== 1 ? 's' : ''} in queue
+                                {formatSpeed(displayNetSpeed)} • {allJobs.length} item{allJobs.length !== 1 ? 's' : ''} in queue
                             </p>
                         )}
                     </div>
@@ -665,7 +711,7 @@ export default function DownloadsPage({
                                                         </div>
                                                         <span>Network</span>
                                                     </div>
-                                                    <div className="text-sm font-medium text-blue-400 mt-1">{formatSpeed(currentSpeed)}</div>
+                                                    <div className="text-sm font-medium text-blue-400 mt-1">{formatSpeed(displayNetSpeed)}</div>
                                                 </div>
 
                                                 <div className="flex flex-col text-xs">
@@ -687,7 +733,7 @@ export default function DownloadsPage({
                                                         </div>
                                                         <span>Disk</span>
                                                     </div>
-                                                    <div className="text-sm font-medium text-green-400 mt-1">{formatSpeed(currentDisk)}</div>
+                                                    <div className="text-sm font-medium text-green-400 mt-1">{formatSpeed(displayDiskSpeed)}</div>
                                                 </div>
                                             </div>
 
@@ -774,12 +820,12 @@ export default function DownloadsPage({
                                                             <span className="text-yellow-400 font-medium">Pausing...</span>
                                                         </div>
                                                     ) : !isPaused ? (
-                                                        <div>
-                                                            <span className="uppercase tracking-wider">Estimate:</span>
-                                                            <span className="ml-2 text-white font-medium">
-                                                                {calculateETA(totalBytes, progressBytes, speedHistory)}
-                                                            </span>
-                                                        </div>
+                                                        etaText !== '—' ? (
+                                                            <div>
+                                                                <span className="uppercase tracking-wider">Estimate:</span>
+                                                                <span className="ml-2 text-white font-medium">{etaText}</span>
+                                                            </div>
+                                                        ) : null
                                                     ) : null}
                                                 </div>
                                                 <button
