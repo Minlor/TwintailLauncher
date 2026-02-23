@@ -2,18 +2,14 @@ use crate::utils::db_manager::{create_installation, delete_installation_by_id, g
 use crate::utils::game_launch_manager::launch;
 use crate::utils::repo_manager::get_manifest;
 use crate::utils::shortcuts::remove_desktop_shortcut;
-use crate::utils::{AddInstallRsp, DownloadSizesRsp, ResumeStatesRsp, apply_xxmi_tweaks, copy_dir_all, generate_cuid, get_mi_path_from_game, models::GameVersion, show_dialog};
+use crate::utils::{AddInstallRsp, DownloadSizesRsp, ResumeStatesRsp, apply_xxmi_tweaks, copy_dir_all, generate_cuid, get_mi_path_from_game, models::GameVersion, show_dialog, extract_authkey_from_content};
 use fischl::utils::free_space::available;
 use fischl::utils::is_process_running;
 use fischl::utils::prettify_bytes;
 use std::collections::HashMap;
 use std::fs;
-#[cfg(any(target_os = "linux", target_os = "windows"))]
-use std::io::Write;
 use std::ops::Add;
 use std::path::{Path, PathBuf};
-#[cfg(any(target_os = "linux", target_os = "windows"))]
-use std::process::{Command, Stdio};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager};
 use sqlx::types::Json;
@@ -1120,204 +1116,43 @@ pub fn remove_shortcut(app: AppHandle, install_id: String, shortcut_type: String
     };
 }
 
-#[derive(Clone, Copy)]
-enum AuthkeyGame {
-    Genshin,
-    StarRail,
-    Zenless,
-}
-
-impl AuthkeyGame {
-    fn from_hint(hint: &str) -> Option<Self> {
-        let lowered = hint.to_ascii_lowercase();
-        if lowered.contains("hk4e") || lowered.contains("genshin") { return Some(Self::Genshin); }
-        if lowered.contains("hkrpg") || lowered.contains("starrail") || lowered.contains("star rail") { return Some(Self::StarRail); }
-        if lowered.contains("nap") || lowered.contains("zenless") || lowered.contains("zzz") { return Some(Self::Zenless); }
-        None
-    }
-
-    fn endpoint_hints(&self) -> [&'static str; 2] {
-        match self {
-            Self::Genshin => ["hk4e", "gacha_info"],
-            Self::StarRail => ["hkrpg", "gacha_record"],
-            Self::Zenless => ["nap", "gacha_record"],
-        }
-    }
-
-    fn log_relative_path(&self) -> &'static str {
-        match self {
-            Self::Genshin => "miHoYo/Genshin Impact/output_log.txt",
-            Self::StarRail => "Cognosphere/Star Rail/Player.log",
-            Self::Zenless => "miHoYo/ZenlessZoneZero/Player.log",
-        }
-    }
-}
-
-fn resolve_authkey_game(app: &AppHandle, manifest_id: &str, install_name: &str) -> Option<AuthkeyGame> {
-    if let Some(game) = AuthkeyGame::from_hint(install_name) { return Some(game); }
-    if let Some(manifest_info) = get_manifest_info_by_id(app, manifest_id.to_string()) {
-        if let Some(game) = AuthkeyGame::from_hint(manifest_info.filename.as_str()) { return Some(game); }
-        if let Some(game) = AuthkeyGame::from_hint(manifest_info.display_name.as_str()) { return Some(game); }
-        if let Some(manifest) = get_manifest(app, manifest_info.filename.clone()) {
-            if let Some(game) = AuthkeyGame::from_hint(manifest.biz.as_str()) { return Some(game); }
-            if let Some(game) = AuthkeyGame::from_hint(manifest.display_name.as_str()) { return Some(game); }
-        }
-    }
-    None
-}
-
-fn collect_authkey_urls(content: &str) -> Vec<&str> {
-    let mut rslt = Vec::<&str>::new();
-    let mut offset: usize = 0;
-    while offset < content.len() {
-        let next = content[offset..].find("https://");
-        if next.is_none() { break; }
-        let start = offset + next.unwrap();
-        let sliced = &content[start..];
-        let end = sliced.find(|c: char| c.is_whitespace() || c == '"' || c == '\'' || c == '<' || c == '>').unwrap_or(sliced.len());
-        let url = &sliced[..end];
-        if url.contains("authkey=") { rslt.push(url); }
-        offset = start + "https://".len();
-    }
-    rslt
-}
-
-fn extract_authkey_from_content(content: &str, game: AuthkeyGame) -> Option<String> {
-    let urls = collect_authkey_urls(content);
-    let hints = game.endpoint_hints();
-    for url in urls.into_iter().rev() {
-        let lowered = url.to_ascii_lowercase();
-        if !hints.iter().any(|h| lowered.contains(h)) { continue; }
-        if let Ok(uri) = reqwest::Url::parse(url) {
-            for (key, value) in uri.query_pairs() {
-                if key.eq_ignore_ascii_case("authkey") && value.len() > 10 { return Some(value.into_owned()); }
-            }
-        }
-    }
-    None
-}
-
-fn extract_authkey_from_log(log_path: &Path, game: AuthkeyGame) -> Option<String> {
-    let content = fs::read(log_path).ok()?;
-    let decoded = String::from_utf8_lossy(&content);
-    extract_authkey_from_content(decoded.as_ref(), game)
-}
-
-#[cfg(target_os = "linux")]
-fn resolve_linux_engine_log(prefix: &str, game: AuthkeyGame) -> Option<PathBuf> {
-    let pfx = Path::new(prefix).join("pfx");
-    if !pfx.exists() { return None; }
-    let log = pfx.join("drive_c/users/steamuser/AppData/LocalLow").join(game.log_relative_path());
-    if log.exists() { Some(log) } else { None }
-}
-
-#[cfg(target_os = "windows")]
-fn resolve_windows_engine_log(app: &AppHandle, install_dir: &str, game: AuthkeyGame) -> Option<PathBuf> {
-    let mut paths = Vec::<PathBuf>::new();
-
-    if let Ok(profile) = std::env::var("USERPROFILE") {
-        paths.push(Path::new(profile.as_str()).join("AppData/LocalLow").join(game.log_relative_path()));
-    }
-
-    if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
-        if let Some(parent) = Path::new(local_app_data.as_str()).parent() {
-            paths.push(parent.join("LocalLow").join(game.log_relative_path()));
-        }
-    }
-
-    if let Ok(home_dir) = app.path().home_dir() {
-        paths.push(home_dir.join("AppData/LocalLow").join(game.log_relative_path()));
-    }
-
-    let install_path = Path::new(install_dir).to_path_buf();
-    match game {
-        AuthkeyGame::Genshin => {
-            paths.push(install_path.join("output_log.txt"));
-            paths.push(install_path.join("Genshin Impact Game").join("output_log.txt"));
-        }
-        AuthkeyGame::StarRail | AuthkeyGame::Zenless => {
-            paths.push(install_path.join("Player.log"));
-            paths.push(install_path.join("Game").join("Player.log"));
-        }
-    }
-
-    for path in paths {
-        if path.exists() { return Some(path); }
-    }
-    None
-}
-
-#[cfg(any(target_os = "linux", target_os = "windows"))]
-fn run_clipboard_command(program: &str, args: &[&str], value: &str) -> bool {
-    let spawned = Command::new(program).args(args).stdin(Stdio::piped()).stdout(Stdio::null()).stderr(Stdio::null()).spawn();
-    if spawned.is_err() { return false; }
-    let mut child = spawned.unwrap();
-    if let Some(mut stdin) = child.stdin.take() {
-        if stdin.write_all(value.as_bytes()).is_err() { let _ = child.kill(); let _ = child.wait(); return false; }
-    } else {
-        let _ = child.kill();
-        let _ = child.wait();
-        return false;
-    }
-    child.wait().map(|status| status.success()).unwrap_or(false)
-}
-
-#[cfg(target_os = "linux")]
-fn copy_to_clipboard(value: &str) -> bool {
-    if run_clipboard_command("wl-copy", &[], value) { return true; }
-    if run_clipboard_command("xclip", &["-selection", "clipboard"], value) { return true; }
-    if run_clipboard_command("xsel", &["--clipboard", "--input"], value) { return true; }
-    false
-}
-
-#[cfg(target_os = "windows")]
-fn copy_to_clipboard(value: &str) -> bool {
-    run_clipboard_command("cmd", &["/C", "clip"], value)
-}
 
 #[tauri::command]
 pub fn copy_authkey(app: AppHandle, id: String) -> bool {
-    let install = get_install_info_by_id(&app, id);
-    if install.is_none() {
-        show_dialog(&app, "error", "TwintailLauncher", "Failed to find game installation!", None);
-        return false;
-    }
-    let install = install.unwrap();
-
-    let game = resolve_authkey_game(&app, install.manifest_id.as_str(), install.name.as_str());
-    if game.is_none() {
-        show_dialog(&app, "warning", "TwintailLauncher", "Authkey extraction is only supported for Genshin Impact, Honkai: Star Rail and Zenless Zone Zero.", Some(vec!["Ok"]));
-        return false;
-    }
-    let game = game.unwrap();
-
-    #[cfg(target_os = "linux")]
-    let engine_log = resolve_linux_engine_log(install.runner_prefix.as_str(), game);
-    #[cfg(target_os = "windows")]
-    let engine_log = resolve_windows_engine_log(&app, install.directory.as_str(), game);
-
-    if engine_log.is_none() {
-        show_dialog(&app, "error", "TwintailLauncher", "Unable to find game engine log to extract AuthKey, please run the game and open pull history page.", Some(vec!["Ok"]));
-        return false;
-    }
-
-    let authkey = extract_authkey_from_log(engine_log.unwrap().as_path(), game);
-    if authkey.is_none() {
-        show_dialog(&app, "error", "TwintailLauncher", "Unable to extract AuthKey from game logs, please run the game and open pull history page.", Some(vec!["Ok"]));
-        return false;
+    let install = get_install_info_by_id(&app, id).unwrap();
+    fn get_engine_log_from_game(game_name: String) -> String {
+        if game_name.to_ascii_lowercase().contains("genshin") { return "miHoYo/Genshin Impact/output_log.txt".to_string() }
+        if game_name.to_ascii_lowercase().contains("starrail") { return "Cognosphere/Star Rail/Player.log".to_string() }
+        if game_name.to_ascii_lowercase().contains("zenless") { return "miHoYo/ZenlessZoneZero/Player.log".to_string() }
+        "".to_string()
     }
 
     #[cfg(target_os = "linux")]
-    let clipboard_error = "AuthKey was found but clipboard copy failed. Please install wl-clipboard, xclip, or xsel.";
-    #[cfg(target_os = "windows")]
-    let clipboard_error = "AuthKey was found but clipboard copy failed. Please ensure clip.exe is available.";
-
-    if !copy_to_clipboard(authkey.unwrap().as_str()) {
-        show_dialog(&app, "error", "TwintailLauncher", clipboard_error, Some(vec!["Ok"]));
-        return false;
+    {
+        let prefix = Path::new(&install.runner_prefix).to_path_buf();
+        let prefix_exists = prefix.join("pfx/").exists();
+        if prefix_exists {
+            let engine_log = prefix.join("pfx/drive_c/users/steamuser/AppData/LocalLow/").join(get_engine_log_from_game(install.name));
+            if engine_log.exists() {
+                let log_content = fs::read_to_string(engine_log);
+                return match log_content {
+                    Ok(content) => {
+                        let authkey = extract_authkey_from_content(&content);
+                        if let Some(authkey) = authkey {
+                            println!("copy this shit to clipboard, {:?}", authkey);
+                            true
+                        } else { false }
+                    },
+                    Err(_) => { false }
+                }
+            } else { return false }
+        } else { return false }
     }
 
-    true
+    #[cfg(target_os = "windows")]
+    {
+        // TODO: Minlor handle this side...
+    }
 }
 
 fn enqueue_extras_download(app: &AppHandle, path: String, package_id: String, package_type: String, update_mode: bool) {

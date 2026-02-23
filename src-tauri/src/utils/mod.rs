@@ -990,6 +990,35 @@ pub fn get_steam_tool_appid(path: PathBuf) -> String {
     String::new()
 }
 
+fn collect_authkey_urls(content: &str) -> Vec<&str> {
+    let mut rslt = Vec::<&str>::new();
+    let mut offset: usize = 0;
+    while offset < content.len() {
+        let next = content[offset..].find("https://");
+        if next.is_none() { break; }
+        let start = offset + next.unwrap();
+        let sliced = &content[start..];
+        let end = sliced.find(|c: char| c.is_whitespace() || c == '"' || c == '\'' || c == '<' || c == '>').unwrap_or(sliced.len());
+        let url = &sliced[..end];
+        if url.contains("authkey=") { rslt.push(url); }
+        offset = start + "https://".len();
+    }
+    rslt
+}
+
+pub fn extract_authkey_from_content(content: &str) -> Option<String> {
+    let urls = collect_authkey_urls(content);
+    let hints = vec!["webview_gacha"];
+    for url in urls.into_iter().rev() {
+        let lowered = url.to_ascii_lowercase();
+        if !hints.iter().any(|h| lowered.contains(h)) { continue; }
+        if let Ok(uri) = reqwest::Url::parse(url) {
+            for (key, value) in uri.query_pairs() { if key.eq_ignore_ascii_case("authkey") && value.len() > 10 { return Some(value.into_owned()); } }
+        }
+    }
+    None
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AddInstallRsp {
     pub success: bool,
