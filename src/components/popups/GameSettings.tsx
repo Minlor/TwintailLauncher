@@ -633,7 +633,7 @@ export default function GameSettings({
                                             {!isAuthkeyCopying && !isAuthkeyCopied && !isAuthkeyFailed && <Copy className="w-6 h-6 text-purple-400" />}
                                             <div className="flex flex-col">
                                                 <span className="font-bold">{isAuthkeyCopying ? "Copying authkey..." : isAuthkeyCopied ? "Authkey copied" : isAuthkeyFailed ? "Copy failed" : "Copy Authkey"}</span>
-                                                <span className={`text-xs ${isAuthkeyCopied ? "text-emerald-300" : isAuthkeyFailed ? "text-red-300" : "text-zinc-400"}`}>{isAuthkeyCopying ? "Reading latest game log and copying to clipboard..." : isAuthkeyCopied ? "Ready to paste into Aivo sync." : isAuthkeyFailed ? "Could not copy authkey. Check the warning dialog." : <>Sync and view your pull history at <span className="text-purple-400">aivo.minlor.net/hoyo</span></>}</span>
+                                                <span className={`text-xs ${isAuthkeyCopied ? "text-emerald-300" : isAuthkeyFailed ? "text-red-300" : "text-zinc-400"}`}>{isAuthkeyCopying ? "Reading latest game log and copying to clipboard..." : isAuthkeyCopied ? "Ready to paste into Aivo sync." : isAuthkeyFailed ? "Could not copy authkey. Open pull history first." : <>Sync and view your pull history at <span className="text-purple-400">aivo.minlor.net/hoyo</span></>}</span>
                                             </div>
                                         </button>
                                     )}

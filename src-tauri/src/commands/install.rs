@@ -14,6 +14,7 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager};
 use sqlx::types::Json;
 use std::sync::atomic::Ordering;
+use tauri_plugin_clipboard_manager::ClipboardExt;
 
 use crate::DownloadState;
 use crate::downloading::ExtrasDownloadPayload;
@@ -1120,10 +1121,18 @@ pub fn remove_shortcut(app: AppHandle, install_id: String, shortcut_type: String
 #[tauri::command]
 pub fn copy_authkey(app: AppHandle, id: String) -> bool {
     let install = get_install_info_by_id(&app, id).unwrap();
-    fn get_engine_log_from_game(game_name: String) -> String {
+    fn get_engine_log_from_game(game_name: String, region_code: String) -> String {
         if game_name.to_ascii_lowercase().contains("genshin") { return "miHoYo/Genshin Impact/output_log.txt".to_string() }
         if game_name.to_ascii_lowercase().contains("starrail") { return "Cognosphere/Star Rail/Player.log".to_string() }
         if game_name.to_ascii_lowercase().contains("zenless") { return "miHoYo/ZenlessZoneZero/Player.log".to_string() }
+        if game_name.to_ascii_lowercase().contains("honkai") {
+            if region_code.to_ascii_lowercase().contains("glb_official") { return "miHoYo/Honkai Impact 3rd/Player.log".to_string() }
+            if region_code.to_ascii_lowercase().contains("overseas_official") { return "miHoYo/Honkai Impact 3/Player.log".to_string() }
+            if region_code.to_ascii_lowercase().contains("kr_official") { return "miHoYo/붕괴3rd/Player.log".to_string() }
+            if region_code.to_ascii_lowercase().contains("asia_offcial") { return "miHoYo/崩壊3rd/Player.log".to_string() }
+            if region_code.to_ascii_lowercase().contains("jp_official") { return "miHoYo/崩壊3rd/Player.log".to_string() }
+            return "miHoYo/Honkai Impact 3rd/Player.log".to_string()
+        }
         "".to_string()
     }
 
@@ -1132,16 +1141,13 @@ pub fn copy_authkey(app: AppHandle, id: String) -> bool {
         let prefix = Path::new(&install.runner_prefix).to_path_buf();
         let prefix_exists = prefix.join("pfx/").exists();
         if prefix_exists {
-            let engine_log = prefix.join("pfx/drive_c/users/steamuser/AppData/LocalLow/").join(get_engine_log_from_game(install.name));
+            let engine_log = prefix.join("pfx/drive_c/users/steamuser/AppData/LocalLow/").join(get_engine_log_from_game(install.name, install.region_code));
             if engine_log.exists() {
                 let log_content = fs::read_to_string(engine_log);
                 return match log_content {
                     Ok(content) => {
                         let authkey = extract_authkey_from_content(&content);
-                        if let Some(authkey) = authkey {
-                            println!("copy this shit to clipboard, {:?}", authkey);
-                            true
-                        } else { false }
+                        if let Some(authkey) = authkey { match app.clipboard().write_text(authkey) { Ok(_) => true, Err(_) => false } } else { false }
                     },
                     Err(_) => { false }
                 }
@@ -1151,7 +1157,18 @@ pub fn copy_authkey(app: AppHandle, id: String) -> bool {
 
     #[cfg(target_os = "windows")]
     {
-        // TODO: Minlor handle this side...
+        let base = app.path().home_dir().unwrap().join("AppData/LocalLow/");
+        let engine_log = base.join(get_engine_log_from_game(install.name, install.region_code));
+        if engine_log.exists() {
+            let log_content = fs::read_to_string(engine_log);
+            match log_content {
+                Ok(content) => {
+                    let authkey = extract_authkey_from_content(&content);
+                    if let Some(authkey) = authkey { match app.clipboard().write_text(authkey) { Ok(_) => true, Err(_) => false } } else { false }
+                },
+                Err(_) => { false }
+            }
+        } else { false }
     }
 }
 
