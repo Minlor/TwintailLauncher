@@ -45,8 +45,6 @@
             }
         },
         "resources": [
-            "./resources/hpatchz.exe",
-            "./resources/hpatchz",
             "./resources/hkrpg_patch.dll",
             "./resources/reaper",
             "./resources/winetricks"

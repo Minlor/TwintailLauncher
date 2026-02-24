@@ -694,6 +694,7 @@ pub fn edit_wuwa_configs_xxmi(engine_ini: String, device_profiles_ini: String) {
     if engine_file.exists() {
         let perf = [("r.Streaming.HLODStrategy","2"),("r.Streaming.PoolSizeForMeshes","-1"),("r.XGEShaderCompile","0"),("FX.BatchAsync","1"),("FX.EarlyScheduleAsync","1"),("fx.Niagara.ForceAutoPooling","1"),("wp.Runtime.KuroRuntimeStreamingRangeOverallScale","0.5"),("tick.AllowAsyncTickCleanup","1"),("tick.AllowAsyncTickDispatch","1")];
         let rm = ["r.Streaming.UsingNewKuroStreaming","r.Streaming.LimitPoolSizeToVRAM","r.Streaming.PoolSize","r.Streaming.UseAllMips","r.Streaming.MinBoost","r.Streaming.Boost","r.Kuro.SkeletalMesh.LODDistanceScale","r.Kuro.SkeletalMesh.LODDistanceScaleDeviceOffset"];
+        // Fuck .ini files who tf uses ini files in 2026
         if let Ok(content) = fs::read_to_string(engine_file) {
             let mut out: Vec<String> = Vec::new();
             let mut in_ss = false;
@@ -722,6 +723,7 @@ pub fn edit_wuwa_configs_xxmi(engine_ini: String, device_profiles_ini: String) {
     if dp_file.exists() {
         let cvars = [("CVars=r.Kuro.SkeletalMesh.LODDistanceScaleDeviceOffset","-10"),("CVars=r.Streaming.Boost","20.0"),("CVars=r.Streaming.MinBoost","0.0"),("CVars=r.Streaming.UseAllMips","1"),("CVars=r.Streaming.PoolSize","0"),("CVars=r.Streaming.LimitPoolSizeToVRAM","1"),("CVars=r.Streaming.UseFixedPoolSize","1")];
         let profiles = ["Windows_Highest DeviceProfile","Windows_VeryHigh DeviceProfile","Windows_High DeviceProfile","Windows_Mid DeviceProfile","Windows_Low DeviceProfile","Windows_Lowest DeviceProfile"];
+        // I do not want to know how, but it works and that is nice... will be fun when we need to edit the content
         if let Ok(content) = fs::read_to_string(dp_file) {
             let mut out: Vec<String> = Vec::new();
             let mut in_target = false;
@@ -765,6 +767,7 @@ pub fn apply_xxmi_tweaks(package: PathBuf, mut data: Json<XXMISettings>) -> Json
                     managed.push(("System","dll_initialization_delay",data.dll_init_delay.to_string()));
                 }
             }
+            // Fuck us deeply if we even understand how tf this parsing even works... but it does SO tukan will kill you if you touch it
             if let Ok(content) = fs::read_to_string(&cfg) {
                 let mut out: Vec<String> = Vec::new();
                 let mut cur = String::new();

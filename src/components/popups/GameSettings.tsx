@@ -251,8 +251,7 @@ export default function GameSettings({
             onClose={() => setOpenPopup(POPUPS.NONE)}
             banner={banner}
             icon={icon}
-            imageVersion={imageVersion}
-        >
+            imageVersion={imageVersion}>
             <div className="flex h-full">
                 <SettingsSidebar tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
 
@@ -268,10 +267,7 @@ export default function GameSettings({
                             <div className="grid grid-cols-1 gap-4 mt-4">
                                 <ModernToggle
                                     label="Skip Version Checks"
-                                    description={installSettings.steam_imported
-                                        ? "Updates are managed by Steam for this installation."
-                                        : "Don't check for game updates."
-                                    }
+                                    description={installSettings.steam_imported ? "Updates are managed by Steam for this installation." : "Don't check for game updates."}
                                     descriptionClassName={installSettings.steam_imported ? "text-yellow-300 font-medium" : undefined}
                                     disabled={installSettings.steam_imported}
                                     checked={installSettings.steam_imported || installSettings.ignore_updates}
@@ -531,10 +527,7 @@ export default function GameSettings({
                                         <div className="flex flex-col">
                                             <span className="font-bold">Repair Game</span>
                                             <span className={`text-xs ${installSettings.steam_imported ? "text-yellow-300 font-medium" : "text-zinc-400"}`}>
-                                                {installSettings.steam_imported
-                                                    ? "Managed by Steam."
-                                                    : "Verify and fix game"
-                                                }
+                                                {installSettings.steam_imported ? "Managed by Steam." : "Verify and fix game"}
                                             </span>
                                         </div>
                                     </button>
@@ -551,10 +544,7 @@ export default function GameSettings({
                                             <div className="flex flex-col">
                                                 <span className="font-bold">Remove from Steam</span>
                                                 <span className={`text-xs ${installSettings.steam_imported ? "text-yellow-300 font-medium" : "text-zinc-400"}`}>
-                                                    {installSettings.steam_imported
-                                                        ? "Managed by Steam."
-                                                        : "Delete shortcut"
-                                                    }
+                                                    {installSettings.steam_imported ? "Managed by Steam." : "Delete shortcut"}
                                                 </span>
                                             </div>
                                         </button>
@@ -570,10 +560,7 @@ export default function GameSettings({
                                             <div className="flex flex-col">
                                                 <span className="font-bold">Add to Steam</span>
                                                 <span className={`text-xs ${installSettings.steam_imported ? "text-yellow-300 font-medium" : "text-zinc-400"}`}>
-                                                    {installSettings.steam_imported
-                                                        ? "Managed by Steam."
-                                                        : "Create shortcut"
-                                                    }
+                                                    {installSettings.steam_imported ? "Managed by Steam." : "Create shortcut"}
                                                 </span>
                                             </div>
                                         </button>

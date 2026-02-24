@@ -20,7 +20,6 @@ use fischl::compat::{download_runner, check_steamrt_update, download_steamrt};
 #[cfg(target_os = "linux")]
 use std::sync::{Arc,Mutex};
 
-/// Check if SteamRT3 needs to be downloaded or updated, and enqueue the job
 #[cfg(target_os = "linux")]
 pub fn download_or_update_steamrt3(app: &AppHandle) {
     let gs = get_settings(app);
@@ -55,7 +54,6 @@ pub fn download_or_update_steamrt3(app: &AppHandle) {
     }
 }
 
-/// Run the actual SteamRT3 download (called by queue worker)
 #[cfg(target_os = "linux")]
 pub fn run_steamrt3_download(app: AppHandle, payload: SteamrtDownloadPayload, job_id: String) -> QueueJobOutcome {
     let job_id = Arc::new(job_id);
@@ -122,7 +120,6 @@ pub fn run_steamrt3_download(app: AppHandle, payload: SteamrtDownloadPayload, jo
     }
 }
 
-/// Check if SteamRT4 needs to be downloaded or updated, and enqueue the job
 #[cfg(target_os = "linux")]
 pub fn download_or_update_steamrt4(app: &AppHandle) {
     let gs = get_settings(app);
@@ -157,7 +154,6 @@ pub fn download_or_update_steamrt4(app: &AppHandle) {
     }
 }
 
-/// Run the actual SteamRT4 download (called by queue worker)
 #[cfg(target_os = "linux")]
 pub fn run_steamrt4_download(app: AppHandle, payload: SteamrtDownloadPayload, job_id: String) -> QueueJobOutcome {
     let job_id = Arc::new(job_id);
@@ -224,7 +220,6 @@ pub fn run_steamrt4_download(app: AppHandle, payload: SteamrtDownloadPayload, jo
     }
 }
 
-/// Run the actual runner/proton download (called by queue worker)
 #[cfg(target_os = "linux")]
 pub fn run_runner_download(app: AppHandle, payload: RunnerDownloadPayload, job_id: String) -> QueueJobOutcome {
     let job_id = Arc::new(job_id);
@@ -295,7 +290,7 @@ pub fn check_extras_update(app: &AppHandle) {
     let gs = get_settings(app);
     if gs.is_some() {
         let s = gs.unwrap();
-        let jadeite = Path::new(&s.jadeite_path).to_path_buf();
+        //let jadeite = Path::new(&s.jadeite_path).to_path_buf();
         let fpsunlock = Path::new(&s.fps_unlock_path).to_path_buf();
         let xxmi = Path::new(&s.xxmi_path).to_path_buf();
         let gimi = xxmi.join("gimi");
@@ -305,7 +300,7 @@ pub fn check_extras_update(app: &AppHandle) {
         let wwmi = xxmi.join("wwmi");
         //let efmi = xxmi.join("efmi");
 
-        let ver_jadeite = jadeite.join("VERSION.txt");
+        //let ver_jadeite = jadeite.join("VERSION.txt");
         let ver_fpsunlock = fpsunlock.join("VERSION.txt");
         let ver_xxmi = xxmi.join("VERSION.txt");
         let ver_gimi = gimi.join("VERSION.txt");
@@ -315,12 +310,12 @@ pub fn check_extras_update(app: &AppHandle) {
         let ver_wwmi = wwmi.join("VERSION.txt");
         //let ver_efmi = efmi.join("VERSION.txt");
 
-        if ver_jadeite.exists() {
+        /*if ver_jadeite.exists() {
             download_or_update_extra(app, jadeite, "jadeite".to_string(), "v5.0.1-hotfix".to_string(), true, None);
         } else if jadeite.exists() && fs::read_dir(&jadeite).ok().and_then(|mut d| d.next()).is_some() {
             empty_dir(&jadeite).unwrap();
             download_or_update_extra(app, jadeite, "jadeite".to_string(), "v5.0.1-hotfix".to_string(), false, None);
-        }
+        }*/
 
         if ver_fpsunlock.exists() {
             download_or_update_extra(app, fpsunlock, "keqingunlock".to_string(), "keqing_unlock".to_string(), true, None);
@@ -380,9 +375,6 @@ pub fn check_extras_update(app: &AppHandle) {
     }
 }
 
-/// Download or update an extra package (jadeite, fps unlock, xxmi variants).
-/// When job_id is None, runs in a fire-and-forget thread (used by check_extras_update at startup).
-/// When job_id is Some, runs synchronously and returns success/failure (used by queue worker).
 pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: String, package_type: String, update_mode: bool, job_id: Option<String>) -> bool {
     if job_id.is_none() {
         if !update_mode {
@@ -436,7 +428,6 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                                         Extras::download_extra_package(package_id.clone(), package_type.clone(), needs_extract, false, needs_append, ap.as_path().to_str().unwrap().parse().unwrap(), |_current, _total| {}).await
                                     });
                                     if dl {
-                                        // Create symlinks for DLL files
                                         let mi_variants = if package_type == "xxmi" { vec!["gimi", "srmi", "zzmi", "wwmi", "himi"/*, "efmi"*/] } else if package_type.as_str() == "gimi" || package_type.as_str() == "srmi" || package_type.as_str() == "zzmi" || package_type.as_str() == "himi" || package_type.as_str() == "wwmi" || package_type.as_str() == "ssmi" || package_type.as_str() == "efmi" { vec![package_type.as_str()] } else { vec![] };
                                         for mi in mi_variants {
                                             for lib in ["d3d11.dll", "d3dcompiler_47.dll"] {
@@ -496,7 +487,6 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                     }).await
                 });
                 if dl {
-                    // Create symlinks for DLL files
                     let mi_variants = if package_id == "xxmi" { vec!["gimi", "srmi", "zzmi", "wwmi", "himi"/*, "efmi"*/] } else if package_type.as_str() == "gimi" || package_type.as_str() == "srmi" || package_type.as_str() == "zzmi" || package_type.as_str() == "himi" || package_type.as_str() == "wwmi" || package_type.as_str() == "ssmi" || package_type.as_str() == "efmi" { vec![package_type.as_str()] } else { vec![] };
                     for mi in mi_variants {
                         for lib in ["d3d11.dll", "d3dcompiler_47.dll"] {

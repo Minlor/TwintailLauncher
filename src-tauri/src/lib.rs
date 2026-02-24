@@ -125,7 +125,6 @@ pub fn run() {
                     std::process::exit(0);
                 }
 
-                let res_dir = app.path().resource_dir().unwrap();
                 let data_dir = app.path().app_data_dir().unwrap();
                 setup_or_fix_default_paths(handle, data_dir.clone(), true);
                 sync_install_backgrounds(handle);
@@ -158,15 +157,9 @@ pub fn run() {
                 }
 
                 // Delete deprecated resource files (PS: reaper binary is executable in resources dir so useless to copy)
-                for df in ["7zr", "7zr.exe", "krpatchz", "krpatchz.exe", "reaper"] {
+                for df in ["7zr", "7zr.exe", "krpatchz", "krpatchz.exe", "reaper", "hpatchz", "hpatchz.exe"] {
                     let fd = data_dir.join(df);
                     if fd.exists() { std::fs::remove_file(fd).unwrap(); }
-                }
-                // Copy required resource files
-                for r in ["hpatchz", "hpatchz.exe"] {
-                    let rd = res_dir.join("resources").join(r);
-                    let fd = data_dir.join(r);
-                    if rd.exists() { std::fs::copy(rd, fd).unwrap(); }
                 }
             }
             Ok(())

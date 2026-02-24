@@ -126,14 +126,10 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                     if has_space {
                         let patching_marker = Path::new(&install.directory).join("patching");
                         let is_preload = patching_marker.join(".preload").exists();
-                        #[cfg(target_os = "linux")]
-                        let hpatchz = h5.path().app_data_dir().unwrap().join("hpatchz");
-                        #[cfg(target_os = "windows")]
-                        let hpatchz = h5.path().app_data_dir().unwrap().join("hpatchz.exe");
                         urls.into_iter().for_each(|e| {
                             let cancel_token = cancel_token.clone();
                             run_async_command(async {
-                                <Game as Sophon>::patch(e.file_url.to_owned(), install.version.clone(), e.file_hash.to_owned(), install.directory.clone(), hpatchz.to_str().unwrap().to_string(), is_preload, {
+                                <Game as Sophon>::patch(e.file_url.to_owned(), install.version.clone(), e.file_hash.to_owned(), install.directory.clone(), is_preload, {
                                         let dlpayload = dlpayload.clone();
                                         let tmp = tmp.clone();
                                         let instn = instn.clone();

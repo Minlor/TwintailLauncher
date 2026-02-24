@@ -19,7 +19,7 @@ export default function SettingsPage({ settings, fetchSettings, setCurrentPage }
         { id: "general", label: "General", icon: Settings, color: "blue" },
         { id: "downloads", label: "Downloads", icon: Download, color: "green" },
         { id: "files", label: "Files & Paths", icon: Folder, color: "yellow" },
-        { id: "integrations", label: "Integrations & Tools", icon: Box, color: "purple" },
+        ...(window.navigator.platform.includes("Linux") ? [{ id: "integrations", label: "Integrations & Tools", icon: Box, color: "purple" }] : []),
         ...(window.navigator.platform.includes("Linux") ? [{ id: "linux", label: "Linux Options", icon: Monitor, color: "orange" }] : []),
         { id: "about", label: "About", icon: Info, color: "pink" },
     ];
@@ -166,12 +166,12 @@ export default function SettingsPage({ settings, fetchSettings, setCurrentPage }
 
                     {activeTab === "linux" && (
                         <SettingsSection title="Linux Configuration">
-                            <ModernPathInput
+                            {/*<ModernPathInput
                                 label="Jadeite Location"
                                 description="Path to the Jadeite patch."
                                 value={`${settings.jadeite_path}`}
                                 onChange={(val) => updateSetting("jadeite_path", val)}
-                            />
+                            />*/}
                             <ModernPathInput
                                 label="Default Runner Location"
                                 description="Base directory for Wine/Proton versions."
@@ -230,7 +230,6 @@ export default function SettingsPage({ settings, fetchSettings, setCurrentPage }
                             <h1 className="text-4xl font-black bg-gradient-to-r from-white via-pink-200 to-violet-200 bg-clip-text text-transparent mb-2">
                                 Twintail Launcher
                             </h1>
-                            {/*Version display from TTLVersion component*/}
                             <div className="mb-8">
                                 <span className="text-zinc-300">
                                     Version: <span className={"text-purple-400 font-bold"}>{version}</span> | Branch: <span className={"text-orange-400 font-bold"}>{branch}</span> | Commit: <span className={"text-cyan-400 font-bold"}>{__COMMIT_HASH__}</span>
