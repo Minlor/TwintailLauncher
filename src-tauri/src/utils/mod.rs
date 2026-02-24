@@ -1033,8 +1033,10 @@ pub struct AddInstallRsp {
 pub struct DownloadSizesRsp {
     pub game_decompressed_size: String,
     pub free_disk_space: String,
+    pub total_disk_space: String,
     pub game_decompressed_size_raw: u64,
     pub free_disk_space_raw: u64,
+    pub total_disk_space_raw: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

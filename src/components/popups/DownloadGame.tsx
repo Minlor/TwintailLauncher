@@ -94,9 +94,12 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
 
     // Disk space logic
     const freeSpace = parseFloat(disk.free_disk_space_raw || 0);
+    const totalSpace = parseFloat(disk.total_disk_space_raw || 0);
     const requiredSpace = parseFloat(disk.game_decompressed_size_raw || 0);
+    const usedSpace = totalSpace > 0 ? totalSpace - freeSpace : 0;
     const hasEnoughSpace = skipGameDownload || (freeSpace > requiredSpace);
-    const usagePercent = freeSpace > 0 ? Math.min(100, (requiredSpace / freeSpace) * 100) : 0;
+    const usedPercent = totalSpace > 0 ? (usedSpace / totalSpace) * 100 : 0;
+    const gamePercent = totalSpace > 0 ? Math.min((requiredSpace / totalSpace) * 100, 100 - usedPercent) : 0;
 
     // Update button state when skipGameDownload changes
     useEffect(() => {
@@ -267,24 +270,59 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
                         </div>
                         {/* Disk Space Visual - Integrated */}
                         {!skipGameDownload && (
-                            <div className="bg-black/20 px-4 py-3 border-t border-white/5">
-                                <div className="flex justify-between items-center mb-2 text-xs">
-                                    <span className="text-zinc-400 font-medium">Storage Usage</span>
-                                    <div className="text-right flex items-center gap-2">
-                                        <span className={`font-bold ${hasEnoughSpace ? 'text-emerald-400' : 'text-red-400'}`}>
-                                            {formatBytes ? formatBytes(parseFloat(disk.game_decompressed_size_raw || 0)) : disk.game_decompressed_size}
-                                        </span>
-                                        <span className="text-zinc-600">/</span>
-                                        <span className="text-zinc-500">{formatBytes ? formatBytes(parseFloat(disk.free_disk_space_raw || 0)) : disk.free_disk_space} free</span>
-                                    </div>
+                            <div className="bg-black/20 px-4 pb-4 border-t border-white/5">
+                                <div className="flex items-center justify-between pt-3 mb-2.5">
+                                    <span className="text-xs text-white/40 uppercase font-bold tracking-wider">Storage</span>
+                                    {totalSpace > 0 && <span className="text-xs text-white/20 font-mono">{formatBytes(totalSpace)} drive</span>}
                                 </div>
-                                <div className="w-full bg-zinc-800/50 rounded-full h-1.5 overflow-hidden">
-                                    <div className={`h-full rounded-full transition-all duration-500 ${hasEnoughSpace ? 'bg-gradient-to-r from-purple-500 to-blue-500' : 'bg-red-500'}`} style={{ width: `${Math.min(100, Math.max(2, usagePercent))}%` }}/>
-                                </div>
-                                {!hasEnoughSpace && (
-                                    <p className="text-red-400 text-xs mt-2 font-medium flex items-center gap-1">
-                                        <X size={12} /> Insufficient disk space
-                                    </p>
+                                {totalSpace > 0 ? (
+                                    <>
+                                        {/* 3-segment bar: used | game | free */}
+                                        <div className="relative w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                                            <div className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-700" style={{ width: `${Math.min(usedPercent, 100)}%` }} />
+                                            <div className={`absolute top-0 h-full transition-all duration-700 ${hasEnoughSpace ? 'bg-gradient-to-r from-violet-400 to-purple-600' : 'bg-gradient-to-r from-red-400 to-red-600'}`} style={{ left: `${Math.min(usedPercent, 100)}%`, width: `${gamePercent}%` }} />
+                                        </div>
+                                        {/* Legend */}
+                                        <div className="flex items-center justify-between mt-2.5 text-xs gap-x-3 gap-y-1 flex-wrap">
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="w-2 h-2 rounded-sm bg-blue-500/50 shrink-0" />
+                                                <span className="text-blue-400">Used</span>
+                                                <span className="text-blue-300 font-medium tabular-nums">{formatBytes(usedSpace)}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className={`w-2 h-2 rounded-sm shrink-0 ${hasEnoughSpace ? 'bg-violet-400' : 'bg-red-400'}`} />
+                                                <span className={hasEnoughSpace ? 'text-purple-300/70' : 'text-red-300/70'}>Game</span>
+                                                <span className={`font-medium tabular-nums ${hasEnoughSpace ? 'text-purple-300' : 'text-red-400'}`}>{formatBytes(requiredSpace)}</span>
+                                            </div>
+                                            {hasEnoughSpace ? (
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="w-2 h-2 rounded-sm bg-emerald-400/50 shrink-0" />
+                                                    <span className="text-emerald-400/70">Free after</span>
+                                                    <span className="text-emerald-400 font-medium tabular-nums">{formatBytes(Math.max(0, freeSpace - requiredSpace))}</span>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-1 text-red-400">
+                                                    <X size={11} />
+                                                    <span className="font-medium">Need {formatBytes(requiredSpace - freeSpace)} more</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="w-full bg-zinc-800/50 rounded-full h-1.5 overflow-hidden">
+                                            <div className={`h-full rounded-full transition-all duration-500 ${hasEnoughSpace ? 'bg-gradient-to-r from-purple-500 to-blue-500' : 'bg-red-500'}`} style={{ width: `${Math.min(100, Math.max(2, freeSpace > 0 ? (requiredSpace / freeSpace) * 100 : 0))}%` }} />
+                                        </div>
+                                        <div className="flex justify-between text-xs mt-2">
+                                            <span className={hasEnoughSpace ? 'text-purple-300' : 'text-red-400'}>{formatBytes(requiredSpace)} required</span>
+                                            <span className="text-zinc-500">{formatBytes(freeSpace)} free</span>
+                                        </div>
+                                        {!hasEnoughSpace && (
+                                            <p className="text-red-400 text-xs mt-1 font-medium flex items-center gap-1">
+                                                <X size={12} /> Insufficient disk space
+                                            </p>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         )}

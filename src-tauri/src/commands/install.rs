@@ -3,7 +3,7 @@ use crate::utils::game_launch_manager::launch;
 use crate::utils::repo_manager::get_manifest;
 use crate::utils::shortcuts::remove_desktop_shortcut;
 use crate::utils::{AddInstallRsp, DownloadSizesRsp, ResumeStatesRsp, apply_xxmi_tweaks, copy_dir_all, generate_cuid, get_mi_path_from_game, models::GameVersion, show_dialog, extract_authkey_from_content};
-use fischl::utils::free_space::available;
+use fischl::utils::free_space::get_disk_space;
 use fischl::utils::is_process_running;
 use fischl::utils::prettify_bytes;
 use std::collections::HashMap;
@@ -867,24 +867,15 @@ pub fn get_download_sizes(app: AppHandle, biz: String, version: String, lang: St
 
         let p = PathBuf::from(&path);
         //let ap = if cfg!(target_os = "linux") { match p.canonicalize() { Ok(resolved) => resolved, Err(_) => match p.parent() { Some(parent) => parent.canonicalize().unwrap_or(p.clone()), None => p.clone(), } } } else { p };
-        let a = available(p);
-        let stringified;
-
-        if a.is_some() {
-            stringified = serde_json::to_string(&DownloadSizesRsp {
-                game_decompressed_size: prettify_bytes(fss),
-                free_disk_space: prettify_bytes(a.unwrap()),
-                game_decompressed_size_raw: fss,
-                free_disk_space_raw: a.unwrap(),
-            }).unwrap();
-        } else {
-            stringified = serde_json::to_string(&DownloadSizesRsp {
-                game_decompressed_size: prettify_bytes(fss),
-                free_disk_space: prettify_bytes(0),
-                game_decompressed_size_raw: fss,
-                free_disk_space_raw: 0,
-            }).unwrap();
-        };
+        let (a, t) = get_disk_space(p);
+        let stringified = serde_json::to_string(&DownloadSizesRsp {
+            game_decompressed_size: prettify_bytes(fss),
+            free_disk_space: prettify_bytes(a),
+            total_disk_space: prettify_bytes(t),
+            game_decompressed_size_raw: fss,
+            free_disk_space_raw: a,
+            total_disk_space_raw: t,
+        }).unwrap();
         Some(stringified)
     } else {
         None
