@@ -1,11 +1,11 @@
 use linked_hash_map::LinkedHashMap;
-use tauri::{AppHandle};
-use crate::utils::db_manager::{get_manifest_info_by_filename, get_manifest_info_by_id, get_manifests_by_repository_id, update_manifest_enabled_by_id};
-use crate::utils::repo_manager::{get_manifest, get_manifests};
+use tauri::{AppHandle,Manager};
+use crate::utils::db_manager::{get_manifest_info_by_filename,get_manifest_info_by_id,get_manifests_by_repository_id,update_manifest_enabled_by_id};
+use crate::utils::repo_manager::{get_manifest,get_manifests,ManifestLoaders};
 use crate::utils::models::{GameManifest};
 
 #[cfg(target_os = "linux")]
-use crate::utils::repo_manager::{get_compatibilities, get_compatibility};
+use crate::utils::repo_manager::{get_compatibilities,get_compatibility};
 #[cfg(target_os = "linux")]
 use crate::utils::models::{RunnerManifest};
 
@@ -160,3 +160,39 @@ pub fn get_compatibility_manifest_by_manifest_id(app: AppHandle, id: String) -> 
 #[cfg(target_os = "windows")]
 #[tauri::command]
 pub fn get_compatibility_manifest_by_manifest_id(_app: AppHandle, _id: String) -> Option<String> { None }
+
+#[tauri::command]
+pub async fn override_manifest_url(app: AppHandle, filename: String, url: String) -> Option<bool> {
+    let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(30)).build().unwrap_or_else(|_| reqwest::Client::new());
+    let resp = client.get(&url).send().await.ok()?;
+    let text = resp.text().await.ok()?;
+    let manifest: GameManifest = serde_json::from_str(&text).ok()?;
+    let ml = app.state::<ManifestLoaders>();
+    let mut loader = ml.game.0.write().unwrap();
+    loader.insert(filename, manifest);
+    Some(true)
+}
+
+#[tauri::command]
+pub fn clear_manifest_override(app: AppHandle, filename: String) -> Option<bool> {
+    let data_path = app.path().app_data_dir().unwrap();
+    let manifests_path = data_path.join("manifests");
+    for d in std::fs::read_dir(&manifests_path).ok()? {
+        let p = d.ok()?.path();
+        if !p.is_dir() { continue; }
+        for pp in std::fs::read_dir(&p).ok()? {
+            let repo_dir = pp.ok()?.path();
+            let target = repo_dir.join(&filename);
+            if target.exists() {
+                let file = std::fs::File::open(&target).ok()?;
+                let reader = std::io::BufReader::new(file);
+                let manifest: GameManifest = serde_json::from_reader(reader).ok()?;
+                let ml = app.state::<ManifestLoaders>();
+                let mut loader = ml.game.0.write().unwrap();
+                loader.insert(filename, manifest);
+                return Some(true);
+            }
+        }
+    }
+    None
+}

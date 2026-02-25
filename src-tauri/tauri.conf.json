@@ -7,10 +7,10 @@
         "beforeDevCommand": "pnpm dev",
         "devUrl": "http://localhost:1420",
         "beforeBuildCommand": "pnpm build",
-        "frontendDist": "../dist",
-        "removeUnusedCommands": true
+        "frontendDist": "../dist"
     },
     "app": {
+        "withGlobalTauri": true,
         "windows": [
             {
                 "title": "Twintail Launcher",
