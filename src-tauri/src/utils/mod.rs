@@ -6,7 +6,7 @@ use crate::utils::db_manager::{
     update_settings_default_dxvk_location, update_settings_default_jadeite_location,
     update_settings_default_prefix_location, update_settings_default_runner_location,
 };
-use crate::utils::models::{DialogResponse, GameVersion, XXMISettings};
+use crate::utils::models::{DialogResponse,XXMISettings};
 use crate::utils::repo_manager::get_manifest;
 use fischl::utils::get_github_release;
 use serde::{Deserialize, Serialize};
@@ -502,21 +502,15 @@ pub fn sync_installed_runners(app: &AppHandle) {
 }
 
 pub fn sync_install_backgrounds(app: &AppHandle) {
-    let installs = get_installs(app);
-    if let Some(is) = installs {
+    if let Some(is) = get_installs(app) {
         for i in is {
-            let repm = get_manifest_info_by_id(app, i.manifest_id).unwrap();
-            let gm = get_manifest(&app, repm.filename);
+            let repm = match get_manifest_info_by_id(app, i.manifest_id.clone()) { Some(r) => r, None => continue };
+            let gm = get_manifest(app, repm.filename);
             if let Some(g) = gm {
+                let cur = match g.game_versions.iter().find(|e| e.metadata.version == i.version) { Some(v) => v, None => continue };
                 let is_live = i.game_background.ends_with(".webm") || i.game_background.ends_with(".mp4");
-                let ver = g.game_versions.iter().filter(|e| e.metadata.version == i.version).collect::<Vec<&GameVersion>>();
-                if ver.is_empty() { return; }
-                let cur = ver.get(0).unwrap();
-                let comparator = if is_live { i.game_background != cur.assets.game_live_background.clone().unwrap() } else { i.game_background != cur.assets.game_background.clone() };
-                if !i.ignore_updates && comparator {
-                    let bg = if is_live { cur.assets.game_live_background.clone().unwrap() } else { cur.assets.game_background.clone() };
-                    update_install_after_update_by_id(app, i.id, i.name, i.game_icon, bg, i.version);
-                }
+                let bg = if is_live { cur.assets.game_live_background.clone().unwrap_or(cur.assets.game_background.clone()) } else { cur.assets.game_background.clone() };
+                if !i.ignore_updates && i.game_background != bg { update_install_after_update_by_id(app, i.id, i.name, i.game_icon, bg, i.version); }
             }
         }
     }

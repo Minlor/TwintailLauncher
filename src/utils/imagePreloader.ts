@@ -209,10 +209,14 @@ export function preloadImages(
   return new Promise((resolve) => {
     const loadedCache = cache || new Set<string>();
 
-    // Filter out empty URLs, already loaded, and URLs in the provided cache
-    const toLoad = urls.filter((src) =>
-      src && !loadedUrls.has(src) && !loadedCache.has(src)
-    );
+    // Filter out empty URLs and anything already confirmed as successfully loaded.
+    // Don't trust caller cache for items that previously failed they need retrying.
+    const toLoad = urls.filter((src) => {
+      if (!src) return false;
+      if (isImagePreloaded(src)) return false;
+      if (loadedCache.has(src) && !isImageFailed(src)) return false;
+      return true;
+    });
 
     const total = toLoad.length;
     if (total === 0) return resolve();
@@ -221,7 +225,8 @@ export function preloadImages(
 
     toLoad.forEach((src) => {
       preloadImage(src).then(() => {
-        loadedCache.add(src);
+        // Only cache successful loads so failures can be retried later.
+        if (isImagePreloaded(src)) loadedCache.add(src);
         completed++;
         if (onProgress) onProgress(completed, total);
         if (completed === total) resolve();

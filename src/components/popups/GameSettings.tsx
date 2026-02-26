@@ -140,8 +140,8 @@ export default function GameSettings({
     // Memoize to prevent unnecessary re-renders on Linux
     const banner = useMemo(() => {
         const installInfo = (installs || []).find((i: any) => i.id === installSettings.id);
-        const gameInfo = (gamesinfo || []).find((g: any) => g.biz === installSettings.manifest_id);
-        return gameInfo?.background || installInfo?.game_background || installSettings.game_background;
+        const gameInfo = (gamesinfo || []).find((g: any) => g.manifest_id === installSettings.manifest_id) || (gamesinfo || []).find((g: any) => g.biz === installSettings.manifest_id);
+        return gameInfo?.assets?.game_background || gameInfo?.background || installInfo?.game_background || installSettings.game_background;
     }, [installs, gamesinfo, installSettings.id, installSettings.manifest_id, installSettings.game_background]);
 
     const icon = useMemo(() => {

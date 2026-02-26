@@ -15,7 +15,10 @@ interface BackgroundLayerProps {
 const isVideo = (src?: string) => !!src && isVideoUrl(src) && !isLinux;
 
 // helper to detect MP4 specifically (for treating MP4 looping differently)
-const isMp4 = (src?: string) => !!src && src.endsWith(".mp4");
+const isMp4 = (src?: string) => {
+  const normalized = src?.split("?")[0]?.split("#")[0]?.toLowerCase() || "";
+  return normalized.endsWith(".mp4");
+};
 
 const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
   currentSrc,

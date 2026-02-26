@@ -10,6 +10,7 @@ import type {
 import { formatBytes, toPercent } from '../../utils/progress';
 import { ArrowLeft, DownloadCloud } from "lucide-react";
 import { PAGES } from './PAGES';
+import { CachedImage } from '../common/CachedImage';
 
 /* Telemetry sample for graph */
 interface TelemetrySample {
@@ -644,16 +645,15 @@ export default function DownloadsPage({
                                 {/* Banner Background - Extended */}
                                 <div className="absolute left-0 top-0 bottom-0 w-[65%] overflow-hidden pointer-events-none z-0">
                                     {bannerImage ? (
-                                        <img
-                                            key={`banner-v${imageVersion}`}
-                                            src={bannerImage}
-                                            alt=""
-                                            className="w-full h-full object-cover"
+                                        <div
+                                            className="w-full h-full"
                                             style={{
                                                 maskImage: 'linear-gradient(to right, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 40%, rgba(0,0,0,0.5) 70%, rgba(0,0,0,0) 100%)',
                                                 WebkitMaskImage: 'linear-gradient(to right, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 40%, rgba(0,0,0,0.5) 70%, rgba(0,0,0,0) 100%)'
                                             }}
-                                        />
+                                        >
+                                            <CachedImage key={`banner-v${imageVersion}`} src={bannerImage} alt="" className="w-full h-full object-cover" />
+                                        </div>
                                     ) : (
                                         <div className="w-full h-full bg-gray-800/50" />
                                     )}

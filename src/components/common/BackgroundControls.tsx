@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { isVideoUrl, isLinux } from "../../utils/imagePreloader";
 
 interface BackgroundOption {
@@ -23,26 +23,45 @@ const BackgroundControls: React.FC<BackgroundControlsProps> = ({
     const [isPaused, setIsPaused] = useState(false);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isBackgroundHovered, setIsBackgroundHovered] = useState(false);
+    const hoveredStateRef = useRef(false);
+    const currentBg = availableBackgrounds.find(bg => bg.src === currentBackground) || availableBackgrounds[currentIndex];
+    const isDynamicBackground = currentBg?.isDynamic && isVideoUrl(currentBg.src);
 
-    // Update current index when background changes externally
+    // Update current index when background changes externally and reset pause state
     useEffect(() => {
         const index = availableBackgrounds.findIndex((bg) => bg.src === currentBackground);
         if (index !== -1) {
             setCurrentIndex(index);
         }
+        setIsPaused(false);
     }, [currentBackground, availableBackgrounds]);
 
-    // Handle pause/play for dynamic backgrounds
+    // Handle pause/play for dynamic backgrounds, including newly swapped video nodes.
     useEffect(() => {
-        const videoElement = document.getElementById("app-bg") as HTMLVideoElement;
-        if (videoElement && videoElement instanceof HTMLVideoElement) {
-            if (isPaused) {
-                videoElement.pause();
-            } else {
-                videoElement.play().catch(() => { });
+        if (!isVisible) return;
+        let cancelled = false;
+        let retries = 0;
+
+        const applyPlaybackState = () => {
+            if (cancelled) return;
+            const videoElement = document.getElementById("app-bg");
+            if (videoElement && videoElement instanceof HTMLVideoElement) {
+                if (isPaused) {
+                    videoElement.pause();
+                } else {
+                    videoElement.play().catch(() => { });
+                }
+                return;
             }
-        }
-    }, [isPaused]);
+            if (isDynamicBackground && retries < 30) {
+                retries++;
+                requestAnimationFrame(applyPlaybackState);
+            }
+        };
+
+        applyPlaybackState();
+        return () => { cancelled = true; };
+    }, [isPaused, currentBackground, isDynamicBackground, isVisible]);
 
     // Listen for mouse movement over the background area
     useEffect(() => {
@@ -59,11 +78,17 @@ const BackgroundControls: React.FC<BackgroundControlsProps> = ({
                 target.closest(".absolute.inset-0.-z-10") !== null ||
                 (e.clientX > 64 && !target.closest(".z-40") && !target.closest(".z-50"));
 
-            setIsBackgroundHovered(isOverBackground);
+            if (hoveredStateRef.current !== isOverBackground) {
+                hoveredStateRef.current = isOverBackground;
+                setIsBackgroundHovered(isOverBackground);
+            }
         };
 
         const handleMouseLeave = () => {
-            setIsBackgroundHovered(false);
+            if (hoveredStateRef.current) {
+                hoveredStateRef.current = false;
+                setIsBackgroundHovered(false);
+            }
         };
 
         document.addEventListener("mousemove", handleMouseMove);
@@ -78,21 +103,20 @@ const BackgroundControls: React.FC<BackgroundControlsProps> = ({
     const handlePrevious = () => {
         const newIndex = (currentIndex - 1 + availableBackgrounds.length) % availableBackgrounds.length;
         setCurrentIndex(newIndex);
+        setIsPaused(false);
         onBackgroundChange(availableBackgrounds[newIndex].src);
     };
 
     const handleNext = () => {
         const newIndex = (currentIndex + 1) % availableBackgrounds.length;
         setCurrentIndex(newIndex);
+        setIsPaused(false);
         onBackgroundChange(availableBackgrounds[newIndex].src);
     };
 
     const handleTogglePause = () => {
         setIsPaused(!isPaused);
     };
-
-    const currentBg = availableBackgrounds[currentIndex];
-    const isDynamicBackground = currentBg?.isDynamic && isVideoUrl(currentBg.src);
     const hasMultipleBackgrounds = availableBackgrounds.length > 1;
 
     if (!isVisible || availableBackgrounds.length === 0) return null;

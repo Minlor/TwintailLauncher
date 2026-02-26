@@ -3,7 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { Events } from "../constants/events.ts";
 import { registerEvents } from "./events.ts";
-import { isLinux, clearFailedImages, getFailedImageCount } from "../utils/imagePreloader.ts";
+import { isLinux, clearFailedImages, getFailedImageCount, isImagePreloaded } from "../utils/imagePreloader.ts";
 import { showDialogAsync } from "../context/DialogContext.tsx";
 
 const IMAGE_PRELOAD_TIMEOUT_MS = 20000;
@@ -421,8 +421,8 @@ export class NetworkMonitor {
         ...installIcons
       ]));
 
-      // Filter to only images not already preloaded
-      const imagesToLoad = allImages.filter(img => !this.recoveryOpts!.preloadedBackgrounds.has(img));
+      // Filter to only images not already confirmed as successfully preloaded
+      const imagesToLoad = allImages.filter((img) => !isImagePreloaded(img));
 
       if (imagesToLoad.length > 0) {
         this.onRecoveryProgress({
