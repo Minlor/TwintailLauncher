@@ -139,32 +139,27 @@ export function startInitialLoad(opts: LoaderOptions): LoaderController {
       }
 
       if (cancelled) return;
-      opts.setProgress(5, "Loading settings...");
+      opts.setProgress(5, "Loading settings and repositories...");
 
-      // Step 1: Settings
+      // Step 1+2: Settings and repositories in parallel (independent data)
       try {
-        await opts.fetchSettings();
-        if (cancelled) return;
-        opts.setProgress(25, "Connecting to repositories...");
-      } catch (e) {
-        console.error("Error loading settings:", e);
-        opts.setProgress(5, "Error loading settings...");
-      }
-
-      // Step 2: Repositories
-      try {
-        await opts.fetchRepositories();
-        // Load runners if application is running on Linux
+        const [, ] = await Promise.all([
+          opts.fetchSettings().catch(e => { console.error("Error loading settings:", e); }),
+          opts.fetchRepositories().catch(e => { console.error("Error loading repositories:", e); }),
+        ]);
+        // Load runners if application is running on Linux (all independent, fetch in parallel)
         if (window.navigator.platform.includes("Linux")) {
-          await opts.fetchCompatibilityVersions();
-          await opts.fetchInstalledRunners();
-          await opts.fetchSteamRTStatus();
+          await Promise.all([
+            opts.fetchCompatibilityVersions(),
+            opts.fetchInstalledRunners(),
+            opts.fetchSteamRTStatus(),
+          ]);
         }
         if (cancelled) return;
         opts.setProgress(50, "Loading game data...");
       } catch (e) {
-        console.error("Error loading repositories:", e);
-        opts.setProgress(50, "Error loading repositories...");
+        console.error("Error during initial data load:", e);
+        opts.setProgress(50, "Error loading data...");
       }
 
       // Step 3: Wait for gamesinfo to be populated (polling)
@@ -392,9 +387,11 @@ export class NetworkMonitor {
       try {
         await this.recoveryOpts.fetchRepositories();
         if (window.navigator.platform.includes("Linux")) {
-          await this.recoveryOpts.fetchCompatibilityVersions();
-          await this.recoveryOpts.fetchInstalledRunners();
-          await this.recoveryOpts.fetchSteamRTStatus();
+          await Promise.all([
+            this.recoveryOpts.fetchCompatibilityVersions(),
+            this.recoveryOpts.fetchInstalledRunners(),
+            this.recoveryOpts.fetchSteamRTStatus(),
+          ]);
         }
       } catch (e) {
         console.error("Error loading repositories during recovery:", e);

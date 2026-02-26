@@ -716,11 +716,13 @@ export default class App extends React.Component<any, any> {
 
     componentDidUpdate(_prevProps: any, prevState: any) {
         if (this.state.currentInstall && this.state.currentInstall !== prevState.currentInstall) {
-            this.fetchInstallSettings(this.state.currentInstall);
-            this.fetchInstallResumeStates(this.state.currentInstall);
-            this.fetchCompatibilityVersions();
-            this.fetchInstalledRunners();
-            this.fetchSteamRTStatus();
+            Promise.all([
+                this.fetchInstallSettings(this.state.currentInstall),
+                this.fetchInstallResumeStates(this.state.currentInstall),
+                this.fetchCompatibilityVersions(),
+                this.fetchInstalledRunners(),
+                this.fetchSteamRTStatus(),
+            ]);
             this.updateAvailableBackgrounds();
         }
 
@@ -992,7 +994,7 @@ export default class App extends React.Component<any, any> {
     }
 
     fetchInstallResumeStates(install: any) {
-        invoke("get_resume_states", { install: install }).then(async data => {
+        return invoke("get_resume_states", { install: install }).then(async data => {
             if (data === null) {
                 console.error("Failed to fetch install resume states!");
                 this.setState(() => ({ resumeStates: { downloading: false, updating: false, preloading: false, repairing: false } }));
@@ -1004,9 +1006,10 @@ export default class App extends React.Component<any, any> {
     }
 
     async refreshDownloadButtonInfo(existingInstall: boolean = false) {
-        // Ensure versions are fetched before opening popup
-        await this.fetchGameVersions(this.state.currentGame);
-        await this.fetchCompatibilityVersions();
+        await Promise.all([
+            this.fetchGameVersions(this.state.currentGame),
+            this.fetchCompatibilityVersions(),
+        ]);
 
         // Fetch download sizes and open popup only after data is ready
         this.fetchDownloadSizes(
