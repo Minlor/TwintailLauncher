@@ -1108,7 +1108,13 @@ export default class App extends React.Component<any, any> {
         // Sort: Dynamic first
         backgrounds.sort((a, b) => (a.isDynamic === b.isDynamic ? 0 : a.isDynamic ? -1 : 1));
 
+        // Increment version so older racing calls become stale
+        const updateVersion = ++this.bgUpdateVersion;
+
         this.setState({ availableBackgrounds: backgrounds }, () => {
+            // If a newer updateAvailableBackgrounds call happened, skip this stale callback
+            if (updateVersion !== this.bgUpdateVersion) return;
+
             // Check if the user has a saved preference for this install
             const install = this.state.currentInstall
                 ? this.state.installs.find((i: any) => i.id === this.state.currentInstall)
@@ -1133,9 +1139,14 @@ export default class App extends React.Component<any, any> {
 
     // Store the background transition timeout
     bgTransitionTimeout?: number;
+    // Guard against racing updateAvailableBackgrounds calls
+    bgUpdateVersion: number = 0;
+    // Track the latest intended background to prevent stale setState guard checks
+    pendingGameBackground: string = "";
 
     setBackground(file: string, savePreference: boolean = false) {
-        if (!file || file === this.state.gameBackground) return; // nothing to do
+        if (!file || (file === this.state.gameBackground && file === this.pendingGameBackground)) return; // nothing to do
+        this.pendingGameBackground = file;
 
         // Cancel any previous transition timeout
         if (this.bgTransitionTimeout) {
