@@ -11,7 +11,7 @@ use fischl::utils::free_space::available;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use std::sync::atomic::{AtomicBool,Ordering};
+use std::sync::atomic::{AtomicBool,AtomicU64,Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Listener, Manager};
 
@@ -78,6 +78,8 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
             tokens.insert(install_id.clone(), cancel_token.clone());
         }
 
+        let verified_files = { let state = h5.state::<DownloadState>(); let mut vf = state.verified_files.lock().unwrap(); vf.entry(install_id.clone()).or_insert_with(|| Arc::new(Mutex::new(std::collections::HashSet::new()))).clone() };
+        let mut success = false;
         match picked.metadata.download_mode.as_str() {
             "DOWNLOAD_MODE_FILE" => {
                 let urls = picked.game.diff.iter().filter(|e| e.original_version.as_str() == install.version.clone().as_str()).collect::<Vec<&DiffGameFile>>();
@@ -100,9 +102,10 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                 } else {
                     h5.emit("update_complete", ()).unwrap();
                 }
+                success = true;
             }
             "DOWNLOAD_MODE_CHUNK" => {
-                let urls = picked.game.diff.iter().filter(|e| e.original_version.as_str() == install.version.clone().as_str()).collect::<Vec<&DiffGameFile>>();
+                let urls = picked.game.diff.iter().filter(|e| e.original_version.as_str() == install.version.clone().as_str()).cloned().collect::<Vec<DiffGameFile>>();
                 if urls.is_empty() {
                     let h5_clone = h5.clone();
                     let payload_lang = payload.lang.clone();
@@ -119,40 +122,67 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                     h5.emit("update_complete", ()).unwrap();
                     #[cfg(target_os = "linux")]
                     crate::utils::shortcuts::sync_desktop_shortcut(&h5, install.id.clone(), picked.metadata.versioned_name.clone());
+                    success = true;
                 } else {
-                    let total_size: u64 = urls.clone().into_iter().map(|e| e.decompressed_size.parse::<u64>().unwrap()).sum();
+                    let total_size: u64 = urls.iter().map(|e| e.decompressed_size.parse::<u64>().unwrap_or(0)).sum();
                     let available = available(install.directory.clone());
                     let has_space = if let Some(av) = available { av >= total_size } else { false };
                     if has_space {
                         let patching_marker = Path::new(&install.directory).join("patching");
                         let is_preload = patching_marker.join(".preload").exists();
-                        urls.into_iter().for_each(|e| {
+                        let combined_download_total: u64 = urls.iter().map(|e| e.compressed_size.parse::<u64>().unwrap_or(0)).sum();
+                        let combined_install_total: u64 = urls.iter().map(|e| e.decompressed_size.parse::<u64>().unwrap_or(0)).sum();
+                        let cumulative_download = Arc::new(AtomicU64::new(0));
+                        let cumulative_install = Arc::new(AtomicU64::new(0));
+                        let total_manifests = urls.len();
+                        let mut ok = true;
+                        for (manifest_idx, e) in urls.clone().into_iter().enumerate() {
+                            let h5 = h5.clone();
                             let cancel_token = cancel_token.clone();
-                            run_async_command(async {
-                                <Game as Sophon>::patch(e.file_url.to_owned(), install.version.clone(), e.file_hash.to_owned(), install.directory.clone(), is_preload, {
+                            let cumulative_download = cumulative_download.clone();
+                            let cumulative_install = cumulative_install.clone();
+                            let is_last_manifest = manifest_idx == total_manifests - 1;
+                            let rslt = run_async_command(async {
+                                <Game as Sophon>::patch(e.file_url.clone(), install.version.clone(), e.file_hash.clone(), install.directory.clone(), is_preload, {
                                         let dlpayload = dlpayload.clone();
-                                        let tmp = tmp.clone();
                                         let instn = instn.clone();
-                                        move |_dl_cur, _dl_total, current, total, net_speed, disk_speed, _phase| {
+                                        let job_id = job_id.clone();
+                                        let cumulative_download = cumulative_download.clone();
+                                        let cumulative_install = cumulative_install.clone();
+                                        move |download_current, _download_total, install_current, _install_total, net_speed, disk_speed, phase| {
                                             let mut dlp = dlpayload.lock().unwrap();
+                                            let total_download_progress = cumulative_download.load(Ordering::SeqCst) + download_current;
+                                            let total_install_progress = cumulative_install.load(Ordering::SeqCst) + install_current;
+                                            dlp.insert("job_id", job_id.to_string());
                                             dlp.insert("name", instn.to_string());
-                                            dlp.insert("progress", current.to_string());
-                                            dlp.insert("total", total.to_string());
+                                            dlp.insert("progress", total_download_progress.to_string());
+                                            dlp.insert("total", combined_download_total.to_string());
                                             dlp.insert("speed", net_speed.to_string());
                                             dlp.insert("disk", disk_speed.to_string());
-                                            tmp.emit("update_progress", dlp.clone()).unwrap();
+                                            dlp.insert("install_progress", total_install_progress.to_string());
+                                            dlp.insert("install_total", combined_install_total.to_string());
+                                            let effective_phase = if phase == 5 && !is_last_manifest { 2 } else { phase };
+                                            dlp.insert("phase", effective_phase.to_string());
+                                            h5.emit("update_progress", dlp.clone()).unwrap();
                                             drop(dlp);
                                         }
-                                    }, Some(cancel_token),
-                                ).await
+                                    }, Some(cancel_token), Some(verified_files.clone())).await
                             });
-                        });
-                        // We finished the loop emit complete - remove patching marker
-                        if patching_marker.exists() { fs::remove_dir_all(&patching_marker).unwrap_or_default(); }
-                        h5.emit("update_complete", ()).unwrap();
-                        update_install_after_update_by_id(&h5, install.id.clone(), picked.metadata.versioned_name.clone(), picked.assets.game_icon.clone(), picked.assets.game_background.clone(), picked.metadata.version.clone());
-                        #[cfg(target_os = "linux")]
-                        crate::utils::shortcuts::sync_desktop_shortcut(&h5, install.id.clone(), picked.metadata.versioned_name.clone());
+                            if !rslt { ok = false; break; }
+                            cumulative_download.fetch_add(e.compressed_size.parse::<u64>().unwrap_or(0), Ordering::SeqCst);
+                            cumulative_install.fetch_add(e.decompressed_size.parse::<u64>().unwrap_or(0), Ordering::SeqCst);
+                        }
+                        if ok {
+                            if patching_marker.exists() { fs::remove_dir_all(&patching_marker).unwrap_or_default(); }
+                            h5.emit("update_complete", ()).unwrap();
+                            update_install_after_update_by_id(&h5, install.id.clone(), picked.metadata.versioned_name.clone(), picked.assets.game_icon.clone(), picked.assets.game_background.clone(), picked.metadata.version.clone());
+                            #[cfg(target_os = "linux")]
+                            crate::utils::shortcuts::sync_desktop_shortcut(&h5, install.id.clone(), picked.metadata.versioned_name.clone());
+                            success = true;
+                        } else {
+                            if !cancel_token.load(Ordering::Relaxed) { show_dialog(&h5, "warning", "TwintailLauncher", &format!("Error occurred while trying to update {}\nPlease try again!", install.name), Some(vec!["Ok"])); }
+                            h5.emit("update_complete", ()).unwrap();
+                        }
                     } else {
                         show_dialog(&h5, "warning", "TwintailLauncher", &format!("Unable to update {} as there is not enough free space, please make sure there is enough free space for the update!", install.name), Some(vec!["Ok"]));
                         h5.emit("update_complete", ()).unwrap();
@@ -220,6 +250,7 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                                 crate::utils::shortcuts::sync_desktop_shortcut(&h5, install.id.clone(), picked.metadata.versioned_name.clone());
                                 crate::utils::apply_patch(&h5, Path::new(&install.directory.clone()).to_str().unwrap().to_string(), "aki".to_string(), "add".to_string());
                             }
+                            success = true;
                         } else {
                             show_dialog(&h5, "warning", "TwintailLauncher", &format!("Error occurred while trying to update {}\nPlease try again!", install.name), Some(vec!["Ok"]));
                             h5.emit("update_complete", ()).unwrap();
@@ -251,7 +282,13 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
             h5.emit("update_paused", dlp).unwrap();
             return QueueJobOutcome::Cancelled;
         }
-        QueueJobOutcome::Completed
+        if success {
+            { verified_files.lock().unwrap().clear(); }
+            QueueJobOutcome::Completed
+        } else {
+            { verified_files.lock().unwrap().clear(); }
+            QueueJobOutcome::Failed
+        }
     } else {
         eprintln!("Failed to update game!");
         QueueJobOutcome::Failed
