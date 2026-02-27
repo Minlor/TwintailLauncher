@@ -214,8 +214,8 @@ export function preloadImages(
     const toLoad = urls.filter((src) => {
       if (!src) return false;
       if (isImagePreloaded(src)) return false;
-      if (loadedCache.has(src) && !isImageFailed(src)) return false;
-      return true;
+      return !(loadedCache.has(src) && !isImageFailed(src));
+
     });
 
     const total = toLoad.length;
