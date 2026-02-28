@@ -1120,11 +1120,15 @@ export default class App extends React.Component<any, any> {
                 ? this.state.installs.find((i: any) => i.id === this.state.currentInstall)
                 : null;
 
-            if (install?.preferred_background && !forceReset) {
-                // User has a saved preference - use it if it's in the available list
-                const preferredBg = backgrounds.find(b => b.src === install.preferred_background);
-                if (preferredBg && this.state.gameBackground !== preferredBg.src) {
-                    this.setBackground(preferredBg.src);
+            if (install?.game_background && !forceReset) {
+                // Use the install's stored game_background if it's in the available list
+                const installedBg = backgrounds.find(b => b.src === install.game_background);
+                if (installedBg && this.state.gameBackground !== installedBg.src) {
+                    this.setBackground(installedBg.src);
+                } else if (!installedBg && backgrounds.length > 0) {
+                    // Stored bg not in available list (version mismatch) - fall back to first available
+                    const currentBgInList = backgrounds.some(b => b.src === this.state.gameBackground);
+                    if (!currentBgInList) { this.setBackground(backgrounds[0].src); }
                 }
             } else if (backgrounds.length > 0) {
                 // No saved preference (or forceReset) - use the first available background (dynamic preferred due to sorting)
@@ -1156,7 +1160,7 @@ export default class App extends React.Component<any, any> {
 
         // Save user preference if this is a manual change
         if (savePreference && this.state.currentInstall) {
-            invoke("update_install_preferred_background", {
+            invoke("update_install_game_background", {
                 id: this.state.currentInstall,
                 background: file
             }).catch(console.error);
@@ -1165,7 +1169,7 @@ export default class App extends React.Component<any, any> {
             this.setState((prev: any) => ({
                 installs: prev.installs.map((i: any) =>
                     i.id === this.state.currentInstall
-                        ? { ...i, preferred_background: file }
+                        ? { ...i, game_background: file }
                         : i
                 )
             }));

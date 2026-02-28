@@ -57,7 +57,11 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
         let vn = picked.metadata.versioned_name.clone();
         let vc = picked.metadata.version.clone();
         let ig = picked.assets.game_icon.clone();
+        let is_current_live = install.game_background.ends_with(".webm") || install.game_background.ends_with(".mp4");
+        #[cfg(target_os = "linux")]
         let gb = picked.assets.game_background.clone();
+        #[cfg(not(target_os = "linux"))]
+        let gb = if is_current_live { if let Some(ref lbg) = picked.assets.game_live_background { if !lbg.is_empty() { lbg.clone() } else { picked.assets.game_background.clone() } } else { picked.assets.game_background.clone() } } else { picked.assets.game_background.clone() };
         let gbiz = gm.biz.clone();
 
         let instn = Arc::new(install.name.clone());
@@ -175,7 +179,7 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                         if ok {
                             if patching_marker.exists() { fs::remove_dir_all(&patching_marker).unwrap_or_default(); }
                             h5.emit("update_complete", ()).unwrap();
-                            update_install_after_update_by_id(&h5, install.id.clone(), picked.metadata.versioned_name.clone(), picked.assets.game_icon.clone(), picked.assets.game_background.clone(), picked.metadata.version.clone());
+                            update_install_after_update_by_id(&h5, install.id.clone(), picked.metadata.versioned_name.clone(), picked.assets.game_icon.clone(), gb.clone(), picked.metadata.version.clone());
                             #[cfg(target_os = "linux")]
                             crate::utils::shortcuts::sync_desktop_shortcut(&h5, install.id.clone(), picked.metadata.versioned_name.clone());
                             success = true;
@@ -244,7 +248,7 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                             // Remove patching marker on success
                             if patching_marker.exists() { fs::remove_dir_all(&patching_marker).unwrap_or_default(); }
                             h5.emit("update_complete", ()).unwrap();
-                            update_install_after_update_by_id(&h5, install.id.clone(), picked.metadata.versioned_name.clone(), picked.assets.game_icon.clone(), picked.assets.game_background.clone(), picked.metadata.version.clone());
+                            update_install_after_update_by_id(&h5, install.id.clone(), picked.metadata.versioned_name.clone(), picked.assets.game_icon.clone(), gb.clone(), picked.metadata.version.clone());
                             #[cfg(target_os = "linux")]
                             {
                                 crate::utils::shortcuts::sync_desktop_shortcut(&h5, install.id.clone(), picked.metadata.versioned_name.clone());

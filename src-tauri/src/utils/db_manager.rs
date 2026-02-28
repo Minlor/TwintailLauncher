@@ -146,12 +146,6 @@ pub async fn init_db(app: &AppHandle) {
             kind: MigrationKind::Up,
         },
         Migration {
-            version: 21,
-            description: "alter_install_table_preferred_background",
-            sql: r#"ALTER TABLE install ADD COLUMN preferred_background TEXT default null;"#,
-            kind: MigrationKind::Up,
-        },
-        Migration {
             version: 22,
             description: "alter_install_table_sort_order",
             sql: r#"ALTER TABLE install ADD COLUMN sort_order INTEGER DEFAULT 0 NOT NULL;"#,
@@ -867,7 +861,6 @@ pub fn get_install_info_by_id(app: &AppHandle, id: String) -> Option<LauncherIns
             shortcut_path: rslt.get(0).unwrap().get("shortcut_path"),
             region_code: rslt.get(0).unwrap().get("region_code"),
             xxmi_config: rslt.get(0).unwrap().get("xxmi_config"),
-            preferred_background: rslt.get(0).unwrap().get("preferred_background"),
             sort_order: rslt.get(0).unwrap().get("sort_order"),
             last_played_time: rslt.get(0).unwrap().get("last_played_time"),
             total_playtime: rslt.get(0).unwrap().get("total_playtime"),
@@ -936,7 +929,6 @@ pub fn get_installs_by_manifest_id(
                 shortcut_path: r.get("shortcut_path"),
                 region_code: r.get("region_code"),
                 xxmi_config: r.get("xxmi_config"),
-                preferred_background: r.get("preferred_background"),
                 sort_order: r.get("sort_order"),
                 last_played_time: r.get("last_played_time"),
                 total_playtime: r.get("total_playtime"),
@@ -1003,7 +995,6 @@ pub fn get_installs(app: &AppHandle) -> Option<Vec<LauncherInstall>> {
                 shortcut_path: r.get("shortcut_path"),
                 region_code: r.get("region_code"),
                 xxmi_config: r.get("xxmi_config"),
-                preferred_background: r.get("preferred_background"),
                 sort_order: r.get("sort_order"),
                 last_played_time: r.get("last_played_time"),
                 total_playtime: r.get("total_playtime"),
@@ -1058,7 +1049,7 @@ pub fn update_install_game_location_by_id(app: &AppHandle, id: String, location:
     });
 }
 
-pub fn update_install_preferred_background_by_id(app: &AppHandle, id: String, background: String) {
+pub fn update_install_game_background_by_id(app: &AppHandle, id: String, background: String) {
     run_async_command(async {
         let db = app
             .state::<DbInstances>()
@@ -1069,7 +1060,7 @@ pub fn update_install_preferred_background_by_id(app: &AppHandle, id: String, ba
             .unwrap()
             .clone();
 
-        let query = query("UPDATE install SET 'preferred_background' = $1 WHERE id = $2")
+        let query = query("UPDATE install SET 'game_background' = $1 WHERE id = $2")
             .bind(background)
             .bind(id);
         query.execute(&db).await.unwrap();

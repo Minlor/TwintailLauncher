@@ -90,7 +90,6 @@ pub struct LauncherInstall {
     pub shortcut_path: String,
     pub region_code: String,
     pub xxmi_config: Json<XXMISettings>,
-    pub preferred_background: Option<String>,
     pub sort_order: i32,
     pub last_played_time: String,
     pub total_playtime: i64,

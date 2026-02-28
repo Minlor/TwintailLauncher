@@ -508,6 +508,9 @@ pub fn sync_install_backgrounds(app: &AppHandle) {
             let gm = get_manifest(app, repm.filename);
             if let Some(g) = gm {
                 let cur = match g.game_versions.iter().find(|e| e.metadata.version == i.version) { Some(v) => v, None => continue };
+                #[cfg(target_os = "linux")]
+                let is_live = false;
+                #[cfg(not(target_os = "linux"))]
                 let is_live = i.game_background.ends_with(".webm") || i.game_background.ends_with(".mp4");
                 let bg = if is_live { cur.assets.game_live_background.clone().unwrap_or(cur.assets.game_background.clone()) } else { cur.assets.game_background.clone() };
                 if !i.ignore_updates && i.game_background != bg { update_install_after_update_by_id(app, i.id, i.name, i.game_icon, bg, i.version); }
