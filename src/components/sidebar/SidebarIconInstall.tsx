@@ -156,8 +156,11 @@ export default function SidebarIconInstall({ icon, name, id, setCurrentInstall, 
                                     setCurrentInstall(id)
                                     setDisplayName(name)
                                     setGameIcon(icon)
-                                    // @ts-ignore
-                                    elem.focus();
+                                    setBackground(background)
+                                    // Defer focus to after React renders — calling focus() synchronously
+                                    // blocks the JS thread on WebKitGTK via AT-SPI2 D-Bus before React
+                                    // can commit state updates, causing the entire swap to lag ~1s.
+                                    setTimeout(() => { elem?.focus({ preventScroll: true }); }, 0);
                                 }
                             }}
                             alt={"?"}

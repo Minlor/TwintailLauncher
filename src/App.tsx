@@ -716,14 +716,20 @@ export default class App extends React.Component<any, any> {
 
     componentDidUpdate(_prevProps: any, prevState: any) {
         if (this.state.currentInstall && this.state.currentInstall !== prevState.currentInstall) {
-            Promise.all([
-                this.fetchInstallSettings(this.state.currentInstall),
-                this.fetchInstallResumeStates(this.state.currentInstall),
-                this.fetchCompatibilityVersions(),
-                this.fetchInstalledRunners(),
-                this.fetchSteamRTStatus(),
-            ]);
-            this.updateAvailableBackgrounds();
+            // Capture install ID now — state may change before the deferred callback fires
+            const install = this.state.currentInstall;
+            // Defer all IPC calls so WebKitGTK can paint the new background before
+            // dispatching the 5 webkit.messageHandlers messages (each has synchronous overhead).
+            setTimeout(() => {
+                Promise.all([
+                    this.fetchInstallSettings(install),
+                    this.fetchInstallResumeStates(install),
+                    this.fetchCompatibilityVersions(),
+                    this.fetchInstalledRunners(),
+                    this.fetchSteamRTStatus(),
+                ]);
+                this.updateAvailableBackgrounds();
+            }, 0);
         }
 
         // Update available backgrounds when current game changes (for manifests without installs)
