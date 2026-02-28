@@ -137,9 +137,10 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
 
     const revealImage = () => {
       if (currentSrcRef.current !== srcAtCallTime || currentElementRef.current !== element) { element.remove(); return; }
+      // No void offsetWidth needed — this is a fresh element so there's no stale animation
+      // state to reset. The bgFadeIn keyframe (0% { opacity:0 }) defines the initial state,
+      // so the browser starts the animation correctly without a forced layout.
       element.style.opacity = "";
-      void element.offsetWidth;
-      element.classList.remove("animate-bg-fade-in");
       element.classList.add("animate-bg-fade-in");
       if (oldElement && oldElement.parentNode) { setTimeout(() => { if (oldElement.parentNode) oldElement.remove(); }, 350); }
     };
@@ -400,16 +401,15 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
     }
   }, [transitioning, previousSrc, bgVersion, popupOpen, pageOpen]);
 
-  // Effect to update popup styling without re-creating elements
+  // Effect to update popup scale without re-creating elements or touching the animation class.
+  // Previously this did a full className= replacement including animate-bg-fade-in, which
+  // restarted the fade-in animation every install switch. Now only scale-[1.03] is toggled.
   useEffect(() => {
     const el = currentElementRef.current;
     if (!el || !currentSrc) return;
-
-    // Use transition-transform only (not transition-all) to prevent flash during scale change on WebKitGTK
-    // Keep will-change-transform for GPU layer permanence
-    // Apply immediately without RAF delay to prevent black flash on WebKitGTK
-    el.className = `w-full h-screen object-cover object-center absolute inset-0 transition-transform duration-300 ease-out will-change-transform ${transitioning ? "animate-bg-fade-in" : ""} ${(popupOpen || pageOpen) ? "scale-[1.03]" : ""}`;
-  }, [popupOpen, pageOpen, transitioning, currentSrc]);
+    if (popupOpen || pageOpen) { el.classList.add("scale-[1.03]"); }
+    else { el.classList.remove("scale-[1.03]"); }
+  }, [popupOpen, pageOpen, currentSrc]);
 
   return (
     <div className="absolute inset-0 -z-10 pointer-events-none overflow-hidden bg-zinc-950">
