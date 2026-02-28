@@ -31,7 +31,7 @@ pub fn add_steam_shortcut(file: PathBuf, appname: &str, shortcut: Shortcut) -> b
     for u in dir {
         let config_dir = file.join(u).join("config");
         let shortcut_file = config_dir.join("shortcuts.vdf");
-        if !config_dir.exists() { if let Err(_) = fs::create_dir_all(&config_dir) { break } }
+        if !config_dir.exists() { if let Err(_) = fs::create_dir_all(&config_dir) { continue } }
 
         if shortcut_file.exists() {
             let reader = fs::read(&shortcut_file);
@@ -39,7 +39,7 @@ pub fn add_steam_shortcut(file: PathBuf, appname: &str, shortcut: Shortcut) -> b
                 Ok(data) => {
                     let mut shortcuts = parse_shortcuts(data.as_slice()).unwrap();
                     let shortcut_exists = shortcuts.clone().iter().filter(|shortcutt| shortcutt.app_name == appname).count() > 0;
-                    if shortcut_exists { break }
+                    if shortcut_exists { continue }
                     shortcuts.push(shortcut.clone());
                     let parsed = shortcuts_to_bytes(&shortcuts);
                     let ff = fs::write(&shortcut_file, &parsed);
