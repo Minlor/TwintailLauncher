@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useRef} from "react";
+import React, {useCallback, useEffect, useLayoutEffect, useRef} from "react";
 import {getPreloadedImage, isImageFailed, isImagePreloaded, isLinux, isVideoUrl, preloadImage} from "../../utils/imagePreloader";
 
 interface BackgroundLayerProps {
@@ -103,8 +103,9 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
     img.decoding = "async";
 
     if (onLoad) {
-      // If already loaded (from preload), call immediately
-      if (img.complete && img.naturalHeight !== 0) {
+      // Use isImagePreloaded — cloned images on WebKitGTK always have complete=false
+      // even when the image data is in cache, making complete unreliable
+      if (isImagePreloaded(src)) {
         setTimeout(onLoad, 0);
       } else {
         img.onload = onLoad;
@@ -113,6 +114,43 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
 
     return img;
   }, []);
+
+  // Fast path for preloaded images: useLayoutEffect fires before paint so the
+  // background animation starts in the same frame as the UI update.
+  // The existing useEffect below handles videos and non-preloaded images;
+  // its (currentSrcRef === currentSrc && currentElementRef exists) guard returns
+  // early for anything already handled here.
+  useLayoutEffect(() => {
+    const container = currentContainerRef.current;
+    if (!container || !currentSrc || isVideo(currentSrc)) return;
+    if (!isImagePreloaded(currentSrc)) return;
+    if (currentSrcRef.current === currentSrc && currentElementRef.current) return;
+
+    const srcAtCallTime = currentSrc;
+    currentSrcRef.current = srcAtCallTime;
+    pendingPreloadRef.current = null;
+
+    const baseClass = `w-full h-screen object-cover object-center absolute inset-0 transition-transform duration-300 ease-out will-change-transform`;
+    const oldElement = currentElementRef.current;
+    const element = createImageElement(srcAtCallTime, baseClass, () => { onMainLoad?.(); });
+    element.id = "app-bg";
+
+    const revealImage = () => {
+      if (currentSrcRef.current !== srcAtCallTime || currentElementRef.current !== element) { element.remove(); return; }
+      element.style.opacity = "";
+      void element.offsetWidth;
+      element.classList.remove("animate-bg-fade-in");
+      element.classList.add("animate-bg-fade-in");
+      if (oldElement && oldElement.parentNode) { setTimeout(() => { if (oldElement.parentNode) oldElement.remove(); }, 350); }
+    };
+
+    element.style.opacity = "0";
+    container.appendChild(element);
+    currentElementRef.current = element;
+    // queueMicrotask runs after useLayoutEffect but before browser paint,
+    // so the animation class is applied before the first frame renders.
+    queueMicrotask(revealImage);
+  }, [currentSrc, bgVersion, createImageElement, onMainLoad]);
 
   // Effect to handle current background
   useEffect(() => {
@@ -273,21 +311,18 @@ const BackgroundLayer: React.FC<BackgroundLayerProps> = ({
           }
         };
 
-        // If image is already loaded (from preload cache), reveal immediately
-        // Otherwise wait for load event
-        if (element.complete && element.naturalHeight !== 0) {
-          element.style.opacity = "0";
-          container.appendChild(element);
-          currentElementRef.current = element;
-          // Use microtask to ensure DOM is updated before revealing
+        // Use isImagePreloaded instead of element.complete — WebKitGTK cloned images
+        // always report complete=false even when data is in cache, causing unnecessary
+        // onload waits and visible delay before the background starts animating.
+        element.style.opacity = "0";
+        container.appendChild(element);
+        currentElementRef.current = element;
+        if (isImagePreloaded(srcAtCallTime)) {
+          // Image is in cache: reveal via microtask so DOM is settled before animation
           queueMicrotask(revealImage);
         } else {
-          element.style.opacity = "0";
-          container.appendChild(element);
-          currentElementRef.current = element;
-
           element.onload = revealImage;
-          // Fallback timeout
+          // Fallback for browsers that don't fire onload for cached images
           setTimeout(() => {
             const imageElement = element as HTMLImageElement;
             if (
