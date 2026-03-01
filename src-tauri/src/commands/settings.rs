@@ -9,7 +9,7 @@ use crate::utils::db_manager::{
     update_settings_third_party_repo_update
 };
 use crate::utils::repo_manager::get_manifest;
-use crate::utils::{block_telemetry, get_mi_path_from_game, show_dialog};
+use crate::utils::{get_mi_path_from_game, show_dialog};
 use std::fs;
 use std::path::Path;
 use tauri::{AppHandle, Manager};
@@ -161,20 +161,6 @@ pub fn update_settings_launcher_action(app: AppHandle, action: String) -> Option
 pub fn update_settings_manifests_hide(app: AppHandle, enabled: bool) -> Option<bool> {
     update_settings_hide_manifests(&app, enabled);
     Some(true)
-}
-
-#[tauri::command]
-pub fn block_telemetry_cmd(app: AppHandle) -> Option<bool> {
-    let path = app.path().app_data_dir().unwrap().join(".telemetry_blocked");
-    if !path.exists() {
-        fs::write(&path, ".").unwrap();
-        block_telemetry(&app);
-        Some(true)
-    } else {
-        block_telemetry(&app);
-        show_dialog(&app, "info", "TwintailLauncher", "Updated and fixed telemetry server block.", None);
-        None
-    }
 }
 
 #[tauri::command]

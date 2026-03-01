@@ -4,6 +4,7 @@ use sqlx::types::Json;
 #[derive(serde::Deserialize)]
 pub struct DialogResponse {
     pub callback_id: String,
+    #[allow(unused, dead_code)]
     pub button_index: usize,
 }
 

@@ -1,8 +1,8 @@
 import {useEffect, useState} from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Settings, Download, Folder, Shield, Info, Monitor, Box, ArrowLeft, HeartIcon } from "lucide-react";
+import { Settings, Download, Folder, Info, Monitor, ArrowLeft, HeartIcon } from "lucide-react";
 import { SettingsSidebar, SettingsTab } from "../sidebar/SettingsSidebar.tsx";
-import { SettingsSection, ModernInput, ModernPathInput, ModernSelect, SettingsCard } from "../common/SettingsComponents.tsx";
+import { SettingsSection, ModernInput, ModernPathInput, ModernSelect } from "../common/SettingsComponents.tsx";
 import { PAGES } from "./PAGES";
 import {getVersion} from "@tauri-apps/api/app";
 
@@ -19,7 +19,7 @@ export default function SettingsPage({ settings, fetchSettings, setCurrentPage }
         { id: "general", label: "General", icon: Settings, color: "blue" },
         { id: "downloads", label: "Downloads", icon: Download, color: "green" },
         { id: "files", label: "Files & Paths", icon: Folder, color: "yellow" },
-        ...(window.navigator.platform.includes("Linux") ? [{ id: "integrations", label: "Integrations & Tools", icon: Box, color: "purple" }] : []),
+        ...(window.navigator.platform.includes("Linux") ? [/*{ id: "integrations", label: "Integrations & Tools", icon: Box, color: "purple" }*/] : []),
         ...(window.navigator.platform.includes("Linux") ? [{ id: "linux", label: "Linux Options", icon: Monitor, color: "orange" }] : []),
         { id: "about", label: "About", icon: Info, color: "pink" },
     ];
@@ -200,28 +200,11 @@ export default function SettingsPage({ settings, fetchSettings, setCurrentPage }
                             />
                         </SettingsSection>
                     )}
-
-                    {activeTab === "integrations" && (
+                    {/*activeTab === "integrations" && (
                         <SettingsSection title="Integrations & Tools">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {window.navigator.platform.includes("Linux") && (
-                                    <SettingsCard className="flex flex-col gap-4">
-                                        <div className="flex items-center gap-3 text-red-400">
-                                            <Shield className="w-6 h-6" />
-                                            <span className="font-bold text-lg">Privacy</span>
-                                        </div>
-                                        <p className="text-zinc-400 text-sm">
-                                            Block telemetry domains at the system level (requires sudo).
-                                        </p>
-                                        <button onClick={() => { invoke("block_telemetry_cmd"); }} className="mt-auto w-full py-2 bg-red-600/80 hover:bg-red-500 text-white rounded-lg font-medium transition-colors">
-                                            Block Telemetry
-                                        </button>
-                                    </SettingsCard>
-                                )}
-                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
                         </SettingsSection>
-                    )}
-
+                    )*/}
                     {activeTab === "about" && (
                         <div className="flex flex-col items-center justify-center h-full text-center p-8 relative overflow-hidden">
                             {/* Ambient background glow */}

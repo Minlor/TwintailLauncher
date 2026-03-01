@@ -20,7 +20,7 @@ use std::{fs, io};
 use tauri::{AppHandle, Emitter, Listener, Manager};
 
 #[cfg(target_os = "linux")]
-use crate::utils::repo_manager::{get_manifests, get_compatibility};
+use crate::utils::repo_manager::{get_compatibility};
 #[cfg(target_os = "linux")]
 use crate::DownloadState;
 #[cfg(target_os = "linux")]
@@ -92,52 +92,6 @@ pub fn copy_dir_all(app: &AppHandle, src: impl AsRef<Path>, dst: impl AsRef<Path
     Ok(())
 }
 
-#[cfg(target_os = "linux")]
-pub fn block_telemetry(app: &AppHandle) {
-    let app1 = Arc::new(std::sync::Mutex::new(app.clone()));
-    std::thread::spawn(move || {
-        let app = app1.lock().unwrap().clone();
-        let manifests = get_manifests(&app);
-        let mut allhosts = String::new();
-        let mut unique = Vec::new();
-
-        manifests.values().for_each(|manifest| {
-            let hosts = manifest.telemetry_hosts.iter().map(|server| format!("echo '0.0.0.0 {server}' >> /etc/hosts")).filter(|entry| {
-                    if unique.contains(entry) { false } else { unique.push(entry.clone()); true }
-            }).collect::<Vec<String>>().join(" ; ");
-            if !hosts.is_empty() {
-                if !allhosts.is_empty() { allhosts.push_str(" ; "); }
-                allhosts.push_str(&hosts);
-            }
-        });
-
-        let remove_block_cmd = "sed -i '/# TwintailLauncher telemetry block start/,/# TwintailLauncher telemetry block end/d' /etc/hosts";
-        let shell_cmd = format!("{remove_block_cmd} ; \
-         echo '# TwintailLauncher telemetry block start' >> /etc/hosts ; \
-         {allhosts} ; \
-         echo '# TwintailLauncher telemetry block end' >> /etc/hosts"
-        );
-
-        let output = std::process::Command::new("pkexec").env("PKEXEC_DESCRIPTION", "TwintailLauncher wants to block game telemetry servers", ).arg("bash").arg("-c").arg(shell_cmd).spawn();
-        match output.and_then(|child| child.wait_with_output()) {
-            Ok(output) => {
-                if !output.status.success() {
-                    show_dialog(&app, "error", "TwintailLauncher", r#"Failed to block telemetry servers, Please press "Block telemetry" in launcher settings!"#, None);
-                } else {
-                    let path = app.path().app_data_dir().unwrap().join(".telemetry_blocked");
-                    if !path.exists() {
-                        show_dialog(&app, "info", "TwintailLauncher", "Successfully blocked telemetry servers.", None);
-                        fs::write(&path, ".").unwrap();
-                    } else {
-                        show_dialog(&app, "info", "TwintailLauncher", "Telemetry servers already blocked.", None);
-                    }
-                }
-            }
-            Err(_err) => { show_dialog(&app, "error", "TwintailLauncher", r#"Failed to block telemetry servers, something seriously failed or we are running under flatpak!"#, None); }
-        }
-    });
-}
-
 #[cfg(target_os = "windows")]
 pub fn block_telemetry(_app: &AppHandle) {}
 
@@ -160,9 +114,6 @@ pub fn register_listeners(app: &AppHandle) {
                     h3.cleanup_before_exit();
                     h3.exit(0);
                     std::process::exit(0);
-                }
-                "dialog_block_telemetry" => {
-                    if response.button_index == 0 { block_telemetry(&h3); } else { let path = h3.path().app_data_dir().unwrap().join(".telemetry_blocked"); fs::write(&path, ".").unwrap(); }
                 }
                 "dialog_steamrt3_dl_fail" => {
                     let gs = get_settings(&h3).unwrap();
