@@ -51,6 +51,7 @@ pub fn setup_official_repository(app: &AppHandle, path: &PathBuf) {
             ()
         }
     } else {
+        log::debug!("Official game repository is already cloned!");
         #[cfg(debug_assertions)]
         { println!("Official game repository is already cloned!"); }
         let r = update_repositories(&repo_path);
@@ -116,10 +117,12 @@ pub fn update_repositories(path: &PathBuf) -> Result<bool, Error> {
         let mut remote = r.find_remote("origin")?;
         let fetch_commit = do_fetch(&r, &["main"], &mut remote)?;
         do_merge(&r, "main", fetch_commit)?;
+        log::debug!("Successfully updated repositories!");
         #[cfg(debug_assertions)]
         { println!("Successfully updated repositories!"); }
         Ok(true)
     } else {
+        log::debug!("Failed to fetch repository updates!");
         #[cfg(debug_assertions)]
         { println!("Failed to fetch repository updates!"); }
         Ok(false)
@@ -165,6 +168,7 @@ pub fn setup_compatibility_repository(app: &AppHandle, path: &PathBuf) {
             ()
         }
     } else {
+        log::debug!("Official compatibility repository is already cloned!");
         #[cfg(debug_assertions)]
         { println!("Official compatibility repository is already cloned!"); }
         let r = update_repositories(&repo_path);
@@ -193,6 +197,7 @@ pub fn load_manifests(app: &AppHandle) {
                 if p.is_dir() {
                     for pp in fs::read_dir(p).unwrap() {
                         let p = pp.unwrap().path();
+                        log::debug!("Loading manifests from: {}", p.display());
                         #[cfg(debug_assertions)]
                         { println!("Loading manifests from: {}", p.display()); }
                         let repo_manifest = p.join("repository.json");
@@ -219,6 +224,7 @@ pub fn load_manifests(app: &AppHandle) {
                                         ManifestData::Game(mi) => {
                                             tmp.insert(m.clone(), mi.clone());
                                             update_manifest_table(&app, m.clone(), mi.display_name.clone().as_str(), p.clone());
+                                            log::debug!("Loaded game manifest {}", m.as_str());
                                             #[cfg(debug_assertions)]
                                             { println!("Loaded game manifest {}", m.as_str()); }
                                         }
@@ -226,6 +232,7 @@ pub fn load_manifests(app: &AppHandle) {
                                         ManifestData::Runner(ri) => {
                                             tmp1.insert(m.clone(), ri.clone());
                                             update_manifest_table(&app, m.clone(), ri.display_name.clone().as_str(), p.clone());
+                                            log::debug!("Loaded compatibility manifest {}", m.as_str());
                                             #[cfg(debug_assertions)]
                                             { println!("Loaded compatibility manifest {}", m.as_str()); }
                                         }
@@ -288,6 +295,7 @@ pub fn load_manifests(app: &AppHandle) {
                             #[cfg(target_os = "linux")]
                             drop(tmp1);
                         } else {
+                            log::debug!("Failed to load manifests from {}! Not a valid KeqingLauncher repository?", p.display());
                             #[cfg(debug_assertions)]
                             { println!("Failed to load manifests from {}! Not a valid KeqingLauncher repository?", p.display()); }
                         }

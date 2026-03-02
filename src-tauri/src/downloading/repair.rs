@@ -80,11 +80,14 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
     match picked.metadata.download_mode.as_str() {
         "DOWNLOAD_MODE_FILE" => {
             h5.emit("repair_complete", ()).unwrap();
+            log::warn!("There is no support for DOWNLOAD_MODE_FILE repair currently, marking as complete");
+            success = true;
         }
         "DOWNLOAD_MODE_CHUNK" => {
             let install_dir = std::path::Path::new(&i.directory);
             if !install_dir.exists() { std::fs::create_dir_all(install_dir).unwrap_or_default(); }
 
+            log::debug!("Starting repair for {} with DOWNLOAD_MODE_CHUNK", i.name);
             let urls = if gm.biz == "bh3_global" { picked.game.full.clone().iter().filter(|e| e.region_code.clone().unwrap() == i.region_code.clone()).cloned().collect::<Vec<FullGameFile>>() } else { picked.game.full.clone() };
             // Pre-calculate combined totals across all manifest files
             let combined_download_total: u64 = if gm.biz == "bh3_global" { urls.iter().filter(|e| e.region_code.clone().unwrap() == i.region_code.clone()).map(|e| e.compressed_size.parse::<u64>().unwrap_or(0)).sum() } else { urls.iter().map(|e| e.compressed_size.parse::<u64>().unwrap_or(0)).sum() };
@@ -138,17 +141,19 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
             }
             if ok {
                 h5.emit("repair_complete", ()).unwrap();
+                log::debug!("Repair completed for {} with DOWNLOAD_MODE_CHUNK", i.name);
                 success = true;
             } else {
                 show_dialog(&h5, "warning", "TwintailLauncher", &format!("Error occurred while trying to repair {}\nPlease try again!", i.name), Some(vec!["Ok"]));
                 h5.emit("repair_complete", ()).unwrap();
-                success = false;
+                log::debug!("Repair failed for {} with DOWNLOAD_MODE_CHUNK", i.name);
             }
         }
         "DOWNLOAD_MODE_RAW" => {
             let install_dir = std::path::Path::new(&i.directory);
             if !install_dir.exists() { std::fs::create_dir_all(install_dir).unwrap_or_default(); }
 
+            log::debug!("Starting repair for {} with DOWNLOAD_MODE_RAW", i.name);
             let urls = picked.game.full.iter().map(|v| v.file_url.clone()).collect::<Vec<String>>();
             let manifest = urls.get(0).unwrap();
             let cancel_token = cancel_token.clone();
@@ -175,16 +180,17 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
             });
             if rslt {
                 h5.emit("repair_complete", ()).unwrap();
+                log::debug!("Repair completed for {} with DOWNLOAD_MODE_RAW", i.name);
                 success = true;
                 #[cfg(target_os = "linux")]
                 crate::utils::apply_patch(&h5, std::path::Path::new(&i.directory.clone()).to_str().unwrap().to_string(), "aki".to_string(), "add".to_string());
             } else {
                 show_dialog(&h5, "warning", "TwintailLauncher", &format!("Error occurred while trying to repair {}\nPlease try again!", i.name), Some(vec!["Ok"]));
                 h5.emit("repair_complete", ()).unwrap();
-                success = false;
+                log::debug!("Repair failed for {} with DOWNLOAD_MODE_RAW", i.name);
             }
         }
-        _ => {}
+        _ => { log::debug!("We should not be here... HOW IN THE ABSOLUTE HELL DID WE GET HERE? DOWNLOAD_MODE_???"); show_dialog(&h5, "error", "TwintailLauncher", "Unsupported download mode for repair!", Some(vec!["Ok"])); }
     }
 
     let mut cancelled = false;
@@ -212,5 +218,6 @@ pub fn run_game_repair(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
         QueueJobOutcome::Completed
     } else {
         { verified_files.lock().unwrap().clear(); }
-        QueueJobOutcome::Failed }
+        QueueJobOutcome::Failed
+    }
 }

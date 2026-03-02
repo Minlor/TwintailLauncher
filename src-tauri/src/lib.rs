@@ -35,11 +35,11 @@ pub struct DownloadState {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let logger = tauri_plugin_log::Builder::new().filter(|metadata| !metadata.target().contains("h2")).filter(|metadata| !metadata.target().contains("tracing")).filter(|metadata| !metadata.target().contains("hyper")).max_file_size(8000000).clear_targets().targets([tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir { file_name: Some("twintaillauncher".to_string()) })]).rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(5)).timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal).level(if cfg!(debug_assertions) { log::LevelFilter::Trace } else { if std::env::var("TTL_DEBUG").is_ok() { log::LevelFilter::Debug } else { log::LevelFilter::Info } }).build();
     let builder = {
         #[cfg(target_os = "linux")]
         {
             utils::gpu::fuck_nvidia();
-            // Raise file descriptor limit for the app so downloads go smoothly
             utils::raise_fd_limit(999999);
             tauri::Builder::default()
                 .manage(ManifestLoaders {game: ManifestLoader::default(), runner: utils::repo_manager::RunnerLoader::default()})
@@ -48,6 +48,7 @@ pub fn run() {
                 .plugin(tauri_plugin_dialog::init())
                 .plugin(tauri_plugin_opener::init())
                 .plugin(tauri_plugin_clipboard_manager::init())
+                .plugin(logger)
         }
         #[cfg(target_os = "windows")]
         {
@@ -58,6 +59,7 @@ pub fn run() {
                 .plugin(tauri_plugin_dialog::init())
                 .plugin(tauri_plugin_opener::init())
                 .plugin(tauri_plugin_clipboard_manager::init())
+                .plugin(logger)
         }
     }.setup(|app| {
             let handle = app.handle();

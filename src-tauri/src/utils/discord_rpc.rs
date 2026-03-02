@@ -28,10 +28,12 @@ pub fn init(app: &AppHandle, install: LauncherInstall, gm: GameManifest) -> Opti
 
     let payload = activity::Activity::new().details(&details).state("In Game").timestamps(activity::Timestamps::new().start(start)).assets(activity::Assets::new().large_image(icon_key).large_text(&install.name).small_image("tl_512").small_text(&small_txt));
     let _ = client.set_activity(payload);
+    log::info!("Discord RPC initialized for {} (ID: {})!", install.name, install.id);
     Some(client)
 }
 
 pub fn terminate(client: &mut DiscordIpcClient) {
     let _ = client.clear_activity();
     let _ = client.close();
+    log::info!("Discord RPC terminated!");
 }

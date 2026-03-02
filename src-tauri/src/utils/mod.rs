@@ -429,11 +429,7 @@ pub fn sync_installed_runners(app: &AppHandle) {
 
                 let runner_path = runners.join(rv);
                 if !runner_path.exists() { fs::create_dir_all(&runner_path).unwrap(); }
-
-                // Ensure the DB entry exists
-                if runner_info.is_none() {
-                    let _ = create_installed_runner(app, rv.clone(), false, runner_path.to_str().unwrap().to_string());
-                }
+                if runner_info.is_none() { let _ = create_installed_runner(app, rv.clone(), false, runner_path.to_str().unwrap().to_string()); }
 
                 // Enqueue the download
                 let state = app.state::<DownloadState>();
@@ -445,7 +441,7 @@ pub fn sync_installed_runners(app: &AppHandle) {
                         runner_path: runner_path.to_str().unwrap().to_string(),
                     }));
                     queued_versions.insert(rv.clone());
-                    eprintln!("Auto-redownloading missing runner: {}", rv);
+                    log::debug!("Auto-redownloading missing runner: {}", rv);
                 }
             }
         }
@@ -454,6 +450,7 @@ pub fn sync_installed_runners(app: &AppHandle) {
 
 pub fn sync_install_backgrounds(app: &AppHandle) {
     if let Some(is) = get_installs(app) {
+        log::debug!("Started background sync for {} installs", is.len());
         for i in is {
             let repm = match get_manifest_info_by_id(app, i.manifest_id.clone()) { Some(r) => r, None => continue };
             let gm = get_manifest(app, repm.filename);
@@ -467,6 +464,7 @@ pub fn sync_install_backgrounds(app: &AppHandle) {
                 if !i.ignore_updates && i.game_background != bg { update_install_after_update_by_id(app, i.id, i.name, i.game_icon, bg, i.version); }
             }
         }
+        log::debug!("Finished background sync for all installs");
     }
 }
 
@@ -519,9 +517,20 @@ pub fn notify_update(app: &AppHandle) {
         if !suppressed.exists() {
             let cfg = app.config();
             match compare_version(cfg.version.clone().unwrap().as_str(), v.as_str()) {
-                std::cmp::Ordering::Less => { show_dialog(&app, "warning", "TwintailLauncher", "You are running outdated version of TwintailLauncher!\nWe recommend updating to the latest version for best experience.\nIf you are using Flatpak version on Linux updates are always delayed for some time, sit tight and relax.", Some(vec!["Continue anyway"])); }
-                std::cmp::Ordering::Equal => { println!("You are running up to date version of TwintailLauncher!"); }
-                std::cmp::Ordering::Greater => { println!("You are running newer version of TwintailLauncher! Is it dev build?"); }
+                std::cmp::Ordering::Less => {
+                    show_dialog(&app, "warning", "TwintailLauncher", "You are running outdated version of TwintailLauncher!\nWe recommend updating to the latest version for best experience.\nIf you are using Flatpak version on Linux updates are always delayed for some time, sit tight and relax.", Some(vec!["Continue anyway"]));
+                    log::info!("You are running outdated version of TwintailLauncher!");
+                }
+                std::cmp::Ordering::Equal => {
+                    log::info!("You are running up to date version of TwintailLauncher!");
+                    #[cfg(debug_assertions)]
+                    println!("You are running up to date version of TwintailLauncher!");
+                }
+                std::cmp::Ordering::Greater => {
+                    log::info!("You are running newer version of TwintailLauncher! Is it dev build?");
+                    #[cfg(debug_assertions)]
+                    println!("You are running newer version of TwintailLauncher! Is it dev build?");
+                }
             }
         }
     }
@@ -607,10 +616,9 @@ pub fn apply_patch(app: &AppHandle, dir: String, patch_type: String, mode: Strin
                     let f = dir.join("Client/Binaries/Win64/ThirdParty/KrPcSdk_Global/KRSDKRes/KRSDK.bin");
                     if f.exists() {
                         let fp = fs::read_to_string(f.clone()).unwrap();
-                        let patched = fp.lines().map(|line| {
-                                if line.starts_with("KR_ChannelID=") { "KR_ChannelID=205" } else { line }
-                        }).collect::<Vec<_>>().join("\n");
+                        let patched = fp.lines().map(|line| { if line.starts_with("KR_ChannelID=") { "KR_ChannelID=205" } else { line } }).collect::<Vec<_>>().join("\n");
                         fs::write(f, patched).unwrap();
+                        log::debug!("Applied AKI patch to {}", dir.display());
                     }
                 }
                 "remove" => {}
@@ -623,11 +631,11 @@ pub fn apply_patch(app: &AppHandle, dir: String, patch_type: String, mode: Strin
                     "add" => {
                         let patch = app.path().resource_dir().unwrap().join("resources").join("hkrpg_patch.dll");
                         let target = dir.join("jsproxy.dll");
-                        if patch.exists() { fs::copy(&patch, &target).unwrap(); }
+                        if patch.exists() { fs::copy(&patch, &target).unwrap(); log::debug!("Applied Sparkle patch to {}", dir.display()); }
                     }
                     "remove" => {
                         let target = dir.join("jsproxy.dll");
-                        if target.exists() { fs::remove_file(&target).unwrap(); }
+                        if target.exists() { fs::remove_file(&target).unwrap(); log::debug!("Removed Sparkle patch from {}", dir.display()); }
                     }
                     _ => {}
                 }
@@ -665,6 +673,7 @@ pub fn edit_wuwa_configs_xxmi(engine_ini: String, device_profiles_ini: String) {
             if in_ss { for (i,(k,v)) in perf.iter().enumerate() { if !written[i] { out.push(format!("{}={}",k,v)); } } }
             if !found_ss { out.push("[SystemSettings]".to_string()); for (k,v) in &perf { out.push(format!("{}={}",k,v)); } }
             let _ = fs::write(engine_file, out.join("\n"));
+            log::debug!("Edited Engine.ini at {}", engine_file.display());
         }
     }
     let dp_file = Path::new(&device_profiles_ini);
@@ -687,6 +696,7 @@ pub fn edit_wuwa_configs_xxmi(engine_ini: String, device_profiles_ini: String) {
             }
             if in_target { for (k,v) in &cvars { out.push(format!("{}={}",k,v)); } }
             let _ = fs::write(dp_file, out.join("\n"));
+            log::debug!("Edited DeviceProfiles.ini at {}", dp_file.display());
         }
     }
 }
@@ -733,6 +743,7 @@ pub fn apply_xxmi_tweaks(package: PathBuf, mut data: Json<XXMISettings>) -> Json
                 }
                 for (i,(s,k,v)) in managed.iter().enumerate() { if !written[i] && *s == cur.as_str() { out.push(format!("{} = {}",k,v)); } }
                 let _ = fs::write(&cfg, out.join("\n"));
+                log::debug!("Edited d3dx.ini at {} with values: {}", cfg.display(), managed.iter().map(|(s,k,v)| format!("{}->{}={}",s,k,v)).collect::<Vec<_>>().join(", "));
             }
             data
         } else { data }
@@ -752,7 +763,7 @@ pub fn find_steamrt_version(file_path: PathBuf) -> io::Result<String> {
                 }
             }
         }
-        Err(_) => { eprintln!("Could not find VERSIONS.txt in steamrt directory!"); }
+        Err(_) => { log::debug!("Could not find VERSIONS.txt in steamrt directory!"); }
     }
     Ok(String::new())
 }

@@ -17,7 +17,6 @@ pub struct DownloadGamePayload {
     pub is_latest: Option<String>,
 }
 
-/// Payload for runner downloads (Linux only)
 #[cfg(target_os = "linux")]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RunnerDownloadPayload {
@@ -26,7 +25,6 @@ pub struct RunnerDownloadPayload {
     pub runner_path: String,
 }
 
-/// Payload for SteamRT downloads (Linux only)
 #[cfg(target_os = "linux")]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SteamrtDownloadPayload {
@@ -34,7 +32,6 @@ pub struct SteamrtDownloadPayload {
     pub is_update: bool,
 }
 
-/// Payload for XXMI downloads
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct XXMIDownloadPayload {
     pub xxmi_path: String,
@@ -42,7 +39,6 @@ pub struct XXMIDownloadPayload {
     pub is_update: bool,
 }
 
-/// Payload for extras downloads (jadeite, fps unlock, xxmi variants)
 #[derive(Debug, Clone)]
 pub struct ExtrasDownloadPayload {
     pub path: String,
@@ -51,7 +47,6 @@ pub struct ExtrasDownloadPayload {
     pub update_mode: bool,
 }
 
-/// Unified payload enum for all queue job types
 #[derive(Debug, Clone)]
 pub enum QueueJobPayload {
     Game(DownloadGamePayload),
@@ -66,7 +61,6 @@ pub enum QueueJobPayload {
 }
 
 impl QueueJobPayload {
-    /// Returns the unique identifier for this job (install_id for games, version for runners, "steamrt" for steamrt)
     pub fn get_id(&self) -> String {
         match self {
             QueueJobPayload::Game(p) => p.install.clone(),
@@ -81,7 +75,6 @@ impl QueueJobPayload {
         }
     }
 
-    /// Returns a display name for this job
     pub fn get_name(&self) -> String {
         match self {
             QueueJobPayload::Game(p) => p.install.clone(),

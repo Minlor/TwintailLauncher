@@ -33,6 +33,8 @@ pub fn start_connection_monitor(app: AppHandle) {
                     was_offline = true;
                     queue.auto_pause();
                     let _ = app_handle.emit("connection_status", "offline");
+                    log::info!("Internet connection lost, auto-pausing downloads");
+                    #[cfg(debug_assertions)]
                     eprintln!("[Connection Monitor] Internet connection lost, auto-pausing downloads");
                 }
             } else {
@@ -43,6 +45,8 @@ pub fn start_connection_monitor(app: AppHandle) {
                     if queue.is_auto_paused() {
                         queue.auto_resume();
                         let _ = app_handle.emit("connection_status", "online");
+                        log::info!("Internet connection restored, auto-resuming downloads");
+                        #[cfg(debug_assertions)]
                         eprintln!("[Connection Monitor] Internet connection restored, auto-resuming downloads");
                     }
                 }
@@ -51,7 +55,6 @@ pub fn start_connection_monitor(app: AppHandle) {
     });
 }
 
-/// Check if we have internet connectivity by trying multiple endpoints
 async fn check_connectivity() -> bool {
     let endpoints = ["https://store.steampowered.com", "https://one.one.one.one", "https://twintaillauncher.app"];
 

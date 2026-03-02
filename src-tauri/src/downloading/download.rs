@@ -83,6 +83,7 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
                 let install_dir = Path::new(&install.directory);
                 if !install_dir.exists() { std::fs::create_dir_all(install_dir).unwrap_or_default(); }
 
+                log::debug!("Starting game download using DOWNLOAD_MODE_FILE with {} file(s)", picked.game.full.len());
                 let urls = picked.game.full.iter().map(|v| v.file_url.clone()).collect::<Vec<String>>();
                 let cancel_token = cancel_token.clone();
                 let rslt = run_async_command(async {
@@ -118,6 +119,7 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
                     let archive_path = downloading_path.join("staging").join(fnn.clone());
                     let far = archive_path.to_str().unwrap().to_string();
 
+                    log::debug!("Download complete, starting extraction of {} (Multipart possible!) to {}", far, install.directory);
                     let ext = fischl::utils::extract_archive_with_progress(far, install.directory.clone(), false, {
                         let dlpayload = dlpayload.clone();
                         let h4 = h4.clone();
@@ -136,17 +138,20 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
                     if ext {
                         if downloading_path.exists() { std::fs::remove_dir_all(&downloading_path).unwrap_or_default(); }
                         h4.emit("download_complete", ()).unwrap();
+                        log::debug!("Extraction complete for {}, marking download as complete", install.name);
                         success = true;
                     }
                 } else {
                     show_dialog(&h4, "warning", "TwintailLauncher", &format!("Error occurred while trying to download {}\nPlease try again!", install.name), Some(vec!["Ok"]));
                     h4.emit("download_complete", ()).unwrap();
+                    log::debug!("Error occurred during DOWNLOAD_MODE_FILE for {}, marking as failed", install.name);
                 }
             }
             "DOWNLOAD_MODE_CHUNK" => {
                 let install_dir = Path::new(&install.directory);
                 if !install_dir.exists() { std::fs::create_dir_all(install_dir).unwrap_or_default(); }
 
+                log::debug!("Starting game download using DOWNLOAD_MODE_CHUNK with {} manifest(s)", picked.game.full.len());
                 let urls = if gm.biz == "bh3_global" { picked.game.full.clone().iter().filter(|e| e.region_code.clone().unwrap() == install.region_code.clone()).cloned().collect::<Vec<FullGameFile>>() } else { picked.game.full.clone() };
                 // Pre-calculate combined totals across all manifest files
                 let combined_download_total: u64 = if gm.biz == "bh3_global" { urls.iter().filter(|e| e.region_code.clone().unwrap() == install.region_code.clone()).map(|e| e.compressed_size.parse::<u64>().unwrap_or(0)).sum() } else { urls.iter().map(|e| e.compressed_size.parse::<u64>().unwrap_or(0)).sum() };
@@ -199,17 +204,20 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
                     cumulative_install.fetch_add(e.decompressed_size.parse::<u64>().unwrap_or(0), Ordering::SeqCst);
                 }
                 if ok {
+                    log::debug!("All manifests completed for {}, marking download as complete", install.name);
                     h4.emit("download_complete", ()).unwrap();
                     success = true;
                 } else {
                     show_dialog(&h4, "warning", "TwintailLauncher", &format!("Error occurred while trying to download {}\nPlease try again!", install.name), Some(vec!["Ok"]));
                     h4.emit("download_complete", ()).unwrap();
+                    log::debug!("Error occurred during DOWNLOAD_MODE_CHUNK for {}, marking as failed", install.name);
                 }
             }
             "DOWNLOAD_MODE_RAW" => {
                 let install_dir = Path::new(&install.directory);
                 if !install_dir.exists() { std::fs::create_dir_all(install_dir).unwrap_or_default(); }
 
+                log::debug!("Starting game download using DOWNLOAD_MODE_RAW with {} manifest(s)", picked.game.full.len());
                 let urls = picked.game.full.iter().map(|v| v.file_url.clone()).collect::<Vec<String>>();
                 let manifest = urls.get(0).unwrap();
                 let cancel_token = cancel_token.clone();
@@ -238,15 +246,17 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
                 });
                 if rslt {
                     h4.emit("download_complete", ()).unwrap();
+                    log::debug!("Download complete for {}, marking as complete", install.name);
                     success = true;
                     #[cfg(target_os = "linux")]
                     crate::utils::apply_patch(&h4, Path::new(&install.directory.clone()).to_str().unwrap().to_string(), "aki".to_string(), "add".to_string());
                 } else {
                     show_dialog(&h4, "warning", "TwintailLauncher", &format!("Error occurred while trying to download {}\nPlease try again!", install.name), Some(vec!["Ok"]));
                     h4.emit("download_complete", ()).unwrap();
+                    log::debug!("Error occurred during DOWNLOAD_MODE_RAW for {}, marking as failed", install.name);
                 }
             }
-            _ => {}
+            _ => { log::debug!("We should not be here... HOW IN THE ABSOLUTE HELL DID WE GET HERE? DOWNLOAD_MODE_???"); show_dialog(&h4, "error", "TwintailLauncher", "Unsupported download mode for download!", Some(vec!["Ok"])); }
         }
 
         let mut cancelled = false;
@@ -277,7 +287,7 @@ pub fn run_game_download(h4: AppHandle, payload: DownloadGamePayload, job_id: St
             QueueJobOutcome::Failed
         }
     } else {
-        eprintln!("Failed to download game!");
+        log::debug!("Failed to download game, wtf??? we are SO FUCKED!");
         QueueJobOutcome::Failed
     }
 }

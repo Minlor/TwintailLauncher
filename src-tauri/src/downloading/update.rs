@@ -87,6 +87,7 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
             "DOWNLOAD_MODE_FILE" => {
                 let urls = picked.game.diff.iter().filter(|e| e.original_version.as_str() == install.version.clone().as_str()).collect::<Vec<&DiffGameFile>>();
                 if urls.is_empty() {
+                    log::debug!("No diff files found for this update using DOWNLOAD_MODE_FILE, treating as full download");
                     let h5_clone = h5.clone();
                     let payload_lang = payload.lang.clone();
 
@@ -104,12 +105,14 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                     crate::utils::shortcuts::sync_desktop_shortcut(&h5, install.id.clone(), picked.metadata.versioned_name.clone());
                 } else {
                     h5.emit("update_complete", ()).unwrap();
+                    log::warn!("Diff files found for this update using DOWNLOAD_MODE_FILE, but this mode does not support patching, marking as complete");
                 }
                 success = true;
             }
             "DOWNLOAD_MODE_CHUNK" => {
                 let urls = picked.game.diff.iter().filter(|e| e.original_version.as_str() == install.version.clone().as_str()).cloned().collect::<Vec<DiffGameFile>>();
                 if urls.is_empty() {
+                    log::debug!("No diff files found for this update using DOWNLOAD_MODE_CHUNK, treating as full download");
                     let h5_clone = h5.clone();
                     let payload_lang = payload.lang.clone();
 
@@ -131,6 +134,7 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                     let available = available(install.directory.clone());
                     let has_space = if let Some(av) = available { av >= total_size } else { false };
                     if has_space {
+                        log::debug!("Starting update of {} using DOWNLOAD_MODE_CHUNK, total size: {}, available space: {:?}", install.name, total_size, available);
                         let patching_marker = Path::new(&install.directory).join("patching");
                         let is_preload = patching_marker.join(".preload").exists();
                         let combined_download_total: u64 = urls.iter().map(|e| e.compressed_size.parse::<u64>().unwrap_or(0)).sum();
@@ -179,16 +183,19 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                             if patching_marker.exists() { fs::remove_dir_all(&patching_marker).unwrap_or_default(); }
                             h5.emit("update_complete", ()).unwrap();
                             update_install_after_update_by_id(&h5, install.id.clone(), picked.metadata.versioned_name.clone(), picked.assets.game_icon.clone(), gb.clone(), picked.metadata.version.clone());
+                            log::debug!("Successfully updated {} using DOWNLOAD_MODE_CHUNK, marking as complete", install.name);
                             #[cfg(target_os = "linux")]
                             crate::utils::shortcuts::sync_desktop_shortcut(&h5, install.id.clone(), picked.metadata.versioned_name.clone());
                             success = true;
                         } else {
                             if !cancel_token.load(Ordering::Relaxed) { show_dialog(&h5, "warning", "TwintailLauncher", &format!("Error occurred while trying to update {}\nPlease try again!", install.name), Some(vec!["Ok"])); }
                             h5.emit("update_complete", ()).unwrap();
+                            log::debug!("Error occurred during update of {} using DOWNLOAD_MODE_CHUNK, marking as failed", install.name);
                         }
                     } else {
                         show_dialog(&h5, "warning", "TwintailLauncher", &format!("Unable to update {} as there is not enough free space, please make sure there is enough free space for the update!", install.name), Some(vec!["Ok"]));
                         h5.emit("update_complete", ()).unwrap();
+                        log::debug!("Not enough space to update {} using DOWNLOAD_MODE_CHUNK, required: {}, available: {:?}", install.name, total_size, available);
                     }
                 }
             }
@@ -264,7 +271,7 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
                     }
                 }
             }
-            _ => {}
+            _ => { log::debug!("We should not be here... HOW IN THE ABSOLUTE HELL DID WE GET HERE? DOWNLOAD_MODE_???"); show_dialog(&h5, "error", "TwintailLauncher", "Unsupported download mode for update!", Some(vec!["Ok"])); }
         }
 
         let mut cancelled = false;
@@ -293,7 +300,7 @@ pub fn run_game_update(h5: AppHandle, payload: DownloadGamePayload, job_id: Stri
             QueueJobOutcome::Failed
         }
     } else {
-        eprintln!("Failed to update game!");
+        log::debug!("Failed to update game, wtf??? we are SO FUCKED!");
         QueueJobOutcome::Failed
     }
 }

@@ -48,7 +48,11 @@ pub fn download_or_update_steamrt3(app: &AppHandle) {
                     let state = app.state::<DownloadState>();
                     let q = state.queue.lock().unwrap().clone();
                     if let Some(queue) = q { queue.enqueue(QueueJobKind::SteamrtDownload, QueueJobPayload::Steamrt(SteamrtDownloadPayload { steamrt_path, is_update: true })); }
-                } else { println!("SteamLinuxRuntime 3 is up to date!"); }
+                } else {
+                    log::info!("SteamLinuxRuntime 3 is up to date!");
+                    #[cfg(debug_assertions)]
+                    println!("SteamLinuxRuntime 3 is up to date!");
+                }
             }
         }
     }
@@ -74,6 +78,7 @@ pub fn run_steamrt3_download(app: AppHandle, payload: SteamrtDownloadPayload, jo
         app.emit(event_name, dlp.clone()).unwrap();
     }
 
+    log::debug!("Starting SteamLinuxRuntime 3 {} process", if payload.is_update { "update" } else { "download" });
     let success = run_async_command(async {
         download_steamrt(steamrt_path.clone(), steamrt_path.clone(), "steamrt3".to_string(), "latest-public-beta".to_string(), {
             let app = app.clone();
@@ -112,10 +117,12 @@ pub fn run_steamrt3_download(app: AppHandle, payload: SteamrtDownloadPayload, jo
 
     if success {
         app.emit(complete_event, String::from("SteamLinuxRuntime 3")).unwrap();
+        log::debug!("Finished downloading and extracting SteamLinuxRuntime 3");
         QueueJobOutcome::Completed
     } else {
         show_dialog_with_callback(&app, "error", "TwintailLauncher", if payload.is_update { "Error occurred while trying to update SteamLinuxRuntime 3! Please restart the application to retry." } else { "Error occurred while trying to download SteamLinuxRuntime 3! Please restart the application to retry." }, Some(vec!["Ok"]), Some("dialog_steamrt3_dl_fail"));
         app.emit(complete_event, String::from("SteamLinuxRuntime 3")).unwrap();
+        log::debug!("Failed downloading and extracting SteamLinuxRuntime 3");
         QueueJobOutcome::Failed
     }
 }
@@ -148,7 +155,11 @@ pub fn download_or_update_steamrt4(app: &AppHandle) {
                     let state = app.state::<DownloadState>();
                     let q = state.queue.lock().unwrap().clone();
                     if let Some(queue) = q { queue.enqueue(QueueJobKind::Steamrt4Download, QueueJobPayload::Steamrt4(SteamrtDownloadPayload { steamrt_path, is_update: true })); }
-                } else { println!("SteamLinuxRuntime 4 is up to date!"); }
+                } else {
+                    log::info!("SteamLinuxRuntime 4 is up to date!");
+                    #[cfg(debug_assertions)]
+                    println!("SteamLinuxRuntime 4 is up to date!");
+                }
             }
         }
     }
@@ -174,6 +185,7 @@ pub fn run_steamrt4_download(app: AppHandle, payload: SteamrtDownloadPayload, jo
         app.emit(event_name, dlp.clone()).unwrap();
     }
 
+    log::debug!("Starting SteamLinuxRuntime 4 {} process", if payload.is_update { "update" } else { "download" });
     let success = run_async_command(async {
         download_steamrt(steamrt_path.clone(), steamrt_path.clone(), "steamrt4".to_string(), "latest-public-beta".to_string(), {
             let app = app.clone();
@@ -212,10 +224,12 @@ pub fn run_steamrt4_download(app: AppHandle, payload: SteamrtDownloadPayload, jo
 
     if success {
         app.emit(complete_event, String::from("SteamLinuxRuntime 4")).unwrap();
+        log::debug!("Finished downloading and extracting SteamLinuxRuntime 4");
         QueueJobOutcome::Completed
     } else {
         show_dialog_with_callback(&app, "error", "TwintailLauncher", if payload.is_update { "Error occurred while trying to update SteamLinuxRuntime 4! Please restart the application to retry." } else { "Error occurred while trying to download SteamLinuxRuntime 4! Please restart the application to retry." }, Some(vec!["Ok"]), Some("dialog_steamrt4_dl_fail"));
         app.emit(complete_event, String::from("SteamLinuxRuntime 4")).unwrap();
+        log::debug!("Failed downloading and extracting SteamLinuxRuntime 4");
         QueueJobOutcome::Failed
     }
 }
@@ -238,6 +252,7 @@ pub fn run_runner_download(app: AppHandle, payload: RunnerDownloadPayload, job_i
         app.emit("download_progress", dlp.clone()).unwrap();
     }
 
+    log::debug!("Starting download process for runner {}", runner_name);
     let success = run_async_command(async {
         download_runner(payload.runner_url.clone(), payload.runner_path.clone(), true, {
             let app = app.clone();
@@ -277,11 +292,13 @@ pub fn run_runner_download(app: AppHandle, payload: RunnerDownloadPayload, job_i
     if success {
         update_installed_runner_is_installed_by_version(&app, payload.runner_version.clone(), true);
         app.emit("download_complete", payload.runner_version.clone()).unwrap();
+        log::debug!("Finished downloading and extracting {}", runner_name);
         QueueJobOutcome::Completed
     } else {
         show_dialog_with_callback(&app, "error", "TwintailLauncher", format!("Error occurred while trying to download {runner_name}! Please retry later.").as_str(), Some(vec!["Ok"]), Some("dialog_runner_dl_fail"));
         app.emit("download_complete", payload.runner_version.clone()).unwrap();
         let _ = empty_dir(payload.runner_path.clone());
+        log::debug!("Failed downloading and extracting {}", runner_name);
         QueueJobOutcome::Failed
     }
 }
@@ -310,6 +327,7 @@ pub fn check_extras_update(app: &AppHandle) {
         let ver_wwmi = wwmi.join("VERSION.txt");
         //let ver_efmi = efmi.join("VERSION.txt");
 
+        log::info!("Starting extras update check");
         /*if ver_jadeite.exists() {
             download_or_update_extra(app, jadeite, "jadeite".to_string(), "v5.0.1-hotfix".to_string(), true, None);
         } else if jadeite.exists() && fs::read_dir(&jadeite).ok().and_then(|mut d| d.next()).is_some() {
@@ -372,6 +390,7 @@ pub fn check_extras_update(app: &AppHandle) {
             empty_dir(&efmi).unwrap();
             download_or_update_extra(app, xxmi.clone(), "xxmi".to_string(), "efmi".to_string(), false, None);
         }*/
+        log::info!("Completed extras update check");
     }
 }
 
@@ -395,6 +414,7 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                     if m.retcode != 0 {
                         show_dialog_with_callback(&app, "error", "TwintailLauncher", format!("Error occurred while trying to update {package_id}! Please retry later.").as_str(), Some(vec!["Ok"]), Some("dialog_extra_dl_fail"));
                         app.emit("update_complete", package_id.clone()).unwrap();
+                        log::debug!("Failed to fetch TTL manifest for {package_id} during update check");
                         return false;
                     } else {
                         let ap = if package_type.as_str() == "xxmi" || package_id.as_str() == "jadeite" || package_id == "keqingunlock" { path.clone() } else { path.join(&package_type) };
@@ -443,11 +463,13 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                                             }
                                         }
                                         app.emit("update_complete", package_id.clone()).unwrap();
+                                        log::debug!("Successfully updated {package_id} to version {}", p.version);
                                         return true;
                                     } else {
                                         show_dialog_with_callback(&app, "error", "TwintailLauncher", format!("Error occurred while trying to update {package_id}! Please retry later.").as_str(), Some(vec!["Ok"]), Some("dialog_extra_dl_fail"));
                                         app.emit("update_complete", package_id.clone()).unwrap();
                                         empty_dir(&path).unwrap();
+                                        log::debug!("Failed to update {package_id} to version {}", p.version);
                                         return false;
                                     }
                                 }
@@ -469,6 +491,7 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                 if let Some(ref jid) = job_id { if !jid.is_empty() { dlpayload.insert("job_id", jid.clone()); } }
                 app.emit("download_progress", dlpayload.clone()).unwrap();
 
+                log::debug!("Starting download process for {package_id} ({package_type})");
                 if !ap.exists() { let _ = fs::create_dir_all(&ap); }
                 let dl = run_async_command(async {
                     let needs_extract = if package_type.as_str() == "keqing_unlock" || package_type.as_str() == "xxmi" { false } else { true };
@@ -502,11 +525,13 @@ pub fn download_or_update_extra(app: &AppHandle, path: PathBuf, package_id: Stri
                         }
                     }
                     app.emit("download_complete", package_id.clone()).unwrap();
+                    log::debug!("Finished downloading {package_id}");
                     return true;
                 } else {
                     show_dialog_with_callback(&app, "error", "TwintailLauncher", format!("Error occurred while trying to download {package_id}! Please retry later.").as_str(), Some(vec!["Ok"]), Some("dialog_extra_dl_fail"));
                     app.emit("download_complete", package_id.clone()).unwrap();
                     empty_dir(&path).unwrap();
+                    log::debug!("Failed downloading {package_id}");
                     return false;
                 }
         }

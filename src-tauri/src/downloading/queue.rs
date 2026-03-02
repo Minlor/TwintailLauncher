@@ -82,97 +82,82 @@ impl DownloadQueueHandle {
         job_id
     }
 
-    /// Move a queued job up in the queue (towards position 0 = next to run)
     pub fn move_up(&self, job_id: String) -> bool {
         let (tx, rx) = std::sync::mpsc::channel();
         let _ = self.tx.send(QueueCommand::MoveUp(job_id, tx));
         rx.recv().unwrap_or(false)
     }
 
-    /// Move a queued job down in the queue (towards the back)
     pub fn move_down(&self, job_id: String) -> bool {
         let (tx, rx) = std::sync::mpsc::channel();
         let _ = self.tx.send(QueueCommand::MoveDown(job_id, tx));
         rx.recv().unwrap_or(false)
     }
 
-    /// Remove a job from the queue (only works for queued, not running jobs)
     pub fn remove(&self, job_id: String) -> bool {
         let (tx, rx) = std::sync::mpsc::channel();
         let _ = self.tx.send(QueueCommand::Remove(job_id, tx));
         rx.recv().unwrap_or(false)
     }
 
-    /// Remove all jobs for an install_id from the queue (only queued, not running)
     pub fn remove_by_install_id(&self, install_id: String) -> bool {
         let (tx, rx) = std::sync::mpsc::channel();
         let _ = self.tx.send(QueueCommand::RemoveByInstallId(install_id, tx));
         rx.recv().unwrap_or(false)
     }
 
-    /// Pause/unpause the queue (when paused, completed jobs don't auto-start next)
     pub fn set_paused(&self, paused: bool) {
         let _ = self.tx.send(QueueCommand::SetPaused(paused));
     }
 
-    /// Move a queued job to the front and start it, pausing any currently running job
     pub fn activate_job(&self, job_id: String) -> Option<String> {
         let (tx, rx) = std::sync::mpsc::channel();
         let _ = self.tx.send(QueueCommand::ActivateJob(job_id, tx));
         rx.recv().unwrap_or(None)
     }
 
-    /// Reorder by moving a job to a specific position (0 = front of queue)
     pub fn reorder(&self, job_id: String, new_position: usize) -> bool {
         let (tx, rx) = std::sync::mpsc::channel();
         let _ = self.tx.send(QueueCommand::Reorder(job_id, new_position, tx));
         rx.recv().unwrap_or(false)
     }
 
-    /// Get the current queue state (for initial sync after frontend refresh)
     pub fn get_state(&self) -> Option<QueueStatePayload> {
         let (tx, rx) = std::sync::mpsc::channel();
         let _ = self.tx.send(QueueCommand::GetState(tx));
         rx.recv().ok()
     }
 
-    /// Resume a paused job - moves it from paused to active/running
     pub fn resume_job(&self, install_id: String) -> bool {
         let (tx, rx) = std::sync::mpsc::channel();
         let _ = self.tx.send(QueueCommand::ResumeJob(install_id, tx));
         rx.recv().unwrap_or(false)
     }
 
-    /// Mark an install as "pausing" (transitioning to paused state)
     pub fn set_pausing(&self, install_id: String, is_pausing: bool) {
         let _ = self.tx.send(QueueCommand::SetPausing(install_id, is_pausing));
     }
 
-    /// Clear all completed items from the history
     pub fn clear_completed(&self) {
         let _ = self.tx.send(QueueCommand::ClearCompleted);
     }
 
-    /// Auto-pause the queue due to connection loss
     pub fn auto_pause(&self) {
         let _ = self.tx.send(QueueCommand::AutoPause);
     }
 
-    /// Auto-resume the queue if it was auto-paused (not manually paused)
     pub fn auto_resume(&self) -> bool {
         let (tx, rx) = std::sync::mpsc::channel();
         let _ = self.tx.send(QueueCommand::AutoResume(tx));
         rx.recv().unwrap_or(false)
     }
 
-    /// Check if the queue is auto-paused
     pub fn is_auto_paused(&self) -> bool {
         let (tx, rx) = std::sync::mpsc::channel();
         let _ = self.tx.send(QueueCommand::IsAutoPaused(tx));
         rx.recv().unwrap_or(false)
     }
 
-    /// Check if a job with the given install_id is already queued, running, or paused
     pub fn has_job_for_id(&self, install_id: String) -> bool {
         let (tx, rx) = std::sync::mpsc::channel();
         let _ = self.tx.send(QueueCommand::HasJobForId(install_id, tx));
