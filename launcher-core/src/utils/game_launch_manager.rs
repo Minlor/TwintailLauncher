@@ -434,9 +434,9 @@ fn run_winetricks(app: &LauncherContext, install: LauncherInstall, steamrt: Stri
         if !winetricks_cache.exists() { let _ = fs::create_dir_all(&winetricks_cache); }
 
         #[cfg(not(debug_assertions))]
-        let winetricks_bin = if crate::utils::is_flatpak() { crate::utils::resolve_resource_dir(app).join("resources/winetricks").to_str().unwrap().to_string().replace("/app/lib/", "/run/parent/app/lib/") } else { crate::utils::resolve_resource_dir(app).join("resources/winetricks").to_str().unwrap().to_string().replace("/usr/lib/", "/run/host/usr/lib/") };
+        let winetricks_bin = if crate::utils::is_flatpak() { crate::utils::resolve_resource_dir(&app).join("resources/winetricks").to_str().unwrap().to_string().replace("/app/lib/", "/run/parent/app/lib/") } else { crate::utils::resolve_resource_dir(&app).join("resources/winetricks").to_str().unwrap().to_string().replace("/usr/lib/", "/run/host/usr/lib/") };
         #[cfg(debug_assertions)]
-        let winetricks_bin = crate::utils::resolve_resource_dir(app).join("resources/winetricks").to_str().unwrap().to_string();
+        let winetricks_bin = crate::utils::resolve_resource_dir(&app).join("resources/winetricks").to_str().unwrap().to_string();
 
         if verbs.is_empty() { return true; }
         let verbs_str = verbs.join(" ");
