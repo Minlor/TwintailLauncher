@@ -5,7 +5,6 @@ import fs from "node:fs";
 import path from "node:path";
 
 const require = createRequire(import.meta.url);
-const electronBinary = require("electron");
 const __filename = fileURLToPath(import.meta.url);
 const projectRoot = path.resolve(path.dirname(__filename), "..");
 const rendererUrl = "http://localhost:1420";
@@ -39,28 +38,69 @@ function shouldBuildNativeBackend() {
 }
 
 function startDevServerProcess() {
+  return spawnPackageManager(["dev"], { stdio: "inherit" });
+}
+
+function spawnPackageManager(args, options = {}) {
   if (packageManagerExec && /\.(c?js|mjs)$/i.test(packageManagerExec)) {
-    return spawn(process.execPath, [packageManagerExec, "dev"], {
+    return spawn(process.execPath, [packageManagerExec, ...args], {
       cwd: projectRoot,
-      stdio: "inherit",
       env: process.env,
+      ...options,
     });
   }
 
   if (packageManagerExec) {
-    return spawn(packageManagerExec, ["dev"], {
+    return spawn(packageManagerExec, args, {
       cwd: projectRoot,
-      stdio: "inherit",
       env: process.env,
+      ...options,
     });
   }
 
-  return spawn("pnpm", ["dev"], {
-    cwd: projectRoot,
-    stdio: "inherit",
-    env: process.env,
-    shell: process.platform === "win32",
+  return spawn("pnpm", args, {
+      cwd: projectRoot,
+      env: process.env,
+      shell: process.platform === "win32",
+      ...options,
+    });
+}
+
+function runPackageManager(args) {
+  return new Promise((resolve, reject) => {
+    const child = spawnPackageManager(args, { stdio: "inherit" });
+    child.on("exit", (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(new Error(`Package manager command failed: ${["pnpm", ...args].join(" ")} (exit code ${code ?? 1})`));
+    });
+    child.on("error", reject);
   });
+}
+
+function loadElectronBinary() {
+  const electronBinary = require("electron");
+  if (typeof electronBinary !== "string" || !electronBinary || !fs.existsSync(electronBinary)) {
+    throw new Error("Electron is installed but the executable is missing.");
+  }
+  return electronBinary;
+}
+
+async function resolveElectronBinary() {
+  try {
+    return loadElectronBinary();
+  } catch (error) {
+    console.warn("Electron is missing its downloaded runtime. Attempting to repair the local install...");
+    await runPackageManager(["rebuild", "electron"]);
+    try {
+      return loadElectronBinary();
+    } catch {
+      const recoveryHint = packageManagerExec ? "Run `pnpm rebuild electron` or reinstall dependencies with `pnpm install`." : "Reinstall dependencies so Electron can download its runtime.";
+      throw new Error(`Electron failed to install correctly. ${recoveryHint}`);
+    }
+  }
 }
 
 let viteChild = null;
@@ -102,7 +142,8 @@ function shutdown(code = 0) {
   process.exit(code);
 }
 
-function startElectron() {
+async function startElectron() {
+  const electronBinary = await resolveElectronBinary();
   const electronEnv = {
     ...process.env,
     ELECTRON_RENDERER_URL: rendererUrl,
@@ -180,7 +221,7 @@ process.on("SIGTERM", () => shutdown(143));
 try {
   await ensureRenderer();
   await runCargoBuild();
-  startElectron();
+  await startElectron();
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   shutdown(1);
