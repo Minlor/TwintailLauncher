@@ -6,7 +6,7 @@ import { invoke } from "./services/runtime";
 import SidebarSettings from "./components/sidebar/SidebarSettings.tsx";
 import SidebarIconInstall from "./components/sidebar/SidebarIconInstall.tsx";
 import SidebarLink from "./components/sidebar/SidebarLink.tsx";
-import { preloadImages, isLinux, isImagePreloaded } from "./utils/imagePreloader";
+import { preloadImages, isImagePreloaded } from "./utils/imagePreloader";
 import AppLoadingScreen from "./components/AppLoadingScreen";
 import SidebarManifests from "./components/sidebar/SidebarManifests.tsx";
 import { determineButtonType } from "./utils/determineButtonType";
@@ -399,8 +399,7 @@ export default class App extends React.Component<any, any> {
                                                     const game = this.state.gamesinfo.find((g: any) => g.manifest_id === install.manifest_id);
                                                     const dynamicBg = game?.assets?.game_live_background;
                                                     const staticBg = game?.assets?.game_background || install.game_background;
-                                                    // Prefer dynamic background (video) over static, skip video on Linux
-                                                    const bestBackground = (!isLinux && dynamicBg) ? dynamicBg : staticBg;
+                                                    const bestBackground = dynamicBg || staticBg;
 
                                                     this.setBackground(bestBackground);
 
@@ -832,8 +831,7 @@ export default class App extends React.Component<any, any> {
 
                     if (this.state.installs.length === 0) {
                         if (games.length > 0 && this.state.currentGame == "") {
-                            // Use dynamic background if available (unless on Linux), otherwise fall back to static
-                            let bg = (!isLinux && gi[0].assets.game_live_background) || gi[0].assets.game_background;
+                            let bg = gi[0].assets.game_live_background || gi[0].assets.game_background;
                             this.setCurrentGame(games[0].filename.replace(".json", ""));
                             this.setDisplayName(games[0].display_name);
                             this.setBackground(bg);
@@ -1097,8 +1095,7 @@ export default class App extends React.Component<any, any> {
                 }
 
                 if (game) {
-                    // Add dynamic background if available (skip on Linux)
-                    if (!isLinux && game.assets?.game_live_background) {
+                    if (game.assets?.game_live_background) {
                         addBg(game.assets.game_live_background, "Dynamic", true);
                     }
                     // Add static background from game manifest
@@ -1120,8 +1117,7 @@ export default class App extends React.Component<any, any> {
             // If no install, get backgrounds from the current game manifest
             const game = this.state.gamesinfo.find((g: any) => g.biz === this.state.currentGame);
             if (game) {
-                // Add dynamic background if available (skip on Linux)
-                if (!isLinux && game.assets?.game_live_background) {
+                if (game.assets?.game_live_background) {
                     addBg(game.assets.game_live_background, "Dynamic", true);
                 }
                 if (game.assets?.game_background) {
