@@ -1,0 +1,447 @@
+use crate::utils::db_manager::{
+    get_install_info_by_id, get_installed_runner_info_by_version, get_manifest_info_by_id,
+    get_settings, update_settings_default_dxvk_location,
+    update_settings_default_fps_unlock_location, update_settings_default_game_location,
+    update_settings_default_jadeite_location, update_settings_default_mangohud_config_location,
+    update_settings_default_prefix_location, update_settings_default_runner_location,
+    update_settings_default_xxmi_location, update_settings_download_speed_limit,
+    update_settings_hide_manifests, update_settings_launch_action,
+    update_settings_third_party_repo_update
+};
+use crate::utils::repo_manager::get_manifest;
+use crate::utils::{get_mi_path_from_game, show_dialog};
+use std::fs;
+use std::path::Path;
+use crate::runtime::{LauncherContext};
+
+#[cfg(target_os = "linux")]
+use crate::runtime::Manager;
+#[cfg(target_os = "linux")]
+use std::os::unix::process::CommandExt;
+
+pub async fn list_settings(app: LauncherContext) -> Option<String> {
+    let settings = get_settings(&app);
+
+    if settings.is_some() {
+        let s = settings.unwrap();
+        // Ensure fischl's global limiter is synced with persisted settings (value in KB/s).
+        fischl::utils::downloader::set_global_download_speed_limit_kb(s.download_speed_limit.max(0) as u64);
+        let stringified = serde_json::to_string(&s).unwrap();
+        Some(stringified)
+    } else {
+        None
+    }
+}
+
+pub fn update_settings_download_speed_limit_cmd(app: LauncherContext, speed_limit: i64) -> Option<bool> {
+    let clamped = speed_limit.max(0);
+    update_settings_download_speed_limit(&app, clamped);
+    fischl::utils::downloader::set_global_download_speed_limit_kb(clamped as u64);
+    Some(true)
+}
+
+pub fn update_settings_third_party_repo_updates(app: LauncherContext, enabled: bool) -> Option<bool> {
+    update_settings_third_party_repo_update(&app, enabled);
+    Some(true)
+}
+
+pub fn update_settings_default_game_path(app: LauncherContext, path: String) -> Option<bool> {
+    let p = Path::new(&path);
+
+    if !p.exists() && p.is_dir() {
+        fs::create_dir_all(&p).unwrap();
+        update_settings_default_game_location(&app, p.to_str().unwrap().parse().unwrap());
+    } else {
+        update_settings_default_game_location(&app, p.to_str().unwrap().parse().unwrap());
+    }
+    Some(true)
+}
+
+pub fn update_settings_default_xxmi_path(app: LauncherContext, path: String) -> Option<bool> {
+    let p = Path::new(&path);
+
+    if !p.exists() && p.is_dir() {
+        fs::create_dir_all(&p).unwrap();
+        update_settings_default_xxmi_location(&app, p.to_str().unwrap().parse().unwrap());
+    } else {
+        update_settings_default_xxmi_location(&app, p.to_str().unwrap().parse().unwrap());
+    }
+    Some(true)
+}
+
+pub fn update_settings_default_fps_unlock_path(app: LauncherContext, path: String) -> Option<bool> {
+    let p = Path::new(&path);
+
+    if !p.exists() && p.is_dir() {
+        fs::create_dir_all(&p).unwrap();
+        update_settings_default_fps_unlock_location(&app, p.to_str().unwrap().parse().unwrap());
+    } else {
+        update_settings_default_fps_unlock_location(&app, p.to_str().unwrap().parse().unwrap());
+    }
+    Some(true)
+}
+
+pub fn update_settings_default_jadeite_path(app: LauncherContext, path: String) -> Option<bool> {
+    let p = Path::new(&path);
+
+    if !p.exists() && p.is_dir() {
+        fs::create_dir_all(&p).unwrap();
+        update_settings_default_jadeite_location(&app, p.to_str().unwrap().parse().unwrap());
+    } else {
+        update_settings_default_jadeite_location(&app, p.to_str().unwrap().parse().unwrap());
+    }
+    Some(true)
+}
+
+pub fn update_settings_default_prefix_path(app: LauncherContext, path: String) -> Option<bool> {
+    let p = Path::new(&path);
+
+    if !p.exists() && p.is_dir() {
+        fs::create_dir_all(&p).unwrap();
+        update_settings_default_prefix_location(&app, p.to_str().unwrap().parse().unwrap());
+    } else {
+        update_settings_default_prefix_location(&app, p.to_str().unwrap().parse().unwrap());
+    }
+    Some(true)
+}
+
+pub fn update_settings_default_runner_path(app: LauncherContext, path: String) -> Option<bool> {
+    let p = Path::new(&path);
+
+    if !p.exists() && p.is_dir() {
+        fs::create_dir_all(&p).unwrap();
+        update_settings_default_runner_location(&app, p.to_str().unwrap().parse().unwrap());
+    } else {
+        update_settings_default_runner_location(&app, p.to_str().unwrap().parse().unwrap());
+    }
+    Some(true)
+}
+
+pub fn update_settings_default_dxvk_path(app: LauncherContext, path: String) -> Option<bool> {
+    let p = Path::new(&path);
+
+    if !p.exists() && p.is_dir() {
+        fs::create_dir_all(&p).unwrap();
+        update_settings_default_dxvk_location(&app, p.to_str().unwrap().parse().unwrap());
+    } else {
+        update_settings_default_dxvk_location(&app, p.to_str().unwrap().parse().unwrap());
+    }
+    Some(true)
+}
+
+pub fn update_settings_default_mangohud_config_path(app: LauncherContext, path: String) -> Option<bool> {
+    let p = Path::new(&path);
+
+    if !p.exists() && p.is_file() {
+        fs::create_dir_all(&p).unwrap();
+        update_settings_default_mangohud_config_location(&app, p.to_str().unwrap().parse().unwrap());
+    } else {
+        update_settings_default_mangohud_config_location(&app, p.to_str().unwrap().parse().unwrap());
+    }
+    Some(true)
+}
+
+pub fn update_settings_launcher_action(app: LauncherContext, action: String) -> Option<bool> {
+    update_settings_launch_action(&app, action);
+    Some(true)
+}
+
+pub fn update_settings_manifests_hide(app: LauncherContext, enabled: bool) -> Option<bool> {
+    update_settings_hide_manifests(&app, enabled);
+    Some(true)
+}
+
+pub fn open_folder(app: LauncherContext, manifest_id: String, install_id: String, runner_version: String, path_type: String) {
+    match path_type.as_str() {
+        "mods" => {
+            let settings = get_settings(&app);
+            if settings.is_some() {
+                let s = settings.unwrap();
+                let m = get_manifest_info_by_id(&app, manifest_id).unwrap();
+                let mm = get_manifest(&app, m.filename).unwrap();
+                let fm = get_mi_path_from_game(mm.paths.exe_filename).unwrap();
+
+                let xxmi = Path::new(&s.xxmi_path);
+                let fp = xxmi.join(&fm).join("d3dx.ini");
+                if fp.exists() {
+                    match app.opener().reveal_item_in_dir(fp.as_path()) {
+                        Ok(_) => {}
+                        Err(_e) => { show_dialog(&app, "error", "TwintailLauncher", "Directory opening failed, try again later!", None); }
+                    }
+                } else { show_dialog(&app, "error", "TwintailLauncher", "XXMI is not downloaded or folder structure is corrupt! Can not open the folder.", None); };
+            }
+        }
+        "install" => {
+            let install = get_install_info_by_id(&app, install_id);
+            if install.is_some() {
+                let i = install.unwrap();
+                let dm = get_manifest_info_by_id(&app, i.manifest_id).unwrap();
+                let gm = get_manifest(&app, dm.filename).unwrap();
+                let fp = Path::new(&i.directory).join(gm.paths.exe_filename);
+                if fp.exists() {
+                    match app.opener().reveal_item_in_dir(fp.as_path()) {
+                        Ok(_) => {}
+                        Err(_e) => { show_dialog(&app, "error", "TwintailLauncher", "Directory opening failed, try again later!", None); }
+                    }
+                } else { show_dialog(&app,"error", "TwintailLauncher", "Can not open game directory, Please try again later!", None); };
+            }
+        }
+        "runner" => {
+            let install = get_install_info_by_id(&app, install_id);
+            if install.is_some() {
+                let i = install.unwrap();
+                let fp = Path::new(&i.runner_path).join("proton");
+                if fp.exists() {
+                    match app.opener().reveal_item_in_dir(fp.as_path()) {
+                        Ok(_) => {}
+                        Err(_e) => { show_dialog(&app, "error", "TwintailLauncher", "Directory opening failed, try again later!", None); }
+                    }
+                } else { show_dialog(&app, "error", "TwintailLauncher", "Can not open runner directory, Is runner downloaded properly?", None); };
+            }
+        }
+        "runner_global" => {
+            let runner = get_installed_runner_info_by_version(&app, runner_version);
+            if runner.is_some() {
+                let i = runner.unwrap();
+                let fp = Path::new(&i.runner_path).join("proton");
+                if fp.exists() {
+                    match app.opener().reveal_item_in_dir(fp.as_path()) {
+                        Ok(_) => {}
+                        Err(_e) => { show_dialog(&app, "error", "TwintailLauncher", "Directory opening failed, try again later!", None); }
+                    }
+                } else { show_dialog(&app, "error", "TwintailLauncher", "Can not open runner directory, Is runner downloaded properly?", None); }
+            }
+        }
+        "runner_prefix" => {
+            let install = get_install_info_by_id(&app, install_id);
+            if install.is_some() {
+                let i = install.unwrap();
+                let fp = Path::new(&i.runner_prefix).join("version");
+                if fp.exists() {
+                    match app.opener().reveal_item_in_dir(fp.as_path()) {
+                        Ok(_) => {}
+                        Err(_e) => { show_dialog(&app, "error", "TwintailLauncher", "Directory opening failed, try again later!", None); }
+                    }
+                } else { show_dialog(&app, "error", "TwintailLauncher", "Can not open runner prefix directory, Is runner prefix initialized?", None); };
+            }
+        }
+        _ => {}
+    }
+}
+
+pub fn empty_folder(app: LauncherContext, install_id: String, path_type: String) {
+    match path_type.as_str() {
+        "runner_prefix" => {
+            let install = get_install_info_by_id(&app, install_id);
+            if install.is_some() {
+                let i = install.unwrap();
+                let fp = Path::new(&i.runner_prefix);
+                if fp.exists() {
+                    match crate::utils::empty_dir(fp) {
+                        Ok(_) => {}
+                        Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Runner prefix repair failed, try again later!", None); }
+                    }
+                } else { show_dialog(&app, "error", "TwintailLauncher", "Can not repair runner prefix directory, Is runner prefix initialized?", None); };
+            }
+        }
+        _ => {}
+    }
+}
+
+#[allow(unused_variables)]
+pub fn open_in_prefix(app: LauncherContext, install_id: String, path_type: String) {
+    match path_type.as_str() {
+        "regedit.exe" => {
+            #[cfg(target_os = "linux")] {
+                let install = get_install_info_by_id(&app, install_id);
+                if install.is_some() {
+                    let i = install.unwrap();
+                    let fp = Path::new(&i.runner_path);
+                    let rp = Path::new(&i.runner_prefix).join("pfx/");
+                    if fp.exists() {
+                        if !rp.exists() { show_dialog(&app, "error", "TwintailLauncher", "Can not execute regedit.exe, Please start game at least once!", None); return; }
+                        let runnerparent = fp.parent().unwrap().to_path_buf();
+                        let toolid = crate::utils::get_steam_tool_appid(fp.to_path_buf());
+                        let steamrtpp = runnerparent.join("steamrt/").join(toolid.clone());
+                        let steamrtp = steamrtpp.join("_v2-entry-point");
+                        let steamrt = steamrtp.to_str().unwrap().to_string();
+                        #[cfg(not(debug_assertions))]
+                        let reaper = if crate::utils::is_flatpak() { crate::utils::resolve_resource_dir(&app).join("resources/reaper").to_str().unwrap().to_string().replace("/app/lib/", "/run/parent/app/lib/") } else { crate::utils::resolve_resource_dir(&app).join("resources/reaper").to_str().unwrap().to_string().replace("/usr/lib/", "/run/host/usr/lib/") };
+                        #[cfg(debug_assertions)]
+                        let reaper = crate::utils::resolve_resource_dir(&app).join("resources/reaper").to_str().unwrap().to_string();
+                        let appid = crate::utils::get_steam_appid();
+
+                        let dir = i.directory.clone();
+                        let prefix = i.runner_prefix.clone();
+                        let runner = fp.to_str().unwrap().to_string();
+                        let command = format!("'{steamrt}' --verb=run -- '{reaper}' SteamLaunch AppId={appid} -- '{runner}/proton' run 'regedit.exe'");
+
+                        let mut cmd = std::process::Command::new("bash");
+                        cmd.arg("-c");
+                        cmd.arg(&command);
+
+                        cmd.env("WINEARCH", "win64");
+                        cmd.env("WINEPREFIX", prefix.clone() + "/pfx");
+                        cmd.env("STEAM_COMPAT_APP_ID", "0");
+                        cmd.env("STEAM_COMPAT_DATA_PATH", prefix.clone());
+                        cmd.env("STEAM_COMPAT_INSTALL_PATH", dir.clone());
+                        cmd.env("STEAM_COMPAT_CLIENT_INSTALL_PATH", "");
+                        cmd.env("STEAM_COMPAT_TOOL_PATHS", runner.clone());
+                        cmd.env("STEAM_COMPAT_SHADER_PATH", prefix.clone() + "/shadercache");
+                        cmd.env("WINEDLLOVERRIDES", "lsteamclient=d;KRSDKExternal.exe=d");
+                        cmd.env("PROTONFIXES_DISABLE", "1");
+                        cmd.env("PROTON_USE_XALIA", "0");
+
+                        cmd.stdout(std::process::Stdio::null());
+                        cmd.stderr(std::process::Stdio::null());
+                        cmd.current_dir(dir.clone());
+                        cmd.process_group(0);
+
+                        match cmd.spawn() {
+                            Ok(mut child) => match child.try_wait() {
+                                Ok(Some(status)) => {
+                                    if !status.success() { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute regedit helper command! Please try again.", None); }
+                                }
+                                Ok(None) => {}
+                                Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute regedit helper command! Please try again or check the command correctness.", None); }
+                            },
+                            Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute regedit helper command! Something serious is wrong.", None); }
+                        }
+                    } else { show_dialog(&app, "error", "TwintailLauncher", "Can not execute regedit.exe, Is runner downloaded properly?", None); };
+                }
+            }
+        }
+        "control.exe" => {
+            #[cfg(target_os = "linux")]
+            {
+                let install = get_install_info_by_id(&app, install_id);
+                if install.is_some() {
+                    let i = install.unwrap();
+                    let fp = Path::new(&i.runner_path);
+                    let rp = Path::new(&i.runner_prefix).join("pfx/");
+                    if fp.exists() {
+                        if !rp.exists() { show_dialog(&app, "error", "TwintailLauncher", "Can not execute control.exe, Please start game at least once!", None); return; }
+                        let runnerparent = fp.parent().unwrap().to_path_buf();
+                        let toolid = crate::utils::get_steam_tool_appid(fp.to_path_buf());
+                        let steamrtpp = runnerparent.join("steamrt/").join(toolid.clone());
+                        let steamrtp = steamrtpp.join("_v2-entry-point");
+                        let steamrt = steamrtp.to_str().unwrap().to_string();
+                        #[cfg(not(debug_assertions))]
+                        let reaper = if crate::utils::is_flatpak() { crate::utils::resolve_resource_dir(&app).join("resources/reaper").to_str().unwrap().to_string().replace("/app/lib/", "/run/parent/app/lib/") } else { crate::utils::resolve_resource_dir(&app).join("resources/reaper").to_str().unwrap().to_string().replace("/usr/lib/", "/run/host/usr/lib/") };
+                        #[cfg(debug_assertions)]
+                        let reaper = crate::utils::resolve_resource_dir(&app).join("resources/reaper").to_str().unwrap().to_string();
+                        let appid = crate::utils::get_steam_appid();
+
+                        let dir = i.directory.clone();
+                        let prefix = i.runner_prefix.clone();
+                        let runner = fp.to_str().unwrap().to_string();
+                        let command = format!("'{steamrt}' --verb=run -- '{reaper}' SteamLaunch AppId={appid} -- '{runner}/proton' run 'control.exe'");
+
+                        let mut cmd = std::process::Command::new("bash");
+                        cmd.arg("-c");
+                        cmd.arg(&command);
+
+                        cmd.env("WINEARCH", "win64");
+                        cmd.env("WINEPREFIX", prefix.clone() + "/pfx");
+                        cmd.env("STEAM_COMPAT_APP_ID", "0");
+                        cmd.env("STEAM_COMPAT_DATA_PATH", prefix.clone());
+                        cmd.env("STEAM_COMPAT_INSTALL_PATH", dir.clone());
+                        cmd.env("STEAM_COMPAT_CLIENT_INSTALL_PATH", "");
+                        cmd.env("STEAM_COMPAT_TOOL_PATHS", runner.clone());
+                        cmd.env("STEAM_COMPAT_SHADER_PATH", prefix.clone() + "/shadercache");
+                        cmd.env("WINEDLLOVERRIDES", "lsteamclient=d;KRSDKExternal.exe=d");
+                        cmd.env("PROTONFIXES_DISABLE", "1");
+                        cmd.env("PROTON_USE_XALIA", "0");
+
+                        cmd.stdout(std::process::Stdio::null());
+                        cmd.stderr(std::process::Stdio::null());
+                        cmd.current_dir(dir.clone());
+                        cmd.process_group(0);
+
+                        match cmd.spawn() {
+                            Ok(mut child) => match child.try_wait() {
+                                Ok(Some(status)) => {
+                                    if !status.success() { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute control helper command! Please try again.", None); }
+                                }
+                                Ok(None) => {}
+                                Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute control helper command! Please try again or check the command correctness.", None); }
+                            },
+                            Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute control helper command! Something serious is wrong.", None); }
+                        }
+                    } else { show_dialog(&app, "error", "TwintailLauncher", "Can not execute control.exe, Is runner downloaded properly?", None); };
+                }
+            }
+        }
+        "cmd.exe" => {
+            #[cfg(target_os = "linux")]
+            {
+                let install = get_install_info_by_id(&app, install_id);
+                if install.is_some() {
+                    let i = install.unwrap();
+                    let fp = Path::new(&i.runner_path);
+                    let rp = Path::new(&i.runner_prefix).join("pfx/");
+                    if fp.exists() {
+                        if !rp.exists() { show_dialog(&app, "error", "TwintailLauncher", "Can not execute cmd.exe, Please start game at least once!", None); return; }
+                        let runnerparent = fp.parent().unwrap().to_path_buf();
+                        let toolid = crate::utils::get_steam_tool_appid(fp.to_path_buf());
+                        let steamrtpp = runnerparent.join("steamrt/").join(toolid.clone());
+                        let steamrtp = steamrtpp.join("_v2-entry-point");
+                        let steamrt = steamrtp.to_str().unwrap().to_string();
+                        #[cfg(not(debug_assertions))]
+                        let reaper = if crate::utils::is_flatpak() { crate::utils::resolve_resource_dir(&app).join("resources/reaper").to_str().unwrap().to_string().replace("/app/lib/", "/run/parent/app/lib/") } else { crate::utils::resolve_resource_dir(&app).join("resources/reaper").to_str().unwrap().to_string().replace("/usr/lib/", "/run/host/usr/lib/") };
+                        #[cfg(debug_assertions)]
+                        let reaper = crate::utils::resolve_resource_dir(&app).join("resources/reaper").to_str().unwrap().to_string();
+                        let appid = crate::utils::get_steam_appid();
+
+                        let dir = i.directory.clone();
+                        let prefix = i.runner_prefix.clone();
+                        let runner = fp.to_str().unwrap().to_string();
+                        let command = format!("'{steamrt}' --verb=run -- '{reaper}' SteamLaunch AppId={appid} -- '{runner}/proton' run 'cmd.exe'");
+
+                        let mut cmd = std::process::Command::new("bash");
+                        cmd.arg("-c");
+                        cmd.arg(&command);
+
+                        cmd.env("WINEARCH", "win64");
+                        cmd.env("WINEPREFIX", prefix.clone() + "/pfx");
+                        cmd.env("STEAM_COMPAT_APP_ID", "0");
+                        cmd.env("STEAM_COMPAT_DATA_PATH", prefix.clone());
+                        cmd.env("STEAM_COMPAT_INSTALL_PATH", dir.clone());
+                        cmd.env("STEAM_COMPAT_CLIENT_INSTALL_PATH", "");
+                        cmd.env("STEAM_COMPAT_TOOL_PATHS", runner.clone());
+                        cmd.env("STEAM_COMPAT_SHADER_PATH", prefix.clone() + "/shadercache");
+                        cmd.env("WINEDLLOVERRIDES", "lsteamclient=d;KRSDKExternal.exe=d");
+                        cmd.env("PROTONFIXES_DISABLE", "1");
+                        cmd.env("PROTON_USE_XALIA", "0");
+
+                        cmd.stdout(std::process::Stdio::null());
+                        cmd.stderr(std::process::Stdio::null());
+                        cmd.current_dir(dir.clone());
+                        cmd.process_group(0);
+
+                        match cmd.spawn() {
+                            Ok(mut child) => match child.try_wait() {
+                                Ok(Some(status)) => {
+                                    if !status.success() { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute cmd helper command! Please try again.", None); }
+                                }
+                                Ok(None) => {}
+                                Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute cmd helper command! Please try again or check the command correctness.", None); }
+                            },
+                            Err(_) => { show_dialog(&app, "error", "TwintailLauncher", "Failed to execute cmd helper command! Something serious is wrong.", None); }
+                        }
+                    } else { show_dialog(&app, "error", "TwintailLauncher", "Can not execute cmd.exe, Is runner downloaded properly?", None); };
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+pub fn open_uri(app: LauncherContext, uri: String) {
+    match app.opener().open_url(uri, None::<&str>) {
+        Ok(_) => {}
+        Err(_e) => {}
+    }
+}
+
+

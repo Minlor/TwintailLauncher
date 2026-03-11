@@ -2,7 +2,7 @@ import "./App.css";
 import React from "react";
 import { POPUPS } from "./components/popups/POPUPS.ts";
 import { PAGES } from "./components/pages/PAGES.ts";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./services/runtime";
 import SidebarSettings from "./components/sidebar/SidebarSettings.tsx";
 import SidebarIconInstall from "./components/sidebar/SidebarIconInstall.tsx";
 import SidebarLink from "./components/sidebar/SidebarLink.tsx";

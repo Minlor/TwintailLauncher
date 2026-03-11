@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import { MonitorIcon, SettingsIcon, Trash2Icon } from "lucide-react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../services/runtime";
 import { motion } from "framer-motion";
 
 // Steam icon component - official Steam logo

@@ -1,6 +1,6 @@
 /**
  * Preloads a list of image/video URLs and tracks progress.
- * Works with Tauri WebViews (WebView2 on Windows, WebKitGTK on Linux).
+ * Works with the Electron renderer across Windows and Linux.
  *
  * Uses element-based preloading which works without CORS restrictions.
  * Preloaded elements are cached and cloned when displayed to avoid re-downloads.

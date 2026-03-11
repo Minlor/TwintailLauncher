@@ -1,6 +1,6 @@
 import React from "react";
 import { ChevronDown, FolderOpen } from "lucide-react";
-import { open } from '@tauri-apps/plugin-dialog';
+import { openDialog } from "../../services/runtime";
 import HelpTooltip from "./HelpTooltip.tsx";
 
 // --- Card Components ---
@@ -133,7 +133,7 @@ export const ModernPathInput = ({ label, description, value, onChange, folder = 
 
     const handleBrowse = async () => {
         try {
-            const selected = await open({
+            const selected = await openDialog({
                 directory: folder,
                 multiple: false,
                 filters: extensions ? [{ name: 'Allowed files', extensions }] : undefined

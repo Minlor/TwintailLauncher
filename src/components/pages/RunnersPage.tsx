@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../../services/runtime";
 import { ArrowLeft, AtomIcon, DownloadCloud, FolderOpen, Trash2, Check } from "lucide-react";
 import { PAGES } from "./PAGES";
 import { SettingsSidebar, SettingsTab } from "../sidebar/SettingsSidebar.tsx";

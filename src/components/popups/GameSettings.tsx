@@ -1,8 +1,7 @@
 import { useState, useMemo } from "react";
 import { POPUPS } from "./POPUPS.ts";
 import { PAGES } from "../pages/PAGES.ts";
-import { invoke } from "@tauri-apps/api/core";
-import { emit } from "@tauri-apps/api/event";
+import { emit, invoke } from "../../services/runtime";
 import {
     Folder,
     Play,

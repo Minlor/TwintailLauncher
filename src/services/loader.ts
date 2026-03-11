@@ -1,6 +1,4 @@
-import type { UnlistenFn } from "@tauri-apps/api/event";
-import { listen } from "@tauri-apps/api/event";
-import { invoke } from "@tauri-apps/api/core";
+import { listen, invoke, type RuntimeUnlistenFn } from "./runtime";
 import { Events } from "../constants/events.ts";
 import { registerEvents } from "./events.ts";
 import { isLinux, clearFailedImages, getFailedImageCount, isImagePreloaded } from "../utils/imagePreloader.ts";
@@ -15,11 +13,19 @@ export interface NetworkStatus {
 }
 
 export async function checkNetworkConnectivity(): Promise<NetworkStatus> {
+  const timeoutPromise = new Promise<NetworkStatus>((resolve) => {
+    setTimeout(() => {
+      resolve({ status: "online", latency_ms: null, message: "Connectivity check timed out; continuing startup" });
+    }, 6000);
+  });
   try {
-    return await invoke<NetworkStatus>("check_network_connectivity");
+    return await Promise.race([
+      invoke<NetworkStatus>("check_network_connectivity"),
+      timeoutPromise,
+    ]);
   } catch (e) {
     console.error("Failed to check network connectivity:", e);
-    return { status: "offline", latency_ms: null, message: "Failed to check connectivity" };
+    return { status: "online", latency_ms: null, message: "Failed to check connectivity; continuing startup" };
   }
 }
 
@@ -90,7 +96,7 @@ export interface LoaderController {
 
 export function startInitialLoad(opts: LoaderOptions): LoaderController {
   let cancelled = false;
-  const unlistenFns: UnlistenFn[] = [];
+  const unlistenFns: RuntimeUnlistenFn[] = [];
 
   const run = async () => {
     try {
@@ -238,7 +244,6 @@ export function startInitialLoad(opts: LoaderOptions): LoaderController {
         // Fetch current download queue state to sync after refresh
         // This ensures ongoing downloads are visible immediately after frontend reload
         try {
-          const { invoke } = await import('@tauri-apps/api/core');
           const currentQueueState = await invoke('get_download_queue_state');
           if (currentQueueState && !cancelled) {
             const parsed = JSON.parse(currentQueueState as string);

@@ -11,7 +11,7 @@ import {
     useInteractions
 } from "@floating-ui/react";
 import {POPUPS} from "../popups/POPUPS.ts";
-import {invoke} from "@tauri-apps/api/core";
+import {invoke} from "../../services/runtime";
 import {HeartIcon} from "lucide-react";
 
 // Discord icon component

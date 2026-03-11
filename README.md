@@ -76,8 +76,6 @@ We do our best to ensure the launcher avoids detection and doesn't interfere wit
 * Node.js (Install from [official website](https://nodejs.org/en/download))
 * pnpm (Install from [official website](https://pnpm.io/installation))
 * Protobuf (Install from [official website](https://protobuf.dev/installation/))
-* Tauri (Follow [Tauri docs](https://tauri.app/start/prerequisites/))
-* Cargo-xwin (Follow [Tauri docs](https://tauri.app/distribute/windows-installer/#experimental-build-windows-apps-on-linux-and-macos))
 
 ### Building
 Install Node.js dependencies
@@ -86,21 +84,21 @@ pnpm install
 ```
 Run for debugging
 ```shell
-pnpm dev:tauri
+pnpm dev:electron
 ```
-Build for production (Current OS)
+Build renderer assets
 ```shell
-pnpm build:native
+pnpm build
 ```
-Build for production (Cross compile for Linux)
+Build an unpacked Electron app for the current OS
 ```shell
-pnpm build:linux
+pnpm build:electron
 ```
-Build for production (Cross compile for Windows)
+Build distributable Electron packages
 ```shell
-pnpm build:windows
+pnpm dist:electron
 ```
-You can find built binaries in `target/release` for current os, `target/x86_64-unknown-linux-gnu` for linux cross compile and `target/x86_64-pc-windows-msvc` for windows cross compile.
+The Rust sidecar release binary is produced in `launcher-sidecar/target/release`. Electron packaging output is produced by `electron-builder`.
 
 ## Sponsors
 

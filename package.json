@@ -2,36 +2,66 @@
     "name": "twintaillauncher",
     "private": true,
     "version": "2.0.0",
+    "main": "electron/main.mjs",
     "type": "module",
     "scripts": {
         "dev": "vite --mode master",
-        "dev:tauri": "tauri dev",
+        "dev:electron": "node scripts/electron-dev.mjs",
         "build": "tsc && vite build --mode stable",
-        "tauri": "tauri",
-        "build:windows": "tauri build --runner cargo-xwin --target x86_64-pc-windows-msvc",
-        "build:linux": "tauri build --target x86_64-unknown-linux-gnu",
-        "build:native": "tauri build"
+        "build:electron": "cargo build --manifest-path launcher-sidecar/Cargo.toml --release && pnpm build && electron-builder --dir",
+        "dist:electron": "cargo build --manifest-path launcher-sidecar/Cargo.toml --release && pnpm build && electron-builder"
     },
     "dependencies": {
         "@floating-ui/react": "^0.27.18",
-        "@tauri-apps/api": "^2.10.1",
-        "@tauri-apps/plugin-dialog": "^2.6.0",
         "framer-motion": "^12.34.3",
         "lucide-react": "^0.487.0",
         "react": "^18.3.1",
         "react-dom": "^18.3.1"
     },
     "devDependencies": {
-        "@tauri-apps/cli": "^2.10.0",
         "@types/react": "^18.3.28",
         "@types/react-dom": "^18.3.7",
         "@vitejs/plugin-react": "^4.7.0",
         "autoprefixer": "^10.4.24",
+        "electron": "^37.2.0",
+        "electron-builder": "^26.0.12",
         "postcss": "^8.5.6",
         "tailwind-scrollbar": "^3.1.0",
         "tailwindcss": "^3.4.19",
         "typescript": "^5.9.3",
         "vite": "^5.4.21"
+    },
+    "build": {
+        "appId": "app.twintaillauncher.desktop",
+        "productName": "TwintailLauncher",
+        "files": [
+            "dist/**",
+            "electron/**",
+            "package.json"
+        ],
+        "directories": {
+            "buildResources": "assets/icons"
+        },
+        "extraResources": [
+            {
+                "from": "launcher-sidecar/target/release",
+                "to": "bin",
+                "filter": [
+                    "launcher-sidecar",
+                    "launcher-sidecar.exe"
+                ]
+            },
+            {
+                "from": "assets/resources",
+                "to": "resources"
+            }
+        ],
+        "win": {
+            "icon": "assets/icons/icon.ico"
+        },
+        "linux": {
+            "icon": "assets/icons/128x128.png"
+        }
     },
     "pnpm": {
         "ignoredBuiltDependencies": [

@@ -11,11 +11,9 @@ import {
 import { POPUPS } from "./POPUPS.ts";
 import { PAGES } from "../pages/PAGES.ts";
 import { CachedImage } from "../common/CachedImage";
-import { invoke } from "@tauri-apps/api/core";
-import { emit } from "@tauri-apps/api/event";
+import { emit, invoke, openDialog } from "../../services/runtime";
 import { useState, useEffect, useRef } from "react";
 import { formatBytes } from "../../utils/progress";
-import { open } from "@tauri-apps/plugin-dialog";
 import {ModernPathInput, ModernSelect, ModernToggle} from "../common/SettingsComponents.tsx";
 
 interface IProps {
@@ -118,7 +116,7 @@ export default function DownloadGame({ disk, setOpenPopup, displayName, settings
     }, [skipGameDownload, hasEnoughSpace]);
 
     const handleBrowse = async () => {
-        const selected = await open({
+        const selected = await openDialog({
             directory: true,
             multiple: false,
             defaultPath: installPath,

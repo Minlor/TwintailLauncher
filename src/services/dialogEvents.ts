@@ -1,4 +1,4 @@
-import { listen, UnlistenFn, emit } from "@tauri-apps/api/event";
+import { listen, emit, type RuntimeUnlistenFn } from "./runtime";
 
 export interface DialogPayload {
     dialog_type: "error" | "warning" | "info" | "confirm";
@@ -14,7 +14,7 @@ export type ShowDialogFn = (payload: DialogPayload) => void;
  * Registers a listener for the 'show_dialog' event emitted from Rust.
  * Returns an unlisten function to clean up the listener.
  */
-export async function registerDialogListener(showDialog: ShowDialogFn): Promise<UnlistenFn> {
+export async function registerDialogListener(showDialog: ShowDialogFn): Promise<RuntimeUnlistenFn> {
     return await listen<DialogPayload>("show_dialog", (event) => {showDialog(event.payload);});
 }
 
@@ -23,5 +23,5 @@ export async function registerDialogListener(showDialog: ShowDialogFn): Promise<
  * Only emits if a callback_id was provided in the original dialog.
  */
 export function emitDialogResponse(callbackId: string, buttonIndex: number): void {
-    emit("dialog_response", { callback_id: callbackId, button_index: buttonIndex });
+    void emit("dialog_response", { callback_id: callbackId, button_index: buttonIndex });
 }

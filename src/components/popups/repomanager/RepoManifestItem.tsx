@@ -1,5 +1,5 @@
 import {useState} from "react";
-import {invoke} from "@tauri-apps/api/core";
+import {invoke} from "../../../services/runtime";
 
 export default function RepoManifestItem({name, id, enabled, fetchRepositories, repo}: { id: string, name: string, enabled: boolean, fetchRepositories: () => void, repo: string}) {
     const [isEnabled, setIsEnabled] = useState<boolean>(enabled);

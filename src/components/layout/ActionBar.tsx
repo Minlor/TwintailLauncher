@@ -1,5 +1,4 @@
-
-import { emit } from "@tauri-apps/api/event";
+import { emit } from "../../services/runtime";
 import { CircleFadingArrowUp, Settings } from "lucide-react";
 import TooltipIcon from "../common/TooltipIcon";
 import GameButton from "../GameButton";

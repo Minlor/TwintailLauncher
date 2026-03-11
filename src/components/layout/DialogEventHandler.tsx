@@ -9,7 +9,7 @@ import {
 const DIALOG_TYPES: DialogType[] = ["info", "warning", "error", "confirm"];
 
 /**
- * Component that registers the Tauri event listener for dialogs from Rust.
+ * Component that registers the runtime event listener for dialogs from Rust.
  * Must be mounted inside DialogProvider.
  */
 export default function DialogEventHandler() {

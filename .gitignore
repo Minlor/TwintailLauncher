@@ -1,6 +1,13 @@
-# Custom
+# Local tooling
 node_sources.json
-src-tauri/cargo_sources.json
+/.agent/
+/.claude/
+/AGENTS.md
+/CLAUDE.md
+/wsl.txt
+/.electron-smoke-data/
+/.tmp-sidecar-data/
+/.tmp-sidecar-data-*/
 
 # Logs
 logs

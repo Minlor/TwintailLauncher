@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { DownloadIcon, HardDriveDownloadIcon, RefreshCcwIcon, Play, PauseIcon, Clock, FolderOpen } from "lucide-react";
-import { emit } from "@tauri-apps/api/event";
-import { invoke } from "@tauri-apps/api/core";
+import { emit, invoke } from "../services/runtime";
 
 type GameStatus = "idle" | "preparing" | "launching" | "running";
 

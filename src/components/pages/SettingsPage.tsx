@@ -1,10 +1,9 @@
 import {useEffect, useState} from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { getVersion, invoke } from "../../services/runtime";
 import { Settings, Download, Folder, Info, Monitor, ArrowLeft, HeartIcon } from "lucide-react";
 import { SettingsSidebar, SettingsTab } from "../sidebar/SettingsSidebar.tsx";
 import { SettingsSection, ModernInput, ModernPathInput, ModernSelect } from "../common/SettingsComponents.tsx";
 import { PAGES } from "./PAGES";
-import {getVersion} from "@tauri-apps/api/app";
 
 interface SettingsPageProps {
     settings: any;
