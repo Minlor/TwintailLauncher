@@ -556,7 +556,15 @@ pub fn create_manifest(
             .unwrap()
             .clone();
 
-        rslt = db.execute(format!("INSERT INTO manifest(id, repository_id, display_name, filename, enabled) VALUES ('{id}', '{repository_id}', '{display_name}', '{filename}', {enabled})").as_str()).await.unwrap();
+        rslt = query("INSERT INTO manifest(id, repository_id, display_name, filename, enabled) VALUES ($1, $2, $3, $4, $5)")
+            .bind(id)
+            .bind(repository_id)
+            .bind(display_name)
+            .bind(filename)
+            .bind(enabled)
+            .execute(&db)
+            .await
+            .unwrap();
     });
 
     if rslt.rows_affected() >= 1 {

@@ -211,6 +211,7 @@ pub struct FullGameFile {
     pub compressed_size: String,
     pub decompressed_size: String,
     pub file_hash: String,
+    #[serde(default)]
     pub file_path: String,
     pub region_code: String,
 }
@@ -221,6 +222,7 @@ pub struct DiffGameFile {
     pub compressed_size: String,
     pub decompressed_size: String,
     pub file_hash: String,
+    #[serde(default)]
     pub file_path: String,
     pub diff_type: String,
     pub original_version: String,
@@ -239,6 +241,7 @@ pub struct FullAudioFile {
     pub compressed_size: String,
     pub decompressed_size: String,
     pub file_hash: String,
+    #[serde(default)]
     pub file_path: String,
     pub language: String,
     pub region_code: Option<String>,
@@ -250,6 +253,7 @@ pub struct DiffAudioFile {
     pub compressed_size: String,
     pub decompressed_size: String,
     pub file_hash: String,
+    #[serde(default)]
     pub file_path: String,
     pub diff_type: String,
     pub original_version: String,
@@ -270,6 +274,7 @@ pub struct GameTweakSwitches {
     pub fps_unlocker: bool,
     pub jadeite: bool,
     pub xxmi: bool,
+    #[serde(default)]
     pub graphics_api: bool,
 }
 
@@ -305,9 +310,11 @@ pub struct GraphicsApiOption {
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct GraphicsApiConfig {
+    #[serde(default)]
     pub options: Vec<GraphicsApiOption>,
+    #[serde(default)]
     pub default: String,
 }
 
@@ -325,6 +332,7 @@ pub struct GameExtras {
     pub compat_overrides: GameCompatOverrides,
     pub fps_unlock_options: Vec<String>,
     pub steam_import_config: SteamImportConfig,
+    #[serde(default)]
     pub graphics_api_options: GraphicsApiConfig,
 }
 

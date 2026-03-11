@@ -2,6 +2,7 @@ use std::fs;
 use std::io::BufReader;
 use std::path::{PathBuf};
 use std::sync::{RwLock};
+use std::collections::{HashMap,HashSet};
 use linked_hash_map::LinkedHashMap;
 use serde::{Deserialize, Serialize};
 use crate::runtime::{LauncherContext, Manager};
@@ -27,7 +28,78 @@ fn read_manifest_data(path: &PathBuf) -> Option<ManifestData> {
     let reader = BufReader::new(file);
     match serde_json::from_reader(reader) {
         Ok(data) => Some(data),
-        Err(err) => { log::error!("Failed to parse manifest {}: {}", path.display(), err); None }
+        Err(err) => {
+            let raw = match fs::read_to_string(path) { Ok(raw) => raw, Err(read_err) => { log::error!("Failed to parse manifest {}: {} (also failed to read raw contents: {})", path.display(), err, read_err); return None; } };
+            if raw.contains("<<<<<<<") && raw.contains("=======") && raw.contains(">>>>>>>") {
+                if let Some(resolved) = resolve_merge_conflict_preferring_theirs(&raw) {
+                    match serde_json::from_str::<ManifestData>(&resolved) {
+                        Ok(data) => {
+                            let _ = fs::write(path, resolved.as_bytes());
+                            log::warn!("Resolved Git merge markers in manifest {}", path.display());
+                            Some(data)
+                        }
+                        Err(resolve_err) => { log::error!("Failed to parse conflict-resolved manifest {}: {}", path.display(), resolve_err); None }
+                    }
+                } else {
+                    log::error!("Failed to resolve merge markers in manifest {}", path.display());
+                    None
+                }
+            } else {
+                log::error!("Failed to parse manifest {}: {}", path.display(), err);
+                None
+            }
+        }
+    }
+}
+
+fn resolve_merge_conflict_preferring_theirs(raw: &str) -> Option<String> {
+    enum State { Normal, Ours, Theirs }
+    let mut state = State::Normal;
+    let mut resolved = String::new();
+    for line in raw.lines() {
+        if line.starts_with("<<<<<<<") { state = State::Ours; continue; }
+        if line.starts_with("=======") { if matches!(state, State::Ours) { state = State::Theirs; continue; } }
+        if line.starts_with(">>>>>>>") { if matches!(state, State::Theirs) { state = State::Normal; continue; } }
+        match state {
+            State::Normal | State::Theirs => {
+                resolved.push_str(line);
+                resolved.push('\n');
+            }
+            State::Ours => {}
+        }
+    }
+    if !matches!(state, State::Normal) { return None; }
+    Some(resolved)
+}
+
+fn ensure_repository_id(app: &LauncherContext, github_id: &str) -> Option<String> {
+    if let Some(repo) = get_repository_info_by_github_id(app, github_id.to_string()) { return Some(repo.id); }
+    let id = generate_cuid();
+    let _ = create_repository(app, id.clone(), github_id);
+    get_repository_info_by_github_id(app, github_id.to_string()).map(|repo| repo.id).or(Some(id))
+}
+
+fn sync_repo_manifest_rows(app: &LauncherContext, github_id: &str, loaded: &[(String,String)]) {
+    let Some(repository_id) = ensure_repository_id(app, github_id) else { return; };
+    let existing = get_manifests_by_repository_id(app, repository_id.clone()).unwrap_or_default();
+    let desired = loaded.iter().map(|(filename, _)| filename.clone()).collect::<HashSet<_>>();
+    let mut grouped = HashMap::<String, Vec<crate::utils::models::LauncherManifest>>::new();
+    for manifest in existing { grouped.entry(manifest.filename.clone()).or_default().push(manifest); }
+
+    for (filename, manifests) in grouped {
+        if !desired.contains(&filename) {
+            for manifest in manifests { let _ = delete_manifest_by_id(app, manifest.id); }
+            continue;
+        }
+        let mut iter = manifests.into_iter();
+        if let Some(primary) = iter.next() { if !primary.enabled { update_manifest_enabled_by_id(app, primary.id, true); } }
+        for duplicate in iter { let _ = delete_manifest_by_id(app, duplicate.id); }
+    }
+
+    for (filename, display_name) in loaded {
+        if get_manifest_info_by_filename(app, filename.clone()).is_none() {
+            let _ = create_manifest(app, generate_cuid(), repository_id.clone(), display_name.as_str(), filename.as_str(), true);
+        }
     }
 }
 
@@ -229,6 +301,10 @@ pub fn load_manifests(app: &LauncherContext) {
                             let rm = fs::File::open(&repo_manifest).unwrap();
                             let reader = BufReader::new(rm);
                             let rma: RepositoryManifest = serde_json::from_reader(reader).unwrap();
+                            let user = p.parent().and_then(|parent| parent.components().last()).and_then(|component| component.as_os_str().to_str()).unwrap_or_default().to_string();
+                            let repo_name = p.components().last().and_then(|component| component.as_os_str().to_str()).unwrap_or_default().to_string();
+                            let github_id = format!("{user}/{repo_name}");
+                            let mut loaded_for_repo = Vec::<(String,String)>::new();
 
                             let ml = app.state::<ManifestLoaders>().clone();
 
@@ -244,7 +320,7 @@ pub fn load_manifests(app: &LauncherContext) {
                                     match manifest_data {
                                         ManifestData::Game(mi) => {
                                             tmp.insert(m.clone(), mi.clone());
-                                            update_manifest_table(&app, m.clone(), mi.display_name.clone().as_str(), p.clone());
+                                            loaded_for_repo.push((m.clone(), mi.display_name.clone()));
                                             log::debug!("Loaded game manifest {}", m.as_str());
                                             #[cfg(debug_assertions)]
                                             { println!("Loaded game manifest {}", m.as_str()); }
@@ -252,7 +328,7 @@ pub fn load_manifests(app: &LauncherContext) {
                                         #[cfg(target_os = "linux")]
                                         ManifestData::Runner(ri) => {
                                             tmp1.insert(m.clone(), ri.clone());
-                                            update_manifest_table(&app, m.clone(), ri.display_name.clone().as_str(), p.clone());
+                                            loaded_for_repo.push((m.clone(), ri.display_name.clone()));
                                             log::debug!("Loaded compatibility manifest {}", m.as_str());
                                             #[cfg(debug_assertions)]
                                             { println!("Loaded compatibility manifest {}", m.as_str()); }
@@ -314,6 +390,7 @@ pub fn load_manifests(app: &LauncherContext) {
                                     } // cleanup end
                                 }
                             }
+                            sync_repo_manifest_rows(app, github_id.as_str(), &loaded_for_repo);
                             drop(tmp);
                             #[cfg(target_os = "linux")]
                             drop(tmp1);
@@ -346,21 +423,6 @@ fn cleanup_unloaded_manifests(app: &LauncherContext) {
             }
         }
     }
-}
-
-fn update_manifest_table(app: &LauncherContext, filename: String, display_name: &str, path: PathBuf) {
-    let dbm = get_manifest_info_by_filename(&app, filename.clone());
-    if dbm.is_none() {
-        let user = path.parent().unwrap().components().last().unwrap().as_os_str().to_str().unwrap();
-        let repo_name = path.components().last().unwrap().as_os_str().to_str().unwrap();
-
-        let dbr = get_repository_info_by_github_id(&app, format!("{user}/{repo_name}"));
-        if dbr.is_some() {
-            let dbrr = dbr.unwrap();
-            let cuid = generate_cuid();
-            create_manifest(&app, cuid, dbrr.id, display_name, filename.as_str(), true).unwrap();
-        }
-    } else if let Some(m) = dbm { if !m.enabled { update_manifest_enabled_by_id(app, m.id, true); } }
 }
 
 pub fn get_manifests(app: &LauncherContext) -> LinkedHashMap<String, GameManifest> {
