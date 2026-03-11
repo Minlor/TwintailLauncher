@@ -213,6 +213,7 @@ pub struct FullGameFile {
     pub file_hash: String,
     #[serde(default)]
     pub file_path: String,
+    #[serde(default)]
     pub region_code: String,
 }
 
