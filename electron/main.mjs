@@ -359,7 +359,7 @@ function createMainWindow() {
 
 async function startSidecar() {
   const shellLaunch = resolveShellLaunchConfig();
-  const resourceDir = app.isPackaged ? path.join(process.resourcesPath, "resources") : path.join(projectRoot, "assets", "resources");
+  const resourceDir = app.isPackaged ? process.resourcesPath : projectRoot;
   sidecar = new SidecarClient({
     projectRoot,
     packaged: app.isPackaged,

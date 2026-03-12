@@ -93,6 +93,7 @@ pub fn launch(app: &LauncherContext, install: LauncherInstall, gm: GameManifest,
         if !cpo.protonfixes_store.is_empty() { cmd.env("STORE", cpo.protonfixes_store.clone()); }
         if !cpo.protonfixes_id.is_empty() { cmd.env("UMU_ID", cpo.protonfixes_id.clone()); }
 
+        cmd.stdin(Stdio::null());
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
         cmd.current_dir(dir.clone());
@@ -175,6 +176,7 @@ pub fn launch(app: &LauncherContext, install: LauncherInstall, gm: GameManifest,
             }
         }
 
+        cmd.stdin(Stdio::null());
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
         cmd.current_dir(dir.clone());
@@ -260,6 +262,7 @@ pub fn launch(app: &LauncherContext, install: LauncherInstall, gm: GameManifest,
             }
         }
 
+        cmd.stdin(Stdio::null());
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
         cmd.current_dir(dir.clone());
@@ -511,6 +514,7 @@ pub fn launch(app: &LauncherContext, install: LauncherInstall, gm: GameManifest,
         cmd.arg("-Command");
         cmd.arg(&command);
 
+        cmd.stdin(Stdio::null());
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
         cmd.current_dir(dir.clone());
@@ -562,6 +566,7 @@ pub fn launch(app: &LauncherContext, install: LauncherInstall, gm: GameManifest,
         cmd.arg("-Command");
         cmd.arg(&command);
 
+        cmd.stdin(Stdio::null());
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
         cmd.current_dir(dir);
@@ -617,6 +622,7 @@ pub fn launch(app: &LauncherContext, install: LauncherInstall, gm: GameManifest,
         cmd.arg("-Command");
         cmd.arg(&command);
 
+        cmd.stdin(Stdio::null());
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
         cmd.current_dir(dir);
@@ -672,6 +678,7 @@ fn load_xxmi(app: &LauncherContext, install: LauncherInstall, xxmi_path: String,
         cmd.arg("-Command");
         cmd.arg(&command);
 
+        cmd.stdin(Stdio::null());
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
         cmd.current_dir(xxmi_path);
@@ -711,6 +718,7 @@ fn load_fps_unlock(app: &LauncherContext, install: LauncherInstall, biz: String,
         cmd.arg("-Command");
         cmd.arg(&command);
 
+        cmd.stdin(Stdio::null());
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
         cmd.current_dir(fpsunlock_path);

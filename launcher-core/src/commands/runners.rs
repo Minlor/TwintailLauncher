@@ -167,13 +167,12 @@ pub fn remove_installed_runner(app: LauncherContext, runner_version: String) -> 
                 let insts = installs.unwrap();
                 for i in insts {
                     if i.runner_version == runner_version {
-                        let available_runners = get_installed_runners(&app);
-                        if available_runners.is_some() {
-                            let avr = available_runners.unwrap();
+                        if let Some(avr) = get_installed_runners(&app) {
                             let filtered_runners = avr.iter().filter(|r| r.is_installed).collect::<Vec<_>>();
-                            let first = filtered_runners.get(0).unwrap();
-                            update_install_runner_version_by_id(&app, i.id.clone(), first.version.clone());
-                            update_install_runner_location_by_id(&app, i.id, first.runner_path.clone());
+                            if let Some(first) = filtered_runners.get(0) {
+                                update_install_runner_version_by_id(&app, i.id.clone(), first.version.clone());
+                                update_install_runner_location_by_id(&app, i.id, first.runner_path.clone());
+                            }
                         }
                     }
                 }

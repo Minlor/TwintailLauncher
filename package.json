@@ -52,7 +52,7 @@
                 ]
             },
             {
-                "from": "assets/resources",
+                "from": "resources",
                 "to": "resources"
             }
         ],

@@ -96,7 +96,10 @@ pub fn start_stdio_bridge(app: LauncherContext) {
                 continue;
             }
         };
-        let response = handle_request(&app, request);
+        let response = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| { handle_request(&app, request) })) {
+            Ok(r) => r,
+            Err(_) => rpc_error(None, -32603, "Internal error: command handler panicked".to_string()),
+        };
         write_json(&writer, &response);
     }
 }
