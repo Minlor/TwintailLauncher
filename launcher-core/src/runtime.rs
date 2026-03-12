@@ -189,19 +189,19 @@ fn clipboard_mutex() -> &'static Mutex<()> {
 
 fn default_app_data_dir() -> Option<PathBuf> {
     if cfg!(target_os = "windows") {
-        return dirs::data_dir().map(|dir| dir.join("twintaillauncher-electron"));
+        return dirs::data_dir().map(|dir| dir.join("twintaillauncher"));
     }
-    dirs::data_dir().map(|dir| dir.join("twintaillauncher-electron"))
+    dirs::data_dir().map(|dir| dir.join("twintaillauncher"))
 }
 
 fn default_local_data_dir() -> Option<PathBuf> {
-    if cfg!(target_os = "windows") { return dirs::data_local_dir().map(|dir| dir.join("twintaillauncher-electron")); }
+    if cfg!(target_os = "windows") { return dirs::data_local_dir().map(|dir| dir.join("twintaillauncher")); }
     default_app_data_dir()
 }
 
 fn default_cache_dir() -> Option<PathBuf> {
-    if cfg!(target_os = "windows") { return dirs::cache_dir().map(|dir| dir.join("twintaillauncher-electron")); }
-    dirs::cache_dir().map(|dir| dir.join("twintaillauncher-electron"))
+    if cfg!(target_os = "windows") { return dirs::cache_dir().map(|dir| dir.join("twintaillauncher")); }
+    dirs::cache_dir().map(|dir| dir.join("twintaillauncher"))
 }
 
 

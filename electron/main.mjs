@@ -14,16 +14,16 @@ const rendererDist = path.join(projectRoot, "dist", "index.html");
 const rendererDevUrl = process.env.ELECTRON_RENDERER_URL ?? "http://localhost:1420";
 const appName = "TwintailLauncher";
 const appId = "app.twintaillauncher.desktop";
-const importPromptMarker = ".electron-import-seen";
 
 app.setName(appName);
 app.setAppUserModelId(appId);
-app.setPath("userData", path.join(app.getPath("appData"), "twintaillauncher-electron"));
+
+const baseDataDir = resolveBaseDataDir();
+app.setPath("userData", path.join(baseDataDir, "Electron"));
 
 const runtimePaths = {
   electronUserDataDir: app.getPath("userData"),
-  launcherDataDir: path.join(app.getPath("userData"), "launcher-data"),
-  legacyDataDir: resolveLegacyDataDir(),
+  launcherDataDir: baseDataDir,
 };
 
 let mainWindow = null;
@@ -37,7 +37,7 @@ const dialogCallbacks = new Map();
 const pendingInstallLaunchId = extractInstallId(process.argv);
 let launchedFromShortcut = Boolean(pendingInstallLaunchId);
 
-function resolveLegacyDataDir() {
+function resolveBaseDataDir() {
   if (process.platform === "win32") {
     return path.join(app.getPath("appData"), "twintaillauncher");
   }
@@ -134,24 +134,6 @@ function isRendererPage(url) {
   return url.endsWith("/dist/index.html") || url.startsWith("file:");
 }
 
-async function copyDirectory(source, destination) {
-  await fs.promises.mkdir(destination, { recursive: true });
-  await fs.promises.cp(source, destination, { recursive: true, force: false, errorOnExist: false });
-}
-
-function hasImportedData() {
-  const entries = fs.readdirSync(runtimePaths.launcherDataDir, { withFileTypes: true });
-  return entries.some((entry) => entry.name !== importPromptMarker);
-}
-
-function hasSeenImportPrompt() {
-  return fs.existsSync(path.join(runtimePaths.launcherDataDir, importPromptMarker));
-}
-
-function markImportPromptSeen() {
-  fs.writeFileSync(path.join(runtimePaths.launcherDataDir, importPromptMarker), "seen\n");
-}
-
 function registerDialogCallback(callbackId, handler) {
   dialogCallbacks.set(callbackId, handler);
 }
@@ -165,64 +147,6 @@ async function handleDialogResponse(payload) {
   dialogCallbacks.delete(callbackId);
   await handler(payload?.button_index ?? -1);
   return true;
-}
-
-async function maybePromptForImport() {
-  if (hasSeenImportPrompt() || hasImportedData() || !fs.existsSync(runtimePaths.legacyDataDir)) {
-    return;
-  }
-
-  registerDialogCallback("electron_import_legacy_profile", async (buttonIndex) => {
-    markImportPromptSeen();
-    if (buttonIndex !== 1) {
-      return;
-    }
-    try {
-      await copyDirectory(runtimePaths.legacyDataDir, runtimePaths.launcherDataDir);
-      sendRuntimeEvent("show_dialog", {
-        dialog_type: "info",
-        title: "Import Complete",
-        message: "Copied the legacy launcher data into the Electron launcher profile.",
-        buttons: ["OK"],
-      });
-    } catch (error) {
-      sendRuntimeEvent("show_dialog", {
-        dialog_type: "error",
-        title: "Import Failed",
-        message: `Could not import the legacy launcher profile: ${error instanceof Error ? error.message : String(error)}`,
-        buttons: ["OK"],
-      });
-    }
-  });
-
-  sendRuntimeEvent("show_dialog", {
-    dialog_type: "info",
-    title: "Import Existing Launcher Data",
-    message: "TwintailLauncher uses an Electron-owned profile. Copy your existing launcher data into the Electron profile?",
-    buttons: ["Skip", "Import"],
-    callback_id: "electron_import_legacy_profile",
-  });
-}
-
-async function maybeImportLegacyDataBeforeStart() {
-  if (hasSeenImportPrompt() || hasImportedData() || !fs.existsSync(runtimePaths.legacyDataDir)) {
-    return;
-  }
-  const result = await dialog.showMessageBox({
-    type: "question",
-    title: "Import Existing Launcher Data",
-    message: "TwintailLauncher uses an Electron-owned profile.",
-    detail: "Copy your existing launcher data into the Electron sandbox before startup?",
-    buttons: ["Skip", "Import"],
-    defaultId: 1,
-    cancelId: 0,
-    noLink: true,
-  });
-  markImportPromptSeen();
-  if (result.response !== 1) {
-    return;
-  }
-  await copyDirectory(runtimePaths.legacyDataDir, runtimePaths.launcherDataDir);
 }
 
 function getBootHtml() {
@@ -410,7 +334,6 @@ function createMainWindow() {
     }
     rendererReady = true;
     flushBufferedEvents();
-    await maybePromptForImport();
   });
 
   mainWindow.on("close", (event) => {
@@ -538,7 +461,6 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(async () => {
     ensureRuntimeDirs();
     createMainWindow();
-    await maybeImportLegacyDataBeforeStart();
     await startSidecar();
     await loadRenderer();
     createTray();
