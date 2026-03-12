@@ -367,6 +367,7 @@ async function startSidecar() {
       TTL_DATA_DIR: runtimePaths.launcherDataDir,
       TTL_SHELL_RUNTIME: "electron",
       TTL_RESOURCE_DIR: resourceDir,
+      ...(!app.isPackaged ? { TTL_DEV: "1" } : {}),
       TTL_SHELL_EXECUTABLE: shellLaunch.executable,
       TTL_SHELL_ARGS_PREFIX: JSON.stringify(shellLaunch.argsPrefix),
       TTL_SHELL_COMMAND: shellLaunch.command,

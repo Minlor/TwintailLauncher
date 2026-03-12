@@ -17,10 +17,10 @@ use std::path::Path;
 #[cfg(target_os = "linux")]
 use crate::utils::db_manager::{create_installed_runner, update_install_runner_location_by_id, update_install_runner_version_by_id, get_installs, get_installed_runner_info_by_version, update_installed_runner_is_installed_by_version};
 
-fn manifest_branch() -> &'static str { if cfg!(debug_assertions) { "next" } else { "main" } }
+fn manifest_branch() -> &'static str { if cfg!(debug_assertions) || std::env::var("TTL_DEV").is_ok() { "next" } else { "main" } }
 
 fn clone_repo(url: &str, path: &PathBuf) -> Result<git2::Repository, git2::Error> {
-    if cfg!(debug_assertions) { git2::build::RepoBuilder::new().branch("next").clone(url, path) } else { git2::Repository::clone(url, path) }
+    if cfg!(debug_assertions) || std::env::var("TTL_DEV").is_ok() { git2::build::RepoBuilder::new().branch("next").clone(url, path) } else { git2::Repository::clone(url, path) }
 }
 
 fn read_manifest_data(path: &PathBuf) -> Option<ManifestData> {
