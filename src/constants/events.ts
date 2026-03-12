@@ -4,6 +4,7 @@ export const Events = [
   'download_installing',
   'download_complete',
   'download_paused',
+  'download_removed',
   'update_progress',
   'update_installing',
   'update_complete',
