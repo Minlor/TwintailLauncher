@@ -60,7 +60,9 @@
             "icon": "assets/icons/icon.ico"
         },
         "linux": {
-            "icon": "assets/icons/128x128.png"
+            "icon": "assets/icons/128x128.png",
+            "target": ["AppImage", "deb"],
+            "category": "Game"
         }
     },
     "pnpm": {

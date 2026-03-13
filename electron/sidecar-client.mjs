@@ -3,8 +3,24 @@ import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
 
+function ensureExecutable(binaryPath) {
+  if (process.platform === "win32") {
+    return;
+  }
+  try {
+    fs.accessSync(binaryPath, fs.constants.X_OK);
+  } catch {
+    try {
+      fs.chmodSync(binaryPath, 0o755);
+    } catch (err) {
+      console.warn(`Could not set executable permission on ${binaryPath}:`, err.message);
+    }
+  }
+}
+
 function resolveSidecarCommand({ projectRoot, packaged }) {
   if (process.env.TTL_SIDECAR_BIN) {
+    ensureExecutable(process.env.TTL_SIDECAR_BIN);
     return { command: process.env.TTL_SIDECAR_BIN, args: [] };
   }
 
@@ -15,7 +31,9 @@ function resolveSidecarCommand({ projectRoot, packaged }) {
   }
 
   if (packaged) {
-    return { command: path.join(process.resourcesPath, "bin", binaryName), args: [] };
+    const binPath = path.join(process.resourcesPath, "bin", binaryName);
+    ensureExecutable(binPath);
+    return { command: binPath, args: [] };
   }
 
   return {

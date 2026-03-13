@@ -86,7 +86,7 @@ function getWindow() {
 }
 
 function getIconPath() {
-  const filename = process.platform === "win32" ? "icon.ico" : "32x32.png";
+  const filename = process.platform === "win32" ? "icon.ico" : "128x128.png";
   return path.join(projectRoot, "assets", "icons", filename);
 }
 
